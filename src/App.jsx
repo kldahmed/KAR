@@ -96,5 +96,5 @@ function extractJSON(text) {
   // Try to find JSON array
   const attempts = [
     text.match(/(\[[\s\S]*\])/),        // greedy - full array
-    text.match(/(\[[\s\S]*?\](?=\s*$)/m), // to end of string
+text.match(/(\[[\s\S]*?\])(?=\s*$)/m), // to end of string
     text.match(/\[[\s\S]+\]/),           // any array
