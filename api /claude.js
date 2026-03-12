@@ -1,54 +1,100 @@
-// api/claude.js
 module.exports = async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
 
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  // Health check by browser
+  if (req.method === "GET") {
+    return res.status(200).json({
+      ok: true,
+      route: "/api/claude",
+      method: "GET",
+      hasKey: !!process.env.ANTHROPIC_API_KEY,
+      keyPrefix: process.env.ANTHROPIC_API_KEY
+        ? process.env.ANTHROPIC_API_KEY.slice(0, 12)
+        : null,
+      nodeVersion: process.version,
+    });
+  }
 
-  const API_KEY = process.env.ANTHROPIC_API_KEY;
-  if (!API_KEY) return res.status(500).json({ error: "ANTHROPIC_API_KEY not set" });
+  if (req.method !== "POST") {
+    return res.status(405).json({
+      ok: false,
+      error: "Method not allowed",
+      method: req.method,
+    });
+  }
 
   try {
-    const { prompt, useWebSearch } = req.body;
-    if (!prompt) return res.status(400).json({ error: "prompt is required" });
-
-    const body = {
-      model: "claude-sonnet-4-5",
-      max_tokens: 1500,
-      messages: [{ role: "user", content: prompt }],
-    };
-
-    if (useWebSearch) {
-      body.tools = [{ type: "web_search_20250305", name: "web_search" }];
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(500).json({
+        ok: false,
+        error: "ANTHROPIC_API_KEY is missing on Vercel",
+      });
     }
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
+    const { prompt } = body;
+
+    if (!prompt || typeof prompt !== "string") {
+      return res.status(400).json({
+        ok: false,
+        error: "Missing prompt",
+      });
+    }
+
+    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "x-api-key": API_KEY,
+        "content-type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        model: "claude-3-5-sonnet-latest",
+        max_tokens: 1500,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      }),
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      return res.status(response.status).json({ error: errText });
+    const rawText = await anthropicRes.text();
+
+    let parsed;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch {
+      parsed = null;
     }
 
-    const data = await response.json();
+    if (!anthropicRes.ok) {
+      return res.status(anthropicRes.status).json({
+        ok: false,
+        error: parsed?.error?.message || "Anthropic request failed",
+        details: parsed || rawText,
+      });
+    }
+
     let text = "";
-    if (data.content) {
-      for (const block of data.content) {
-        if (block.type === "text") { text = block.text; break; }
-      }
+    if (Array.isArray(parsed?.content)) {
+      const block = parsed.content.find((b) => b.type === "text");
+      text = block?.text || "";
     }
 
-    return res.status(200).json({ text });
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(200).json({
+      ok: true,
+      text,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: error?.message || "Internal server error",
+      stack:
+        process.env.NODE_ENV !== "production"
+          ? error?.stack || null
+          : null,
+    });
   }
 };
