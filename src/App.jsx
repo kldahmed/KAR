@@ -261,26 +261,26 @@ async function callAPI(prompt, useWebSearch = true, retries = 2) {
         }),
       });
 
+      const data = await res.json().catch(() => null);
+
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Request failed" }));
-        throw new Error(err.error || err.message || `HTTP ${res.status}`);
+        throw new Error(
+          data?.error ||
+          data?.details?.error?.message ||
+          `HTTP ${res.status}`
+        );
       }
 
-      const data = await res.json();
+      if (typeof data?.text === "string") {
+        return extractJSON(data.text);
+      }
 
-      if (data?.json) return data.json;
-      if (typeof data?.text === "string") return extractJSON(data.text);
-      if (Array.isArray(data)) return data;
-      if (data && typeof data === "object" && !("text" in data)) return data;
-
-      throw new Error("استجابة غير مفهومة من /api/claude");
+      throw new Error("Invalid API response");
     } catch (e) {
       if (i === retries) throw e;
       await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
     }
   }
-
-  throw new Error("تعذر تنفيذ الطلب");
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
