@@ -571,8 +571,9 @@ export default function Dashboard() {
       setUpdated(new Date().toLocaleTimeString("ar-AE"));
       setTicker(items.map(i => "🔴 " + i.title).join("   |   "));
       setNextRefresh(AUTO_REFRESH_MINUTES * 60);
-    } catch {
-      setErrN("تعذر تحميل الاخبار — تحقق من إعداد ANTHROPIC_API_KEY في Vercel");
+    } catch(err) {
+      const msg = err?.message || String(err);
+      setErrN("خطأ: " + msg);
       setNews(DEMO_NEWS);
       setTicker(DEMO_NEWS.map(i => "📌 " + i.title).join("   |   "));
     } finally {
