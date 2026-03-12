@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, memo } from "react";
 
-const API_KEY = "YOUR_ANTHROPIC_API_KEY";
+const API_KEY = "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";
 const AUTO_REFRESH_MINUTES = 10;
 
 const TABS = [
