@@ -264,17 +264,17 @@ async function callAPI(prompt, useWebSearch = true, retries = 2) {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-  if (res.status === 405) {
-    console.warn("Ignoring API health-check 405");
-    return null;
-  }
+        if (res.status === 405) {
+          console.warn("Ignoring API health-check 405");
+          return null;
+        }
 
-  throw new Error(
-    data?.error ||
-    data?.details?.error?.message ||
-    `HTTP ${res.status}`
-  );
-}
+        throw new Error(
+          data?.error ||
+          data?.details?.error?.message ||
+          `HTTP ${res.status}`
+        );
+      }
 
       if (typeof data?.text === "string") {
         return extractJSON(data.text);
@@ -286,6 +286,8 @@ async function callAPI(prompt, useWebSearch = true, retries = 2) {
       await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
     }
   }
+
+  return null;
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
@@ -665,75 +667,50 @@ function ConflictMap() {
   );
 }
 
-function StatsPanel({ news, tensionData }) {
-  const totalEvents = tensionData ? Object.values(tensionData).reduce((s, d) => s + (Number(d.events) || 0), 0) : 127;
+const fetchNews = useCallback(async (c, force = false) => {
+  if (!force && nCache.current[c]) {
+    setNews(nCache.current[c]);
+    return;
+  }
 
-  return (
-    <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: "12px", marginBottom: "20px" }}>
-        {[
-          { label: "اجمالي الاحداث", value: totalEvents, icon: "⚡", color: "#f39c12", sub: "هذا الاسبوع" },
-          { label: "اخبار عاجلة", value: news.filter((n) => n.urgency === "high").length, icon: "🔴", color: "#e74c3c", sub: "الان" },
-          { label: "مناطق ساخنة", value: MAP_HOTSPOTS.filter((h) => h.intensity > 70).length, icon: "🗺️", color: "#9b59b6", sub: "نشطة" },
-          { label: "قنوات مباشرة", value: LIVE_CHANNELS.length, icon: "📡", color: "#3498db", sub: "متاحة" },
-        ].map((card) => (
-          <div
-            key={card.label}
-            style={{
-              background: "linear-gradient(135deg,#0d0d0d,#0a0a0a)",
-              border: `1px solid ${card.color}22`,
-              borderRadius: "12px",
-              padding: "16px",
-              textAlign: "center",
-            }}
-          >
-            <div style={{ fontSize: "22px", marginBottom: "8px" }}>{card.icon}</div>
-            <div style={{ color: card.color, fontSize: "28px", fontWeight: "900", lineHeight: 1 }}>{card.value}</div>
-            <div style={{ color: "#ccc", fontSize: "12px", marginTop: "6px", fontWeight: "600" }}>{card.label}</div>
-            <div style={{ color: "#333", fontSize: "10px", marginTop: "3px" }}>{card.sub}</div>
-          </div>
-        ))}
-      </div>
+  setLoadN(true);
+  setErrN(null);
 
-      <TensionMeter data={tensionData} />
+  try {
+    const items = await callAPI(NEWS_PROMPTS[c], true);
 
-      <div style={{ background: "#0d0d0d", border: "1px solid rgba(255,255,255,.06)", borderRadius: "14px", padding: "18px" }}>
-        <div style={{ color: "#c8960c", fontWeight: "800", fontSize: "14px", marginBottom: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
-          <span>📈</span> سجل النشاط الاخير
-        </div>
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error("API did not return live news array");
+    }
 
-        {news.slice(0, 5).map((item, i) => {
-          const urg = URGENCY_MAP[item.urgency] || URGENCY_MAP.medium;
-          return (
-            <div
-              key={`${item.title}-${i}`}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                padding: "10px 0",
-                borderBottom: i < 4 ? "1px solid rgba(255,255,255,.04)" : "none",
-              }}
-            >
-              <div
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background: urg.color,
-                  flexShrink: 0,
-                  animation: item.urgency === "high" ? "pulse 1s infinite" : "none",
-                }}
-              />
-              <div style={{ flex: 1, color: "#bbb", fontSize: "13px", direction: "rtl", textAlign: "right" }}>{item.title}</div>
-              <div style={{ color: "#333", fontSize: "10px", flexShrink: 0, fontFamily: "monospace" }}>{item.time}</div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+    const normalized = items;
+
+    nCache.current[c] = normalized;
+
+    const prev = prevNewsRef.current;
+    const newUrgent = normalized.filter(
+      (item) => item.urgency === "high" && !prev.find((p) => p.title === item.title)
+    );
+
+    if (newUrgent.length > 0 && prev.length > 0) {
+      setAlerts(newUrgent.slice(0, 1));
+      setTimeout(() => setAlerts([]), 8000);
+    }
+
+    prevNewsRef.current = normalized;
+    setNews(normalized);
+    setUpdated(new Date().toLocaleTimeString("ar-AE"));
+    setTicker(normalized.map((i) => `🔴 ${i.title}`).join("   |   "));
+    setNextRefresh(AUTO_REFRESH_MINUTES * 60);
+  } catch (err) {
+    const msg = err?.message || String(err);
+    setErrN(`فشل جلب الأخبار الحية: ${msg}`);
+    setNews([]);
+    setTicker("تعذر تحميل الأخبار الحية");
+  } finally {
+    setLoadN(false);
+  }
+}, []);
 
 function XFeed() {
   const [selected, setSelected] = useState(X_ACCOUNTS[0]);
