@@ -266,7 +266,7 @@ async function callAPI(prompt, useWebSearch = true, retries = 2) {
       if (!res.ok) {
   if (res.status === 405) {
     console.warn("Ignoring API health-check 405");
-    return [];
+    return null;
   }
 
   throw new Error(
