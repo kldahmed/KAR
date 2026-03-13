@@ -101,7 +101,6 @@ ${prompt}
       });
     }
 
-    // نحاول تحويل النص إلى JSON داخل الـ API نفسه
     let json = null;
 
     try {
