@@ -61,25 +61,31 @@ module.exports = async function handler(req, res) {
 
 نوع الخرج المطلوب: ${expectedType}
 
-${isTension ? `
+${
+  isTension
+    ? `
 إذا كان المطلوب توتر:
 أعد Object فقط بهذا الشكل:
 {"iran":{"level":85,"trend":"up","events":47},"israel":{"level":78,"trend":"up","events":38},"usa":{"level":62,"trend":"same","events":24},"gulf":{"level":45,"trend":"down","events":18}}
-` : ""}
+`
+    : ""
+}
 
-${isVideos ? `
+${
+  isVideos
+    ? `
 إذا كان المطلوب فيديوهات:
 أعد Array فقط.
 كل عنصر يجب أن يحتوي:
 "title", "description", "youtubeId", "category", "duration"
-` : ""}
-
-${!isTension && !isVideos ? `
+`
+    : `
 إذا كان المطلوب أخبار:
 أعد Array فقط.
 كل عنصر يجب أن يحتوي:
 "title", "summary", "category", "urgency", "time"
-` : ""}
+`
+}
 
 مهم:
 - لا تكتب كلمة JSON
@@ -153,7 +159,11 @@ ${prompt}
       if (!json) {
         const firstBracket = text.indexOf("[");
         const lastBracket = text.lastIndexOf("]");
-        if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+        if (
+          firstBracket !== -1 &&
+          lastBracket !== -1 &&
+          lastBracket > firstBracket
+        ) {
           try {
             json = JSON.parse(text.slice(firstBracket, lastBracket + 1));
           } catch (_) {}
@@ -163,7 +173,11 @@ ${prompt}
       if (!json) {
         const firstBrace = text.indexOf("{");
         const lastBrace = text.lastIndexOf("}");
-        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        if (
+          firstBrace !== -1 &&
+          lastBrace !== -1 &&
+          lastBrace > firstBrace
+        ) {
           try {
             json = JSON.parse(text.slice(firstBrace, lastBrace + 1));
           } catch (_) {}
@@ -180,16 +194,26 @@ ${prompt}
     }
 
     if (expectedType === "array" && !Array.isArray(json)) {
-      return res.status(500).json({
-        ok: false,
-        error: "Claude returned JSON but not an array",
-        rawText: text,
-        parsedType: typeof json,
-        parsedValue: json,
-      });
+      const candidate =
+        json.items || json.articles || json.data || json.results || null;
+
+      if (Array.isArray(candidate)) {
+        json = candidate;
+      } else {
+        return res.status(500).json({
+          ok: false,
+          error: "Claude returned JSON but not an array",
+          rawText: text,
+          parsedType: typeof json,
+          parsedValue: json,
+        });
+      }
     }
 
-    if (expectedType === "object" && (typeof json !== "object" || Array.isArray(json) || !json)) {
+    if (
+      expectedType === "object" &&
+      (typeof json !== "object" || Array.isArray(json) || !json)
+    ) {
       return res.status(500).json({
         ok: false,
         error: "Claude returned JSON but not an object",
