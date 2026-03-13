@@ -140,15 +140,32 @@ async function callAPI(prompt, useWebSearch = true, retries = 2) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt, useWebSearch }),
       });
+
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-      if (typeof data?.text === "string") return extractJSON(data.text);
+
+      if (!res.ok) {
+        throw new Error(
+          data?.error ||
+          data?.details?.error?.message ||
+          `HTTP ${res.status}`
+        );
+      }
+
+      if (data?.json) {
+        return data.json;
+      }
+
+      if (typeof data?.text === "string") {
+        return extractJSON(data.text);
+      }
+
       throw new Error("Invalid API response");
     } catch (e) {
       if (i === retries) throw e;
       await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
     }
   }
+
   return null;
 }
 
@@ -551,50 +568,69 @@ export default function Dashboard() {
   }, []);
 
   // ✅ fetchNews يستخدم /api/claude
-  const fetchNews = useCallback(async (c, force = false) => {
-    if (!force && nCache.current[c]) { setNews(nCache.current[c]); return; }
-    setLoadN(true); setErrN(null);
-    try {
-      const items = await callAPI(NEWS_PROMPTS[c], true);
-      nCache.current[c] = items;
+ const fetchNews = useCallback(async (c, force = false) => {
+  if (!force && nCache.current[c]) {
+    setNews(nCache.current[c]);
+    return;
+  }
 
-      const prev = prevNewsRef.current;
-      const newUrgent = items.filter(item => item.urgency === "high" && !prev.find(p => p.title === item.title));
-      if (newUrgent.length > 0 && prev.length > 0) {
-        setAlerts(newUrgent.slice(0, 1));
-        setTimeout(() => setAlerts([]), 8000);
-      }
-      prevNewsRef.current = items;
-      setNews(items);
-      setUpdated(new Date().toLocaleTimeString("ar-AE"));
-      setTicker(items.map(i => "🔴 " + i.title).join("   |   "));
-      setNextRefresh(AUTO_REFRESH_MINUTES * 60);
-    } catch(err) {
-      const msg = err?.message || String(err);
-      setErrN("خطأ: " + msg);
-      setNews(DEMO_NEWS);
-      setTicker(DEMO_NEWS.map(i => "📌 " + i.title).join("   |   "));
-    } finally {
-      setLoadN(false);
+  setLoadN(true);
+  setErrN(null);
+
+  try {
+    const items = await callAPI(NEWS_PROMPTS[c], true);
+    const normalized = Array.isArray(items) ? items : DEMO_NEWS;
+
+    nCache.current[c] = normalized;
+
+    const prev = prevNewsRef.current;
+    const newUrgent = normalized.filter(
+      (item) => item.urgency === "high" && !prev.find((p) => p.title === item.title)
+    );
+
+    if (newUrgent.length > 0 && prev.length > 0) {
+      setAlerts(newUrgent.slice(0, 1));
+      setTimeout(() => setAlerts([]), 8000);
     }
-  }, []);
+
+    prevNewsRef.current = normalized;
+    setNews(normalized);
+    setUpdated(new Date().toLocaleTimeString("ar-AE"));
+    setTicker(normalized.map((i) => "🔴 " + i.title).join("   |   "));
+    setNextRefresh(AUTO_REFRESH_MINUTES * 60);
+  } catch (err) {
+    const msg = err?.message || String(err);
+    setErrN("خطأ: " + msg);
+    setNews(DEMO_NEWS);
+    setTicker(DEMO_NEWS.map((i) => "📌 " + i.title).join("   |   "));
+  } finally {
+    setLoadN(false);
+  }
+}, []);
 
   // ✅ fetchVideos يستخدم /api/claude
-  const fetchVideos = useCallback(async (c, force = false) => {
-    if (!force && vCache.current[c]) { setVideos(vCache.current[c]); return; }
-    setLoadV(true); setErrV(null);
-    try {
-      const items = await callAPI(VIDEO_PROMPTS[c], true);
-      vCache.current[c] = items;
-      setVideos(items);
-    } catch {
-      setErrV("تعذر تحميل الفيديوهات");
-      setVideos(DEMO_VIDEOS);
-    } finally {
-      setLoadV(false);
-    }
-  }, []);
+const fetchVideos = useCallback(async (c, force = false) => {
+  if (!force && vCache.current[c]) {
+    setVideos(vCache.current[c]);
+    return;
+  }
 
+  setLoadV(true);
+  setErrV(null);
+
+  try {
+    const items = await callAPI(VIDEO_PROMPTS[c], true);
+    const normalized = Array.isArray(items) ? items : DEMO_VIDEOS;
+
+    vCache.current[c] = normalized;
+    setVideos(normalized);
+  } catch (_) {
+    setErrV("تعذر تحميل الفيديوهات");
+    setVideos(DEMO_VIDEOS);
+  } finally {
+    setLoadV(false);
+  }
+}, []);
   // ✅ fetchTension — بيانات التوتر ديناميكية
   const fetchTension = useCallback(async () => {
     try {
