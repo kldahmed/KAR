@@ -929,7 +929,259 @@ function StatsPanel({ news, tensionData }) {
     </div>
   );
 }
+function TensionHeatmap({ news }) {
+  const regions = [
+    { key: "إيران", test: /إيران|ايران|iran/i },
+    { key: "إسرائيل", test: /إسرائيل|اسرائيل|israel/i },
+    { key: "غزة", test: /غزة|gaza/i },
+    { key: "لبنان", test: /لبنان|lebanon/i },
+    { key: "سوريا", test: /سوريا|syria/i },
+    { key: "العراق", test: /العراق|iraq/i },
+    { key: "اليمن", test: /اليمن|yemen/i },
+    { key: "مضيق هرمز", test: /مضيق هرمز|هرمز|strait of hormuz/i }
+  ];
 
+  const scores = regions.map((region) => {
+    let score = 0;
+
+    news.forEach((item) => {
+      const hay = `${item.title} ${item.summary}`;
+      if (region.test.test(hay)) {
+        if (item.urgency === "high") score += 3;
+        else if (item.urgency === "medium") score += 2;
+        else score += 1;
+      }
+    });
+
+    return {
+      name: region.key,
+      score,
+      color:
+        score >= 8 ? "#e74c3c" :
+        score >= 5 ? "#f39c12" :
+        score >= 2 ? "#f1c40f" :
+        "#27ae60"
+    };
+  });
+
+  const maxScore = Math.max(...scores.map((s) => s.score), 1);
+
+  return (
+    <div
+      style={{
+        background: "linear-gradient(180deg,#0a0906,#080808)",
+        border: "1px solid rgba(255,255,255,.06)",
+        borderRadius: "16px",
+        padding: "16px"
+      }}
+    >
+      <div style={{ color: goldL, fontWeight: 800, fontSize: "14px", marginBottom: "14px" }}>
+        خريطة حرارة التوتر
+      </div>
+
+      <div style={{ display: "grid", gap: "12px" }}>
+        {scores.map((row) => (
+          <div key={row.name}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: "6px",
+                alignItems: "center"
+              }}
+            >
+              <span style={{ color: "#ddd", fontSize: "13px" }}>{row.name}</span>
+              <span style={{ color: row.color, fontSize: "12px", fontWeight: "700" }}>
+                {row.score}
+              </span>
+            </div>
+
+            <div
+              style={{
+                height: "12px",
+                background: "#121212",
+                borderRadius: "999px",
+                overflow: "hidden",
+                border: "1px solid rgba(255,255,255,.04)"
+              }}
+            >
+              <div
+                style={{
+                  width: `${(row.score / maxScore) * 100}%`,
+                  height: "100%",
+                  background: row.color,
+                  borderRadius: "999px",
+                  transition: "width .3s ease"
+                }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TimelinePanel({ news }) {
+  const sorted = [...news]
+    .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+    .slice(0, 8);
+
+  return (
+    <div
+      style={{
+        background: "linear-gradient(180deg,#0a0906,#080808)",
+        border: "1px solid rgba(255,255,255,.06)",
+        borderRadius: "16px",
+        padding: "16px"
+      }}
+    >
+      <div style={{ color: goldL, fontWeight: 800, fontSize: "14px", marginBottom: "14px" }}>
+        التسلسل الزمني للأحداث
+      </div>
+
+      <div style={{ display: "grid", gap: "14px" }}>
+        {sorted.map((item, i) => {
+          const urgency = URGENCY_MAP[item.urgency] || URGENCY_MAP.low;
+
+          return (
+            <div
+              key={`${item.id}-${i}`}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "20px 1fr",
+                gap: "10px",
+                alignItems: "start"
+              }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", height: "100%" }}>
+                <div
+                  style={{
+                    width: "10px",
+                    height: "10px",
+                    borderRadius: "50%",
+                    background: urgency.color,
+                    marginTop: "4px",
+                    boxShadow: `0 0 10px ${urgency.color}`
+                  }}
+                />
+                <div
+                  style={{
+                    width: "2px",
+                    flex: 1,
+                    background: "rgba(255,255,255,.08)",
+                    marginTop: "4px"
+                  }}
+                />
+              </div>
+
+              <div
+                style={{
+                  border: "1px solid rgba(255,255,255,.05)",
+                  borderRadius: "12px",
+                  padding: "12px",
+                  background: "rgba(255,255,255,.015)"
+                }}
+              >
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "8px", alignItems: "center" }}>
+                  <span style={{ color: urgency.color, fontSize: "12px", fontWeight: "800" }}>
+                    {urgency.label}
+                  </span>
+                  <span style={{ color: "#666", fontSize: "11px" }}>
+                    {formatDisplayTime(item.time)}
+                  </span>
+                  <span style={{ color: "#555", fontSize: "11px", marginRight: "auto" }}>
+                    {item.source}
+                  </span>
+                </div>
+
+                <div style={{ color: goldL, fontWeight: "800", lineHeight: 1.6, marginBottom: "6px" }}>
+                  {item.title}
+                </div>
+
+                <div style={{ color: "#aaa", fontSize: "13px", lineHeight: 1.7 }}>
+                  {item.summary}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function AISummaryPanel({ news }) {
+  const high = news.filter((n) => n.urgency === "high").length;
+  const medium = news.filter((n) => n.urgency === "medium").length;
+
+  const combinedText = news.map((n) => `${n.title} ${n.summary}`).join(" ");
+
+  const mentions = {
+    iran: /إيران|ايران|iran/i.test(combinedText),
+    israel: /إسرائيل|اسرائيل|israel/i.test(combinedText),
+    hormuz: /مضيق هرمز|هرمز|strait of hormuz/i.test(combinedText),
+    drones: /مسيرة|طائرة مسيرة|drone|uav/i.test(combinedText),
+    missiles: /صاروخ|صواريخ|missile/i.test(combinedText),
+    shipping: /ملاحة|سفن|ناقلات|شحن|shipping|tankers|maritime/i.test(combinedText)
+  };
+
+  let assessment = "المشهد العام منخفض التصعيد.";
+  if (high >= 8) assessment = "المشهد العام شديد الحساسية والتصعيد مرتفع جدًا.";
+  else if (high >= 4 || medium >= 6) assessment = "المشهد العام متوتر مع تسارع واضح في التدفق الإخباري.";
+
+  const bullets = [
+    mentions.iran && mentions.israel ? "التركيز الرئيسي يدور حول إيران وإسرائيل." : null,
+    mentions.hormuz ? "هناك حضور واضح لمضيق هرمز ضمن الأخبار الحالية." : null,
+    mentions.drones ? "رُصد تكرار لملف الطائرات المسيّرة." : null,
+    mentions.missiles ? "الأخبار تشير إلى تكرار ملف الصواريخ والضربات." : null,
+    mentions.shipping ? "يوجد أثر محتمل على الملاحة أو الشحن الإقليمي." : null
+  ].filter(Boolean);
+
+  return (
+    <div
+      style={{
+        background: "linear-gradient(180deg,#0a0906,#080808)",
+        border: "1px solid rgba(255,255,255,.06)",
+        borderRadius: "16px",
+        padding: "16px"
+      }}
+    >
+      <div style={{ color: goldL, fontWeight: 800, fontSize: "14px", marginBottom: "14px" }}>
+        الملخص الذكي
+      </div>
+
+      <div style={{ color: "#ddd", fontSize: "14px", lineHeight: 1.9, marginBottom: "12px" }}>
+        {assessment}
+      </div>
+
+      <div style={{ display: "grid", gap: "8px" }}>
+        {bullets.length > 0 ? (
+          bullets.map((item, i) => (
+            <div
+              key={i}
+              style={{
+                color: "#aaa",
+                fontSize: "13px",
+                lineHeight: 1.8,
+                padding: "10px 12px",
+                border: "1px solid rgba(255,255,255,.05)",
+                borderRadius: "10px",
+                background: "rgba(255,255,255,.015)"
+              }}
+            >
+              • {item}
+            </div>
+          ))
+        ) : (
+          <div style={{ color: "#777", fontSize: "13px" }}>
+            لا توجد أنماط كافية لاستخراج ملخص أعمق حاليًا.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 /* =========================
    Styling Helper
 ========================= */
