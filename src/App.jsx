@@ -1,150 +1,1147 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
-const isValidYouTubeId = (id) => /^[a-zA-Z0-9_-]{11}$/.test(id || "");
+/* =========================
+   Constants
+========================= */
+const gold = "#c8960c";
+const goldL = "#f0d27a";
+const green = "#0fa958";
 
+const TABS = [
+  { id: "news", label: "الأخبار", icon: "📰" },
+  { id: "videos", label: "الفيديوهات", icon: "🎥" },
+  { id: "stats", label: "الإحصائيات", icon: "📊" },
+  { id: "live", label: "البث المباشر", icon: "🔴" }
+];
+
+const CATEGORIES = [
+  { id: "all", label: "الكل", emoji: "🌍" },
+  { id: "regional", label: "إقليمي", emoji: "📍" },
+  { id: "politics", label: "سياسة", emoji: "🏛️" },
+  { id: "military", label: "عسكري", emoji: "🛡️" },
+  { id: "economy", label: "اقتصاد", emoji: "💹" }
+];
+
+const CAT_COLORS = {
+  all: { accent: "#c8960c", light: "#f0d27a" },
+  regional: { accent: "#16a085", light: "#7fe3cf" },
+  politics: { accent: "#8e44ad", light: "#d2a8ea" },
+  military: { accent: "#c0392b", light: "#f0a39b" },
+  economy: { accent: "#2980b9", light: "#9ccbed" }
+};
+
+const URGENCY_MAP = {
+  high: { label: "عاجل", color: "#e74c3c" },
+  medium: { label: "متوسط", color: "#f39c12" },
+  low: { label: "منخفض", color: "#27ae60" }
+};
+
+const DEMO_NEWS = [
+  {
+    id: 1,
+    title: "تحديثات إقليمية مستمرة في عدد من المناطق",
+    summary: "هذه بيانات تجريبية مؤقتة تظهر عندما لا تكون هناك بيانات قادمة من الـ API.",
+    urgency: "medium",
+    source: "Demo Feed",
+    time: new Date().toISOString(),
+    category: "regional"
+  },
+  {
+    id: 2,
+    title: "تحليل سياسي للتطورات الأخيرة",
+    summary: "يمكن استبدال هذا المحتوى بالبيانات الحقيقية من نقطة النهاية الخاصة بالأخبار.",
+    urgency: "low",
+    source: "Demo Feed",
+    time: new Date().toISOString(),
+    category: "politics"
+  }
+];
+
+const DEMO_VIDEOS = [
+  {
+    id: 1,
+    youtubeId: "aqz-KE-bpKQ",
+    title: "فيديو تجريبي",
+    channel: "Demo Channel"
+  },
+  {
+    id: 2,
+    youtubeId: "dQw4w9WgXcQ",
+    title: "بث تجريبي",
+    channel: "Sample Live"
+  }
+];
+
+const LIVE_CHANNELS = [
+  { id: "1", name: "Al Jazeera Live", flag: "🌍", youtubeId: "gCNeDWCI0vo" },
+  { id: "2", name: "Sky News Live", flag: "🇬🇧", youtubeId: "9Auq9mYxFEE" },
+  { id: "3", name: "France 24 Live", flag: "🇫🇷", youtubeId: "Ap-UM1O9RBU" }
+];
+
+/* =========================
+   Helpers
+========================= */
+function isValidYouTubeId(id) {
+  return /^[a-zA-Z0-9_-]{11}$/.test(String(id || "").trim());
+}
+
+function safeText(value, fallback = "") {
+  if (typeof value !== "string") return fallback;
+  return value.trim();
+}
+
+function safeArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function getUserErrorMessage() {
+  return "تعذر تحميل البيانات حاليًا. يرجى المحاولة مرة أخرى.";
+}
+
+function formatDubaiTime(date = new Date()) {
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+      timeZone: "Asia/Dubai"
+    }).format(date);
+  } catch {
+    return "--:--:--";
+  }
+}
+
+function formatDisplayTime(dateValue) {
+  try {
+    const d = new Date(dateValue);
+    if (Number.isNaN(d.getTime())) return "وقت غير متوفر";
+    return new Intl.DateTimeFormat("ar-AE", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Asia/Dubai"
+    }).format(d);
+  } catch {
+    return "وقت غير متوفر";
+  }
+}
+
+function fmtCountdown(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const m = String(Math.floor(total / 60)).padStart(2, "0");
+  const s = String(total % 60).padStart(2, "0");
+  return `${m}:${s}`;
+}
+
+function normalizeNewsItem(item, index = 0) {
+  return {
+    id: item?.id ?? `news-${index}`,
+    title: safeText(item?.title, "بدون عنوان"),
+    summary: safeText(item?.summary, "لا يوجد ملخص متاح."),
+    urgency: ["high", "medium", "low"].includes(item?.urgency) ? item.urgency : "low",
+    source: safeText(item?.source, "مصدر غير معروف"),
+    time: item?.time || new Date().toISOString(),
+    category: safeText(item?.category, "all")
+  };
+}
+
+function normalizeVideoItem(item, index = 0) {
+  return {
+    id: item?.id ?? `video-${index}`,
+    youtubeId: isValidYouTubeId(item?.youtubeId) ? item.youtubeId : "",
+    title: safeText(item?.title, "فيديو بدون عنوان"),
+    channel: safeText(item?.channel, "قناة غير معروفة")
+  };
+}
+
+/* =========================
+   Small UI Components
+========================= */
+function FalconSVG({ size = 32, color = gold }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <path
+        d="M9 41c7-1 12-5 16-10 5-7 10-10 20-12-4 4-7 8-8 13 7-1 11-4 18-9-4 12-13 21-29 25-6 2-11 1-17-7z"
+        fill={color}
+      />
+      <circle cx="39" cy="23" r="2.4" fill="#111" />
+    </svg>
+  );
+}
+
+function UAEBar() {
+  return (
+    <div style={{ display: "flex", height: "6px", width: "120px", borderRadius: "999px", overflow: "hidden" }}>
+      <div style={{ width: "22%", background: "#c0392b" }} />
+      <div style={{ flex: 1, background: "#00732f" }} />
+      <div style={{ flex: 1, background: "#e9e9e9" }} />
+      <div style={{ flex: 1, background: "#000" }} />
+    </div>
+  );
+}
+
+function AlertBanner({ alerts, onClose }) {
+  if (!alerts.length) return null;
+
+  return (
+    <div style={{ padding: "10px 20px", background: "#120606", borderBottom: "1px solid #e74c3c30" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "10px",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap"
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          {alerts.map((alert, i) => (
+            <div key={`${alert}-${i}`} style={{ color: "#ff8a80", fontSize: "13px" }}>
+              ⚠️ {safeText(alert, "تنبيه")}
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={onClose}
+          style={buttonStyle({ color: "#ff8a80", borderColor: "#ff8a8030", background: "rgba(255,138,128,.07)" })}
+        >
+          إغلاق
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Skeleton() {
+  return (
+    <div style={{ display: "grid", gap: "12px" }}>
+      {[1, 2, 3].map((n) => (
+        <div
+          key={n}
+          style={{
+            border: "1px solid rgba(255,255,255,.05)",
+            background: "linear-gradient(90deg,#0b0b0b,#131313,#0b0b0b)",
+            backgroundSize: "200% 100%",
+            animation: "shimmer 1.6s infinite linear",
+            borderRadius: "14px",
+            height: "100px"
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function NewsCard({ item, index = 0 }) {
+  const urgency = URGENCY_MAP[item.urgency] || URGENCY_MAP.low;
+
+  return (
+    <div
+      style={{
+        background: "linear-gradient(180deg,#0a0906,#080808)",
+        border: "1px solid rgba(255,255,255,.06)",
+        borderRadius: "16px",
+        padding: "14px",
+        boxShadow: index === 0 ? "0 0 0 1px rgba(200,150,12,.06)" : "none"
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", flexWrap: "wrap" }}>
+        <span
+          style={{
+            width: "8px",
+            height: "8px",
+            borderRadius: "50%",
+            background: urgency.color,
+            boxShadow: item.urgency === "high" ? `0 0 12px ${urgency.color}` : "none"
+          }}
+        />
+        <span style={{ color: urgency.color, fontSize: "12px", fontWeight: 800 }}>{urgency.label}</span>
+        <span style={{ color: "#555", fontSize: "11px", marginRight: "auto" }}>{item.source}</span>
+      </div>
+
+      <div style={{ color: goldL, fontSize: "15px", fontWeight: 800, lineHeight: 1.5, marginBottom: "8px" }}>
+        {item.title}
+      </div>
+
+      <div style={{ color: "#b8b8b8", fontSize: "13px", lineHeight: 1.8, marginBottom: "12px" }}>
+        {item.summary}
+      </div>
+
+      <div style={{ color: "#666", fontSize: "11px" }}>{formatDisplayTime(item.time)}</div>
+    </div>
+  );
+}
+
+function VideoCard({ item }) {
+  const safeId = isValidYouTubeId(item.youtubeId) ? item.youtubeId : "";
+  const embedUrl = safeId ? `https://www.youtube-nocookie.com/embed/${safeId}` : "";
+
+  return (
+    <div
+      style={{
+        background: "linear-gradient(180deg,#0a0906,#080808)",
+        border: "1px solid rgba(255,255,255,.06)",
+        borderRadius: "16px",
+        overflow: "hidden"
+      }}
+    >
+      <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
+        <div style={{ color: goldL, fontSize: "14px", fontWeight: 800, marginBottom: "6px" }}>{item.title}</div>
+        <div style={{ color: "#777", fontSize: "12px" }}>{item.channel}</div>
+      </div>
+
+      <div style={{ position: "relative", paddingBottom: "56.25%", background: "#000" }}>
+        {safeId ? (
+          <iframe
+            title={item.title}
+            src={embedUrl}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none" }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+            sandbox="allow-scripts allow-same-origin allow-presentation"
+          />
+        ) : (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#888",
+              fontSize: "13px"
+            }}
+          >
+            رابط الفيديو غير صالح
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TensionMeter({ data }) {
+  const last = data[data.length - 1]?.value ?? 0;
+
+  return (
+    <div
+      style={{
+        background: "linear-gradient(180deg,#0a0906,#080808)",
+        border: "1px solid rgba(255,255,255,.06)",
+        borderRadius: "16px",
+        padding: "16px",
+        marginBottom: "16px"
+      }}
+    >
+      <div style={{ color: goldL, fontWeight: 800, fontSize: "14px", marginBottom: "12px" }}>مؤشر التوتر</div>
+
+      <div
+        style={{
+          height: "12px",
+          background: "#121212",
+          borderRadius: "999px",
+          overflow: "hidden",
+          border: "1px solid rgba(255,255,255,.04)"
+        }}
+      >
+        <div
+          style={{
+            width: `${Math.max(0, Math.min(100, last))}%`,
+            height: "100%",
+            background: "linear-gradient(90deg,#27ae60,#f39c12,#e74c3c)"
+          }}
+        />
+      </div>
+
+      <div style={{ color: "#888", fontSize: "12px", marginTop: "8px" }}>المستوى الحالي: {last}%</div>
+    </div>
+  );
+}
+
+function ConflictMap() {
+  return (
+    <div
+      style={{
+        background: "linear-gradient(180deg,#0a0906,#080808)",
+        border: "1px solid rgba(255,255,255,.06)",
+        borderRadius: "16px",
+        padding: "16px",
+        minHeight: "280px"
+      }}
+    >
+      <div style={{ color: goldL, fontWeight: 800, fontSize: "14px", marginBottom: "12px" }}>خريطة المتابعة</div>
+      <div
+        style={{
+          minHeight: "220px",
+          border: "1px dashed rgba(200,150,12,.25)",
+          borderRadius: "12px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#666",
+          fontSize: "13px"
+        }}
+      >
+        أضف هنا مكون الخريطة الحقيقي لاحقًا
+      </div>
+    </div>
+  );
+}
+
+function StatsPanel({ news, tensionData }) {
+  const high = news.filter((n) => n.urgency === "high").length;
+  const medium = news.filter((n) => n.urgency === "medium").length;
+  const low = news.filter((n) => n.urgency === "low").length;
+  const tension = tensionData[tensionData.length - 1]?.value ?? 0;
+
+  const cards = [
+    { label: "إجمالي الأخبار", value: news.length, accent: "#c8960c" },
+    { label: "عاجل", value: high, accent: "#e74c3c" },
+    { label: "متوسط", value: medium, accent: "#f39c12" },
+    { label: "منخفض", value: low, accent: "#27ae60" },
+    { label: "مؤشر التوتر", value: `${tension}%`, accent: "#3498db" }
+  ];
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: "12px" }}>
+      {cards.map((card) => (
+        <div
+          key={card.label}
+          style={{
+            background: "linear-gradient(180deg,#0a0906,#080808)",
+            border: "1px solid rgba(255,255,255,.06)",
+            borderRadius: "16px",
+            padding: "16px"
+          }}
+        >
+          <div style={{ color: "#777", fontSize: "12px", marginBottom: "8px" }}>{card.label}</div>
+          <div style={{ color: card.accent, fontSize: "26px", fontWeight: 900 }}>{card.value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ChannelCard({ ch, active, onSelect }) {
+  return (
+    <button
+      onClick={() => onSelect(ch)}
+      style={{
+        width: "100%",
+        textAlign: "right",
+        background: active ? "rgba(200,150,12,.14)" : "rgba(255,255,255,.02)",
+        border: `1px solid ${active ? "rgba(200,150,12,.4)" : "rgba(255,255,255,.06)"}`,
+        borderRadius: "12px",
+        padding: "10px 12px",
+        color: active ? goldL : "#ccc",
+        cursor: "pointer"
+      }}
+    >
+      <div style={{ fontSize: "13px", fontWeight: 800 }}>{ch.flag} {ch.name}</div>
+      <div style={{ color: "#666", fontSize: "11px", marginTop: "4px" }}>YouTube Live</div>
+    </button>
+  );
+}
+
+function XFeed() {
+  return (
+    <div
+      style={{
+        background: "linear-gradient(180deg,#0a0906,#080808)",
+        border: "1px solid rgba(255,255,255,.06)",
+        borderRadius: "16px",
+        padding: "18px",
+        color: "#777"
+      }}
+    >
+      X Feed placeholder
+    </div>
+  );
+}
+
+/* =========================
+   Styling Helper
+========================= */
+function buttonStyle({
+  color = gold,
+  borderColor = `${gold}44`,
+  background = "rgba(200,150,12,.1)"
+} = {}) {
+  return {
+    background,
+    border: `1px solid ${borderColor}`,
+    color,
+    borderRadius: "9px",
+    padding: "8px 15px",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: "700",
+    fontFamily: "inherit",
+    transition: "all .2s",
+    display: "flex",
+    alignItems: "center",
+    gap: "6px"
+  };
+}
+
+/* =========================
+   Main App
+========================= */
 export default function App() {
+  const [alerts, setAlerts] = useState([]);
+  const [tab, setTab] = useState("news");
+  const [cat, setCat] = useState("all");
+
   const [news, setNews] = useState([]);
   const [videos, setVideos] = useState([]);
+  const [updated, setUpdated] = useState("");
+
   const [loadN, setLoadN] = useState(false);
   const [loadV, setLoadV] = useState(false);
   const [errN, setErrN] = useState("");
   const [errV, setErrV] = useState("");
-  const [updated, setUpdated] = useState("");
-  const [tab, setTab] = useState("news");
-  const [cat, setCat] = useState("all");
 
-  const fetchNews = async (category = "all") => {
+  const [clockTime, setClockTime] = useState(formatDubaiTime());
+  const [nextRefresh, setNextRefresh] = useState(5 * 60 * 1000);
+
+  const [liveCh, setLiveCh] = useState(LIVE_CHANNELS[0]);
+
+  const showCats = tab === "news" || tab === "videos";
+
+  const tensionData = useMemo(
+    () => [
+      { label: "1", value: 30 },
+      { label: "2", value: 45 },
+      { label: "3", value: 60 },
+      { label: "4", value: 55 },
+      { label: "5", value: 72 }
+    ],
+    []
+  );
+
+  const ticker = useMemo(() => {
+    const source = news.length ? news : DEMO_NEWS;
+    return source.map((n) => n.title).slice(0, 5).join("   •   ");
+  }, [news]);
+
+  async function fetchNews(category = "all", force = false) {
     try {
       setLoadN(true);
       setErrN("");
 
-      const res = await fetch(`/api/news?category=${encodeURIComponent(category)}`);
-      if (!res.ok) throw new Error("NEWS_API_FAILED");
+      const url = `/api/news?category=${encodeURIComponent(category)}${force ? "&force=1" : ""}`;
+      const res = await fetch(url, {
+        method: "GET",
+        headers: { Accept: "application/json" }
+      });
+
+      if (!res.ok) {
+        throw new Error("NEWS_API_FAILED");
+      }
 
       const data = await res.json();
-      setNews(Array.isArray(data.news) ? data.news : []);
-      setUpdated(data.updated || "");
-    } catch (error) {
-      setErrN("تعذر تحميل الأخبار");
+      const safeNewsData = safeArray(data?.news).map(normalizeNewsItem);
+
+      setNews(safeNewsData);
+      setUpdated(safeText(data?.updated, formatDisplayTime(new Date())));
+    } catch {
+      setErrN(getUserErrorMessage());
       setNews([]);
+      setAlerts((prev) => [...prev, "تعذر تحميل الأخبار من الخادم"]);
     } finally {
       setLoadN(false);
     }
-  };
+  }
 
-  const fetchVideos = async (category = "all") => {
+  async function fetchVideos(category = "all", force = false) {
     try {
       setLoadV(true);
       setErrV("");
 
-      const res = await fetch(`/api/videos?category=${encodeURIComponent(category)}`);
-      if (!res.ok) throw new Error("VIDEOS_API_FAILED");
+      const url = `/api/videos?category=${encodeURIComponent(category)}${force ? "&force=1" : ""}`;
+      const res = await fetch(url, {
+        method: "GET",
+        headers: { Accept: "application/json" }
+      });
+
+      if (!res.ok) {
+        throw new Error("VIDEOS_API_FAILED");
+      }
 
       const data = await res.json();
-      setVideos(Array.isArray(data.videos) ? data.videos : []);
-    } catch (error) {
-      setErrV("تعذر تحميل الفيديوهات");
+      const safeVideosData = safeArray(data?.videos).map(normalizeVideoItem);
+
+      setVideos(safeVideosData);
+    } catch {
+      setErrV(getUserErrorMessage());
       setVideos([]);
+      setAlerts((prev) => [...prev, "تعذر تحميل الفيديوهات من الخادم"]);
     } finally {
       setLoadV(false);
     }
-  };
+  }
+
+  function changeCat(categoryId) {
+    setCat(categoryId);
+  }
+
+  function refresh() {
+    void fetchNews(cat, true);
+    void fetchVideos(cat, true);
+    setNextRefresh(5 * 60 * 1000);
+  }
 
   useEffect(() => {
-    fetchNews(cat);
-    fetchVideos(cat);
+    void fetchNews(cat);
+    void fetchVideos(cat);
   }, [cat]);
 
-  return (
-    <div style={{ background: "#050505", color: "#eee", minHeight: "100vh", padding: "20px", fontFamily: "sans-serif" }}>
-      <h1>WAR UPDATE</h1>
+  useEffect(() => {
+    const t = setInterval(() => {
+      setClockTime(formatDubaiTime());
+      setNextRefresh((prev) => Math.max(0, prev - 1000));
+    }, 1000);
 
-      <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
-        <button onClick={() => setTab("news")}>الأخبار</button>
-        <button onClick={() => setTab("videos")}>الفيديوهات</button>
-        <button onClick={() => setCat("all")}>الكل</button>
-        <button onClick={() => setCat("regional")}>إقليمي</button>
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    if (nextRefresh === 0) {
+      refresh();
+    }
+  }, [nextRefresh]);
+
+  const safeNewsList = news.length ? news : [];
+  const safeVideosList = videos.length ? videos : [];
+  const currentLiveId = isValidYouTubeId(liveCh?.youtubeId) ? liveCh.youtubeId : "";
+  const currentWatchUrl = currentLiveId ? `https://www.youtube.com/watch?v=${currentLiveId}` : "#";
+  const currentEmbedUrl = currentLiveId
+    ? `https://www.youtube-nocookie.com/embed/${currentLiveId}?autoplay=1&rel=0&modestbranding=1`
+    : "";
+
+  return (
+    <div
+      dir="rtl"
+      style={{
+        minHeight: "100vh",
+        background: "linear-gradient(180deg,#040404,#090804)",
+        color: "#eee",
+        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+      }}
+    >
+      <style>{`
+        * { box-sizing: border-box; }
+        html, body, #root { margin: 0; min-height: 100%; background: #050505; }
+        a { color: inherit; }
+        .news-grid, .vid-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 14px;
+        }
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.15); opacity: .75; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes glow {
+          0% { text-shadow: 0 0 0 rgba(240,210,122,0); }
+          50% { text-shadow: 0 0 10px rgba(240,210,122,.22); }
+          100% { text-shadow: 0 0 0 rgba(240,210,122,0); }
+        }
+        @keyframes float {
+          0% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
+          100% { transform: translateY(0); }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes ticker {
+          from { transform: translateX(0); }
+          to { transform: translateX(-50%); }
+        }
+        @keyframes shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        @media (max-width: 900px) {
+          .live-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
+
+      <AlertBanner alerts={alerts} onClose={() => setAlerts([])} />
+
+      <div style={{ height: "4px", display: "flex" }}>
+        <div style={{ width: "22%", background: "#c0392b" }} />
+        <div style={{ flex: 1, background: "#00732f" }} />
+        <div style={{ flex: 1, background: "#ffffff15" }} />
+        <div style={{ flex: 1, background: "#000" }} />
       </div>
 
-      {tab === "news" && (
-        <div>
-          <h2>الأخبار</h2>
-          <div style={{ color: "#999", marginBottom: "10px" }}>
-            {updated ? `آخر تحديث: ${updated}` : ""}
-          </div>
+      <div
+        style={{
+          background: "linear-gradient(180deg,#0c0900,#060606)",
+          borderBottom: `1px solid ${gold}2a`,
+          padding: "14px 20px 0"
+        }}
+      >
+        <div
+          className="hdr"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "14px",
+            gap: "12px",
+            flexWrap: "wrap"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+            <div style={{ animation: "float 3.5s ease-in-out infinite" }}>
+              <FalconSVG size={44} color={gold} />
+            </div>
 
-          {loadN && <div>جاري تحميل الأخبار...</div>}
-          {errN && !loadN && <div style={{ color: "tomato" }}>{errN}</div>}
-
-          {!loadN && !errN && news.length === 0 && <div>لا توجد أخبار</div>}
-
-          <div style={{ display: "grid", gap: "12px" }}>
-            {news.map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  border: "1px solid #333",
-                  borderRadius: "12px",
-                  padding: "14px",
-                  background: "#0b0b0b"
-                }}
-              >
-                <div style={{ fontWeight: "bold", marginBottom: "8px" }}>{item.title}</div>
-                <div style={{ color: "#bbb", marginBottom: "8px" }}>{item.summary}</div>
-                <div style={{ fontSize: "12px", color: "#777" }}>
-                  {item.source} — {item.urgency}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {tab === "videos" && (
-        <div>
-          <h2>الفيديوهات</h2>
-
-          {loadV && <div>جاري تحميل الفيديوهات...</div>}
-          {errV && !loadV && <div style={{ color: "tomato" }}>{errV}</div>}
-
-          {!loadV && !errV && videos.length === 0 && <div>لا توجد فيديوهات</div>}
-
-          <div style={{ display: "grid", gap: "16px" }}>
-            {videos.map((video) => {
-              const safeId = isValidYouTubeId(video.youtubeId) ? video.youtubeId : "";
-              return (
-                <div
-                  key={video.id}
+            <div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" }}>
+                <span
                   style={{
-                    border: "1px solid #333",
-                    borderRadius: "12px",
-                    padding: "14px",
-                    background: "#0b0b0b"
+                    fontSize: "19px",
+                    fontWeight: "900",
+                    color: goldL,
+                    animation: "glow 3s infinite",
+                    letterSpacing: "2px"
                   }}
                 >
-                  <div style={{ fontWeight: "bold", marginBottom: "8px" }}>{video.title}</div>
-                  <div style={{ color: "#999", marginBottom: "12px" }}>{video.channel}</div>
+                  WAR UPDATE
+                </span>
+                <span style={{ color: "#444", fontSize: "12px" }}>by</span>
+                <span style={{ color: gold, fontSize: "17px", fontWeight: "900", letterSpacing: "4px" }}>
+                  K.A.R
+                </span>
+                <span style={{ fontSize: "13px" }}>🇦🇪</span>
+              </div>
 
-                  {safeId ? (
-                    <iframe
-                      title={video.title}
-                      width="100%"
-                      height="315"
-                      src={`https://www.youtube-nocookie.com/embed/${safeId}`}
-                      style={{ border: "none", borderRadius: "10px" }}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      referrerPolicy="strict-origin-when-cross-origin"
-                    />
-                  ) : (
-                    <div style={{ color: "tomato" }}>رابط الفيديو غير صالح</div>
-                  )}
-                </div>
+              <div style={{ marginTop: "5px", marginBottom: "4px" }}>
+                <UAEBar />
+              </div>
+
+              <div style={{ color: "#252525", fontSize: "9px", letterSpacing: "2px" }}>
+                MIDDLE EAST INTELLIGENCE DASHBOARD
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <div
+              style={{
+                background: "#0d0a01",
+                border: `1px solid ${gold}25`,
+                borderRadius: "8px",
+                padding: "5px 11px",
+                textAlign: "center",
+                minWidth: "80px"
+              }}
+            >
+              <div style={{ color: "#2a2a2a", fontSize: "9px", letterSpacing: "1px", marginBottom: "2px" }}>
+                UAE TIME
+              </div>
+              <div style={{ color: gold, fontSize: "12px", fontFamily: "monospace", fontWeight: "700" }}>
+                {clockTime}
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: "#0d0a01",
+                border: `1px solid ${green}33`,
+                borderRadius: "8px",
+                padding: "5px 11px",
+                textAlign: "center",
+                minWidth: "80px"
+              }}
+            >
+              <div style={{ color: "#2a2a2a", fontSize: "9px", letterSpacing: "1px", marginBottom: "2px" }}>
+                REFRESH IN
+              </div>
+              <div style={{ color: green, fontSize: "12px", fontFamily: "monospace", fontWeight: "700" }}>
+                {fmtCountdown(nextRefresh)}
+              </div>
+            </div>
+
+            <button onClick={refresh} disabled={loadN || loadV} style={buttonStyle()}>
+              <span style={{ display: "inline-block", animation: loadN || loadV ? "spin 1s linear infinite" : "none" }}>
+                ⟳
+              </span>
+              {loadN || loadV ? "..." : "تحديث"}
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: "3px", flexWrap: "wrap" }}>
+          {TABS.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                style={{
+                  background: active ? "rgba(200,150,12,.16)" : "transparent",
+                  border: `1px solid ${active ? `${gold}77` : "rgba(255,255,255,.05)"}`,
+                  color: active ? goldL : "#666",
+                  borderRadius: "8px 8px 0 0",
+                  padding: "7px 14px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: active ? "700" : "400",
+                  fontFamily: "inherit",
+                  transition: "all .2s",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "5px"
+                }}
+              >
+                {t.icon} {t.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {showCats && (
+          <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", padding: "8px 0 0" }}>
+            {CATEGORIES.map((c) => {
+              const active = cat === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => changeCat(c.id)}
+                  style={{
+                    background: active ? `${CAT_COLORS[c.id].accent}25` : "rgba(255,255,255,.025)",
+                    border: `1px solid ${active ? `${CAT_COLORS[c.id].accent}77` : "rgba(255,255,255,.06)"}`,
+                    color: active ? CAT_COLORS[c.id].light : "#666",
+                    borderRadius: "6px",
+                    padding: "5px 12px",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    fontWeight: active ? "700" : "400",
+                    fontFamily: "inherit",
+                    transition: "all .2s"
+                  }}
+                >
+                  {c.emoji} {c.label}
+                </button>
               );
             })}
           </div>
+        )}
+      </div>
+
+      <div style={{ background: "#070500", borderBottom: `1px solid ${gold}15`, padding: "6px 0", overflow: "hidden" }}>
+        <div style={{ whiteSpace: "nowrap", animation: "ticker 70s linear infinite", display: "inline-block" }}>
+          <span style={{ color: gold, fontSize: "11.5px", padding: "0 40px", letterSpacing: ".3px" }}>
+            {ticker || "لا توجد تحديثات حالية"}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            {ticker || "لا توجد تحديثات حالية"}
+          </span>
         </div>
-      )}
+      </div>
+
+      <div style={{ padding: "18px 20px 50px" }}>
+        {tab === "news" && (
+          <div>
+            {loadN && <Skeleton />}
+
+            {errN && !loadN && (
+              <div
+                style={{
+                  background: "linear-gradient(135deg,#100500,#0a0a0a)",
+                  border: "1px solid #e74c3c33",
+                  borderRadius: "14px",
+                  padding: "20px",
+                  marginBottom: "16px",
+                  textAlign: "center"
+                }}
+              >
+                <div style={{ color: "#e74c3c", fontSize: "14px", marginBottom: "8px" }}>⚠️ {errN}</div>
+                <button onClick={() => fetchNews(cat, true)} style={buttonStyle()}>
+                  إعادة المحاولة
+                </button>
+              </div>
+            )}
+
+            {!loadN && safeNewsList.length > 0 && (
+              <div>
+                <div style={{ display: "flex", gap: "8px", marginBottom: "15px", flexWrap: "wrap", alignItems: "center" }}>
+                  {["high", "medium", "low"].map((u) => {
+                    const n = safeNewsList.filter((x) => x.urgency === u).length;
+                    if (!n) return null;
+
+                    return (
+                      <div
+                        key={u}
+                        style={{
+                          background: `${URGENCY_MAP[u].color}16`,
+                          border: `1px solid ${URGENCY_MAP[u].color}30`,
+                          borderRadius: "8px",
+                          padding: "4px 11px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px"
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: "50%",
+                            background: URGENCY_MAP[u].color,
+                            animation: u === "high" ? "pulse 1s infinite" : "none"
+                          }}
+                        />
+                        <span style={{ color: URGENCY_MAP[u].color, fontSize: "12px", fontWeight: "700" }}>
+                          {n} {URGENCY_MAP[u].label}
+                        </span>
+                      </div>
+                    );
+                  })}
+
+                  <span style={{ color: "#444", fontSize: "11px", marginRight: "auto" }}>
+                    {safeNewsList.length} خبر {updated ? `— ${updated}` : ""}
+                  </span>
+                </div>
+
+                <div className="news-grid">
+                  {safeNewsList.map((item, i) => (
+                    <NewsCard key={`${item.id}-${i}`} item={item} index={i} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!loadN && !errN && safeNewsList.length === 0 && (
+              <div
+                style={{
+                  textAlign: "center",
+                  color: "#666",
+                  padding: "40px",
+                  border: "1px solid rgba(255,255,255,.05)",
+                  borderRadius: "14px"
+                }}
+              >
+                لا توجد أخبار متاحة حاليًا
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "videos" && (
+          <div>
+            {loadV && <Skeleton />}
+
+            {errV && !loadV && (
+              <div style={{ textAlign: "center", color: "#e74c3c", padding: "40px" }}>
+                ⚠️ {errV}
+                <br />
+                <button onClick={() => fetchVideos(cat, true)} style={{ ...buttonStyle(), marginTop: "14px" }}>
+                  إعادة المحاولة
+                </button>
+              </div>
+            )}
+
+            {!loadV && safeVideosList.length > 0 && (
+              <div className="vid-grid">
+                {safeVideosList.map((v, i) => (
+                  <VideoCard key={`${v.id}-${i}`} item={v} />
+                ))}
+              </div>
+            )}
+
+            {!loadV && !errV && safeVideosList.length === 0 && (
+              <div style={{ textAlign: "center", color: "#666", padding: "60px" }}>
+                اضغط تحديث لتحميل الفيديوهات
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "stats" && (
+          <StatsPanel news={safeNewsList.length > 0 ? safeNewsList : DEMO_NEWS} tensionData={tensionData} />
+        )}
+
+        {tab === "live" && (
+          <div className="live-grid" style={{ display: "grid", gridTemplateColumns: "1fr 285px", gap: "15px", alignItems: "start" }}>
+            <div style={{ background: "#0a0800", borderRadius: "16px", overflow: "hidden", border: `1px solid ${gold}2a` }}>
+              <div
+                style={{
+                  padding: "10px 14px",
+                  background: "#0d0b00",
+                  borderBottom: `1px solid ${gold}1a`,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "9px",
+                  flexWrap: "wrap"
+                }}
+              >
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: "#e74c3c",
+                    display: "inline-block",
+                    animation: "pulse 1s infinite"
+                  }}
+                />
+                <span style={{ color: "#e74c3c", fontWeight: "900", fontSize: "11px", letterSpacing: "2px" }}>
+                  LIVE
+                </span>
+
+                <span style={{ color: "#555", fontSize: "12px" }}>
+                  {liveCh?.flag} {liveCh?.name}
+                </span>
+
+                {currentLiveId && (
+                  <a
+                    href={currentWatchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      marginRight: "auto",
+                      background: "#cc0000dd",
+                      color: "#fff",
+                      borderRadius: "6px",
+                      padding: "5px 11px",
+                      fontSize: "11px",
+                      fontWeight: "700",
+                      textDecoration: "none"
+                    }}
+                  >
+                    ▶ YouTube
+                  </a>
+                )}
+              </div>
+
+              <div style={{ position: "relative", paddingBottom: "56.25%", background: "#000" }}>
+                {currentLiveId ? (
+                  <iframe
+                    key={liveCh?.id}
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none" }}
+                    src={currentEmbedUrl}
+                    title={liveCh?.name || "Live stream"}
+                    allow="autoplay; encrypted-media; fullscreen"
+                    allowFullScreen
+                    sandbox="allow-scripts allow-same-origin allow-presentation"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                  />
+                ) : (
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#777",
+                      fontSize: "14px"
+                    }}
+                  >
+                    رابط البث غير صالح
+                  </div>
+                )}
+              </div>
+
+              <div
+                style={{
+                  padding: "9px 14px",
+                  background: "#080600",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "8px"
+                }}
+              >
+                <span style={{ color: "#333", fontSize: "11px" }}>لا يعمل البث؟</span>
+
+                {currentLiveId && (
+                  <a
+                    href={currentWatchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      background: "rgba(204,0,0,.12)",
+                      border: "1px solid rgba(204,0,0,.35)",
+                      color: "#ff4444",
+                      borderRadius: "6px",
+                      padding: "5px 13px",
+                      fontSize: "11.5px",
+                      fontWeight: "700",
+                      textDecoration: "none"
+                    }}
+                  >
+                    شاهد على YouTube
+                  </a>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
+              <div
+                style={{
+                  color: `${gold}55`,
+                  fontSize: "9px",
+                  marginBottom: "4px",
+                  fontWeight: "700",
+                  letterSpacing: "2.5px"
+                }}
+              >
+                LIVE CHANNELS
+              </div>
+              {LIVE_CHANNELS.map((ch) => (
+                <ChannelCard key={ch.id} ch={ch} active={liveCh?.id === ch.id} onSelect={setLiveCh} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {tab === "map" && (
+          <div>
+            <TensionMeter data={tensionData} />
+            <ConflictMap />
+          </div>
+        )}
+
+        {tab === "x" && <XFeed />}
+      </div>
+
+      <div
+        style={{
+          borderTop: `1px solid ${gold}15`,
+          padding: "12px 20px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "8px"
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
+          <FalconSVG size={16} color={`${gold}55`} />
+          <span style={{ color: "#333", fontSize: "10px", letterSpacing: "1.5px" }}>WAR UPDATE BY K.A.R 🇦🇪</span>
+        </div>
+
+        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+          <span style={{ color: "#2c2c2c", fontSize: "10px" }}>للأغراض الإخبارية فقط</span>
+          <div style={{ display: "flex", height: "10px", width: "32px", borderRadius: "2px", overflow: "hidden" }}>
+            <div style={{ width: "22%", background: "#c0392b" }} />
+            <div style={{ flex: 1, background: "#00732f" }} />
+            <div style={{ flex: 1, background: "#fff2" }} />
+            <div style={{ flex: 1, background: "#111" }} />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
