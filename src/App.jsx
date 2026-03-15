@@ -1057,14 +1057,14 @@ function ConflictMiniMap({ news, radarPoints = [] }) {
         خريطة الصراع المباشرة
       </div>
 
-      <div
-        style={{
-          height: "500px",
-          borderRadius: "14px",
-          overflow: "hidden",
-          border: "1px solid rgba(255,255,255,.05)"
-        }}
-      >
+  <div
+  style={{
+    height: "500px",
+    borderRadius: "14px",
+    overflow: "hidden",
+    position: "relative"
+  }}
+>
         <div
   style={{
     position: "absolute",
