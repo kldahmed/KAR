@@ -4,171 +4,172 @@ export default function handler(req, res) {
   }
 
   const channels = [
-{
-  id: "aljazeera-mubasher",
-  name: "الجزيرة مباشر",
-  flag: "🇶🇦",
-  mode: "external",
-  externalUrl: "https://www.youtube.com/@AlJazeeraMubasher/live",
-  youtubeId: "",
-  title: "Al Jazeera Mubasher Live"
-}
     {
       id: "aljazeera-mubasher",
-      name: "Al Jazeera Mubasher",
+      name: "الجزيرة مباشر",
       flag: "🇶🇦",
       mode: "external",
-      externalUrl: "https://www.youtube.com/channel/UCCv1Pd24oPErw5S7zJWltnQ/live",
-      title: "البث الحي لقناة الجزيرة مباشر"
+      externalUrl: "https://www.youtube.com/@AlJazeeraMubasher/live",
+      youtubeId: "",
+      title: "البث المباشر - الجزيرة مباشر"
     },
     {
       id: "alarabiya",
-      name: "Al Arabiya",
+      name: "العربية",
       flag: "🇸🇦",
-      mode: "embed",
-      youtubeId: "n7eQejkXbnM",
-      title: "العربية مباشر"
+      mode: "external",
+      externalUrl: "https://www.youtube.com/@AlArabiya/live",
+      youtubeId: "",
+      title: "البث المباشر - العربية"
     },
     {
       id: "alhadath",
-      name: "Al Hadath",
+      name: "الحدث",
       flag: "🇸🇦",
-      mode: "embed",
-      youtubeId: "xWXpl7azI8k",
-      title: "الحدث مباشر"
+      mode: "external",
+      externalUrl: "https://www.youtube.com/@AlHadath/live",
+      youtubeId: "",
+      title: "البث المباشر - الحدث"
     },
     {
       id: "skynewsarabia",
-      name: "Sky News Arabia",
+      name: "سكاي نيوز عربية",
       flag: "🇦🇪",
-      mode: "embed",
-      youtubeId: "U--OjmpjF5o",
-      title: "سكاي نيوز عربية مباشر"
+      mode: "external",
+      externalUrl: "https://www.youtube.com/@skynewsarabia/live",
+      youtubeId: "",
+      title: "البث المباشر - سكاي نيوز عربية"
     },
     {
       id: "france24-ar",
-      name: "France 24 Arabic",
+      name: "فرانس 24 عربي",
       flag: "🇫🇷",
-      mode: "embed",
-      youtubeId: "3ursYA8HMeo",
-      title: "فرانس 24 عربي مباشر"
+      mode: "external",
+      externalUrl: "https://www.youtube.com/@FRANCE24Arabic/live",
+      youtubeId: "",
+      title: "البث المباشر - فرانس 24 عربي"
     },
     {
-      id: "alaraby-news",
-      name: "Alaraby TV News",
+      id: "alaraby-tv",
+      name: "التلفزيون العربي",
       flag: "🇶🇦",
-      mode: "embed",
-      youtubeId: "e2RgSa1Wt5o",
-      title: "العربي أخبار مباشر"
+      mode: "external",
+      externalUrl: "https://www.youtube.com/@AlarabyTV/live",
+      youtubeId: "",
+      title: "البث المباشر - التلفزيون العربي"
     },
     {
       id: "bbc-arabic",
-      name: "BBC News Arabic",
+      name: "بي بي سي عربي",
       flag: "🇬🇧",
-      mode: "embed",
-      youtubeId: "O1pGmVtj2Y8",
-      title: "BBC عربي مباشر"
+      mode: "external",
+      externalUrl: "https://www.youtube.com/@BBCNewsArabic/live",
+      youtubeId: "",
+      title: "البث المباشر - بي بي سي عربي"
     },
     {
       id: "almayadeen",
-      name: "Al Mayadeen Live",
+      name: "الميادين",
       flag: "🇱🇧",
-      mode: "embed",
-      youtubeId: "jLlb3ryS-HM",
-      title: "الميادين مباشر"
+      mode: "external",
+      externalUrl: "https://www.youtube.com/@AlMayadeenNews/live",
+      youtubeId: "",
+      title: "البث المباشر - الميادين"
     },
     {
       id: "alghad",
-      name: "Alghad TV",
+      name: "الغد",
       flag: "🇪🇬",
-      mode: "embed",
-      youtubeId: "4N5jTVWB7vA",
-      title: "قناة الغد مباشر"
+      mode: "external",
+      externalUrl: "https://www.youtube.com/@AlGhadTV/live",
+      youtubeId: "",
+      title: "البث المباشر - الغد"
     },
     {
       id: "trt-arabi",
       name: "TRT عربي",
       flag: "🇹🇷",
-      mode: "embed",
-      youtubeId: "0YBF1h2oFcM",
-      title: "TRT عربي مباشر"
+      mode: "external",
+      externalUrl: "https://www.youtube.com/@TRTarabi/live",
+      youtubeId: "",
+      title: "البث المباشر - TRT عربي"
     },
     {
       id: "cnbc-arabia",
-      name: "CNBC Arabia",
+      name: "CNBC عربية",
       flag: "🇦🇪",
-      mode: "embed",
-      youtubeId: "pQSTFsOtrH0",
-      title: "CNBC Arabia مباشر"
+      mode: "external",
+      externalUrl: "https://www.youtube.com/@cnbcarabia/live",
+      youtubeId: "",
+      title: "البث المباشر - CNBC عربية"
     },
     {
       id: "syria-ikhbariyah",
-      name: "Alikhbariah Syria",
+      name: "الإخبارية السورية",
       flag: "🇸🇾",
-      mode: "embed",
-      youtubeId: "h57b676emP8",
-      title: "الإخبارية السورية مباشر"
+      mode: "external",
+      externalUrl: "https://www.youtube.com/@SyrianArabTV/live",
+      youtubeId: "",
+      title: "البث المباشر - الإخبارية السورية"
     },
     {
       id: "jordan-tv",
-      name: "Jordan TV",
+      name: "التلفزيون الأردني",
       flag: "🇯🇴",
-      mode: "embed",
-      youtubeId: "CclSsWpp2to",
-      title: "التلفزيون الأردني مباشر"
+      mode: "external",
+      externalUrl: "https://www.youtube.com/@JordanTV/live",
+      youtubeId: "",
+      title: "البث المباشر - التلفزيون الأردني"
     },
     {
       id: "asharq-news",
-      name: "Asharq News",
+      name: "الشرق للأخبار",
       flag: "🇸🇦",
-      mode: "embed",
-      youtubeId: "f6VpkfV7m4Y",
-      title: "الشرق للأخبار مباشر"
-    },
-    {
-      id: "alarabiya-business",
-      name: "Al Arabiya Business",
-      flag: "🇸🇦",
-      mode: "embed",
-      youtubeId: "rXnG4eiVVdM",
-      title: "العربية Business مباشر"
+      mode: "external",
+      externalUrl: "https://www.youtube.com/@AsharqNews/live",
+      youtubeId: "",
+      title: "البث المباشر - الشرق للأخبار"
     },
     {
       id: "aljadeed",
-      name: "Al Jadeed",
+      name: "الجديد",
       flag: "🇱🇧",
-      mode: "embed",
-      youtubeId: "Pg2paSZ1byM",
-      title: "الجديد مباشر"
+      mode: "external",
+      externalUrl: "https://www.youtube.com/@aljadeednews/live",
+      youtubeId: "",
+      title: "البث المباشر - الجديد"
     },
     {
       id: "syria-tv",
-      name: "Syria TV",
+      name: "تلفزيون سوريا",
       flag: "🇸🇾",
-      mode: "embed",
-      youtubeId: "ZN0aK3V0ds0",
-      title: "تلفزيون سوريا مباشر"
+      mode: "external",
+      externalUrl: "https://www.youtube.com/@syrialive/live",
+      youtubeId: "",
+      title: "البث المباشر - تلفزيون سوريا"
     },
     {
       id: "alrasheed",
-      name: "Al Rasheed",
+      name: "الرشيد",
       flag: "🇮🇶",
       mode: "external",
-      externalUrl: "https://www.youtube.com/alrasheedmedia/streams",
-      title: "الرشيد - صفحة البث"
+      externalUrl: "https://www.youtube.com/@alrasheedmedia/live",
+      youtubeId: "",
+      title: "البث المباشر - الرشيد"
     },
     {
       id: "dijlah",
-      name: "Dijlah TV",
+      name: "دجلة",
       flag: "🇮🇶",
       mode: "external",
-      externalUrl: "https://www.youtube.com/%40DijlahTV",
-      title: "دجلة - صفحة القناة"
+      externalUrl: "https://www.youtube.com/@DijlahTV/live",
+      youtubeId: "",
+      title: "البث المباشر - دجلة"
     }
   ];
 
   return res.status(200).json({
     channels,
-    source: "verified-arabic-live-mix"
+    source: "arabic-live-external-stable"
   });
 }
