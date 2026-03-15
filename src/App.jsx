@@ -1355,7 +1355,13 @@ safeNewsData.push(...(fastData.news || []));
     }
 
     const data = await res.json();try{
-try{
+
+const xintel = await fetch("/api/xintel");
+const xdata = await xintel.json();
+
+safeNewsData.push(...(xdata.news || []));
+
+}catch{}
 
 const intel = await fetch("/api/intelnews");
 const intelData = await intel.json();
