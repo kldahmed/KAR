@@ -41,27 +41,16 @@ const TABS = [
   { id: "live", label: "البث المباشر", icon: "🔴" }
 ];
 
-const CATEGORIES = (
-<div>
-
-<button onClick={()=>setCategory("all")}>الكل</button>
-
-<button onClick={()=>setCategory("regional")}>إقليمي</button>
-
-<button onClick={()=>setCategory("politics")}>سياسة</button>
-
-<button onClick={()=>setCategory("military")}>عسكري</button>
-
-<button onClick={()=>setCategory("economy")}>اقتصاد</button>
-
-<button onClick={()=>setCategory("sports")}>⚽ رياضة</button>
-
-<button onClick={()=>setCategory("tourism")}>✈️ سياحة</button>
-
-<button onClick={()=>setCategory("markets")}>📈 أسواق</button>
-
-</div>
-);
+const CATEGORIES = [
+  { id: "all", label: "الكل" },
+  { id: "regional", label: "إقليمي" },
+  { id: "politics", label: "سياسة" },
+  { id: "military", label: "عسكري" },
+  { id: "economy", label: "اقتصاد" },
+  { id: "sports", label: "⚽ رياضة" },
+  { id: "tourism", label: "✈️ سياحة" },
+  { id: "markets", label: "📈 أسواق" }
+];
 const CAT_COLORS = {
   all: { accent: "#c8960c", light: "#f0d27a" },
   regional: { accent: "#16a085", light: "#7fe3cf" },
