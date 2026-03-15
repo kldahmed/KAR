@@ -321,32 +321,33 @@ const image = item.image;
           boxShadow: index === 0 ? "0 0 0 1px rgba(200,150,12,.06)" : "none"
         }}
       >
-        <div
-          style={{
-            width: "100%",
-            height: "180px",
-            background: "#0b0b0b",
-            overflow: "hidden",
-            borderBottom: "1px solid rgba(255,255,255,.05)"
-          }}
-        >
-          <img
-            src={image}
-            alt={item.title}
-            loading="lazy"
-            referrerPolicy="no-referrer"
-            onError={(e) => {
-              e.currentTarget.src =
-                "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80";
-            }}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              display: "block"
-            }}
-          />
-        </div>
+        {image && (
+  <div
+    style={{
+      width: "100%",
+      height: "180px",
+      background: "#0b0b0b",
+      overflow: "hidden",
+      borderBottom: "1px solid rgba(255,255,255,.05)"
+    }}
+  >
+    <img
+      src={image}
+      alt={item.title}
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={(e) => {
+        e.currentTarget.style.display = "none";
+      }}
+      style={{
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+        display: "block"
+      }}
+    />
+  </div>
+)}
 
         <div style={{ padding: "14px" }}>
           <div
