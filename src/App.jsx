@@ -47,6 +47,11 @@ const CATEGORIES = [
   { id: "politics", label: "سياسة", emoji: "🏛️" },
   { id: "military", label: "عسكري", emoji: "🛡️" },
   { id: "economy", label: "اقتصاد", emoji: "💹" }
+  <button onClick={()=>setCategory("sports")}>⚽ رياضة</button>
+
+<button onClick={()=>setCategory("tourism")}>✈️ سياحة</button>
+
+<button onClick={()=>setCategory("markets")}>📈 أسواق</button>
 ];
 
 const CAT_COLORS = {
