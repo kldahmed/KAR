@@ -1,46 +1,42 @@
 export default async function handler(req, res) {
 
-  const channels = [
+  try {
 
-    {
-      id: "aj_en",
-      name: "Al Jazeera English",
-      flag: "🌍",
-      youtubeId: "gCNeDWCI0vo"
-    },
+    const response = await fetch(
+      "https://www.googleapis.com/youtube/v3/search?" +
+      new URLSearchParams({
+        part: "snippet",
+        q: "Middle East live news",
+        type: "video",
+        eventType: "live",
+        maxResults: "10",
+        order: "viewCount",
+        key: process.env.YOUTUBE_API_KEY
+      })
+    );
 
-    {
-      id: "fr24_en",
-      name: "France 24 English",
-      flag: "🇫🇷",
-      youtubeId: "Ap-UM1O9RBU"
-    },
+    const data = await response.json();
 
-    {
-      id: "dw",
-      name: "DW News",
-      flag: "🇩🇪",
-      youtubeId: "Niq9D7p4Qzw"
-    },
+    const channels = (data.items || []).map((item, i) => ({
+      id: item.id.videoId || `live-${i}`,
+      name: item.snippet.channelTitle,
+      flag: "📡",
+      youtubeId: item.id.videoId,
+      title: item.snippet.title
+    }));
 
-    {
-      id: "sky",
-      name: "Sky News",
-      flag: "🇬🇧",
-      youtubeId: "9Auq9mYxFEE"
-    },
+    res.status(200).json({
+      channels,
+      live: true,
+      source: "YouTube Live"
+    });
 
-    {
-      id: "trt",
-      name: "TRT World",
-      flag: "🇹🇷",
-      youtubeId: "w-Ma8oQLmSM"
-    }
+  } catch (error) {
 
-  ];
+    res.status(500).json({
+      error: "Failed to fetch live feeds"
+    });
 
-  res.status(200).json({
-    channels
-  });
+  }
 
 }
