@@ -536,6 +536,8 @@ function WarRiskCard({ news, tensionData }) {
 function ConflictMiniMap({ news }) {
   const points = extractEventLocations(news);
 
+  const defaultCenter = [29.5, 47.5];
+
   return (
     <div
       style={{
@@ -546,76 +548,78 @@ function ConflictMiniMap({ news }) {
       }}
     >
       <div style={{ color: goldL, fontWeight: 800, fontSize: "14px", marginBottom: "14px" }}>
-        خريطة الأحداث السريعة
+        خريطة الأحداث التفاعلية
       </div>
 
       <div
         style={{
-          position: "relative",
-          height: "360px",
+          height: "420px",
           borderRadius: "14px",
           overflow: "hidden",
-          background:
-            "radial-gradient(circle at 50% 50%, rgba(200,150,12,.08), transparent 45%), linear-gradient(180deg,#060606,#0c0c0c)",
           border: "1px solid rgba(255,255,255,.05)"
         }}
       >
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px)",
-            backgroundSize: "40px 40px"
-          }}
-        />
+        <MapContainer
+          center={defaultCenter}
+          zoom={5}
+          scrollWheelZoom={true}
+          style={{ height: "100%", width: "100%" }}
+        >
+          <TileLayer
+            attribution='&copy; OpenStreetMap contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
 
-        {points.length > 0 ? (
-          points.map((p, i) => {
-            const left = ((p.lng - 20) / (65 - 20)) * 100;
-            const top = 100 - ((p.lat - 10) / (40 - 10)) * 100;
+          {points.length > 0 ? (
+            points.map((p, i) => {
+              const color =
+                p.urgency === "high"
+                  ? "#e74c3c"
+                  : p.urgency === "medium"
+                  ? "#f39c12"
+                  : "#27ae60";
 
-            const color =
-              p.urgency === "high"
-                ? "#e74c3c"
-                : p.urgency === "medium"
-                ? "#f39c12"
-                : "#27ae60";
-
-            return (
-              <div
-                key={`${p.name}-${i}`}
-                title={`${p.name} - ${p.title}`}
-                style={{
-                  position: "absolute",
-                  left: `${Math.max(2, Math.min(96, left))}%`,
-                  top: `${Math.max(4, Math.min(94, top))}%`,
-                  transform: "translate(-50%, -50%)"
-                }}
-              >
-                <div
-                  style={{
-                    width: "12px",
-                    height: "12px",
-                    borderRadius: "50%",
-                    background: color,
-                    boxShadow: `0 0 12px ${color}`
-                  }}
-                />
-                <div
-                  style={{
-                    marginTop: "6px",
-                    color: "#ddd",
-                    fontSize: "11px",
-                    whiteSpace: "nowrap",
-                    textShadow: "0 0 6px rgba(0,0,0,.8)"
+              return (
+                <CircleMarker
+                  key={`${p.name}-${i}`}
+                  center={[p.lat, p.lng]}
+                  radius={8}
+                  pathOptions={{
+                    color,
+                    fillColor: color,
+                    fillOpacity: 0.85,
+                    weight: 2
                   }}
                 >
-                  {p.name}
-                </div>
-              </div>
-            );
-          })
+                  <Popup>
+                    <div dir="rtl" style={{ minWidth: "180px", lineHeight: 1.7 }}>
+                      <div style={{ fontWeight: "800", marginBottom: "6px" }}>{p.name}</div>
+                      <div style={{ fontSize: "13px", marginBottom: "6px" }}>{p.title}</div>
+                      <div style={{ fontSize: "12px", color: "#666" }}>
+                        مستوى الأهمية:{" "}
+                        {p.urgency === "high"
+                          ? "عاجل"
+                          : p.urgency === "medium"
+                          ? "متوسط"
+                          : "منخفض"}
+                      </div>
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              );
+            })
+          ) : (
+            <Marker position={defaultCenter}>
+              <Popup>
+                <div dir="rtl">لا توجد نقاط جغرافية كافية حاليًا</div>
+              </Popup>
+            </Marker>
+          )}
+        </MapContainer>
+      </div>
+    </div>
+  );
+}
         ) : (
           <div
             style={{
