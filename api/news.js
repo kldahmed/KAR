@@ -87,7 +87,6 @@ async function translateNewsItemToArabic(item = {}) {
     summary: translatedSummary || originalSummary
   };
 }
-}
 
 function urgencyWeight(level) {
   if (level === "high") return 3;
@@ -283,15 +282,15 @@ function eventFusion(items) {
     if (!group.length) continue;
 
     group.sort((a, b) => {
-      const sa =
+      const scoreB =
         urgencyWeight(b.urgency) * 100 +
         sourceWeight(b.source) * 10 +
         (new Date(b.time).getTime() || 0) / 1e11;
-      const sb =
+      const scoreA =
         urgencyWeight(a.urgency) * 100 +
         sourceWeight(a.source) * 10 +
         (new Date(a.time).getTime() || 0) / 1e11;
-      return sa - sb;
+      return scoreB - scoreA;
     });
 
     const lead = group[0];
@@ -334,8 +333,6 @@ function sortArticles(items) {
 }
 
 function buildScenario(news) {
-  const joined = news.map((n) => `${n.title} ${n.summary}`).join(" ").toLowerCase();
-
   let missile = 0;
   let drone = 0;
   let naval = 0;
@@ -357,10 +354,8 @@ function buildScenario(news) {
     { key: "regional_escalation", label: "اتساع التصعيد الإقليمي", value: Math.min(100, regional * 7 + 15) }
   ].sort((a, b) => b.value - a.value);
 
-  const lead = scenarios[0] || null;
-
   return {
-    leadScenario: lead?.label || "لا يوجد سيناريو واضح",
+    leadScenario: scenarios[0]?.label || "لا يوجد سيناريو واضح",
     scenarios
   };
 }
@@ -509,27 +504,25 @@ export default async function handler(req, res) {
       fetchJsonFeed(`${base}/api/xintel`, "news")
     ]);
 
-let news = [...googleNews, ...fastNews, ...intelNews, ...xIntelNews];
+    let news = [...googleNews, ...fastNews, ...intelNews, ...xIntelNews];
 
-news = cleanBadArticles(news);
-news = eventFusion(news);
-news = sortArticles(news).slice(0, 40);
+    news = cleanBadArticles(news);
+    news = eventFusion(news);
+    news = sortArticles(news).slice(0, 40);
 
-// ابنِ السيناريو من النص الأصلي قبل الترجمة
-const scenario = buildScenario(news);
+    const scenario = buildScenario(news);
 
-// ترجمة العنوان والملخص فقط
-news = await Promise.all(news.map((item) => translateNewsItemToArabic(item)));
+    news = await Promise.all(news.map((item) => translateNewsItemToArabic(item)));
 
-res.setHeader("Cache-Control", "s-maxage=120, stale-while-revalidate=240");
+    res.setHeader("Cache-Control", "s-maxage=120, stale-while-revalidate=240");
 
-return res.status(200).json({
-  news,
-  scenario,
-  updated: new Date().toLocaleString("ar-AE", { timeZone: "Asia/Dubai" }),
-  live: true,
-  source: "fusion-arabic-intelligence-engine"
-});
+    return res.status(200).json({
+      news,
+      scenario,
+      updated: new Date().toLocaleString("ar-AE", { timeZone: "Asia/Dubai" }),
+      live: true,
+      source: "fusion-arabic-intelligence-engine"
+    });
   } catch (error) {
     return res.status(500).json({
       error: "Failed to fetch Arabic live news",
