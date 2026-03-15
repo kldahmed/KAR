@@ -1337,75 +1337,54 @@ async function fetchNews(category = "all", force = false) {
     setErrN("");
 
     const url = `/api/news?category=${encodeURIComponent(category)}${force ? "&force=1" : ""}`;
-     try{
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" }
+    });
 
-const fast = await fetch("/api/fastnews");
-const fastData = await fast.json();
+    if (!res.ok) {
+      throw new Error("NEWS_API_FAILED");
+    }
 
-safeNewsData.push(...(fastData.news || []));
+    const data = await res.json();
 
-}catch{}
-    const res = await fetch(url,{
-method:"GET",
-headers:{Accept:"application/json"}
-});
+    let safeNewsData = safeArray(data?.news).map(normalizeNewsItem);
 
-if(!res.ok){
-throw new Error("NEWS_API_FAILED");
-}
+    try {
+      const xintel = await fetch("/api/xintel");
+      const xdata = await xintel.json();
 
-const data = await res.json();
+      if (xdata?.news) {
+        safeNewsData.push(...xdata.news.map(normalizeNewsItem));
+      }
+    } catch (e) {}
 
-let safeNewsData = safeArray(data?.news).map(normalizeNewsItem);
+    try {
+      const intel = await fetch("/api/intelnews");
+      const intelData = await intel.json();
 
-try {
+      if (intelData?.news) {
+        safeNewsData.push(...intelData.news.map(normalizeNewsItem));
+      }
+    } catch (e) {}
 
-const xintel = await fetch("/api/xintel");
-const xdata = await xintel.json();
+    try {
+      const live = await fetch("/api/liveevents");
+      const liveData = await live.json();
 
-if(xdata?.news){
-safeNewsData.push(...xdata.news.map(normalizeNewsItem));
-}
+      if (liveData?.events) {
+        safeNewsData.push(...liveData.events.map(normalizeNewsItem));
+      }
+    } catch (e) {}
 
-} catch(e){}
+    try {
+      const fast = await fetch("/api/fastnews");
+      const fastData = await fast.json();
 
-try {
-
-const intel = await fetch("/api/intelnews");
-const intelData = await intel.json();
-
-if(intelData?.news){
-safeNewsData.push(...intelData.news.map(normalizeNewsItem));
-}
-
-} catch(e) 
-} catch (e) {}
-
-try {
-
-
-
-} catch (e) {}
-
-const intel = await fetch("/api/intelnews");
-const intelData = await intel.json();
-
-if(intelData?.news){
-
-safeNewsData.push(...intelData.news);
-
-}
-
-}catch{}
-const live = await fetch("/api/liveevents");
-const liveData = await live.json();
-
-const liveEvents = (liveData.events || []).map(normalizeNewsItem);
-
-safeNewsData.push(...liveEvents);
-
-}catch{}
-    const safeNewsData = safeArray(data?.news).map(normalizeNewsItem);
+      if (fastData?.news) {
+        safeNewsData.push(...fastData.news.map(normalizeNewsItem));
+      }
+    } catch (e) {}
 
     setNews(safeNewsData);
     setUpdated(safeText(data?.updated, formatDisplayTime(new Date())));
