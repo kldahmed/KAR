@@ -558,9 +558,14 @@ function ConflictMiniMap({ news }) {
 
 const points = extractEventLocations(news);
 
-const defaultCenter = [29.5, 47.5];
+const defaultCenter = [29.5,47.5];
 
-return (
+const strikeLines = [
+[[32.4279,53.688],[31.0461,34.8516]],
+[[15.5527,48.5164],[26.5667,56.25]]
+];
+
+return(
 
 <div style={{
 background:"linear-gradient(180deg,#0a0906,#080808)",
@@ -593,34 +598,63 @@ style={{height:"100%",width:"100%"}}
 >
 
 <TileLayer
-  attribution='&copy; OpenStreetMap'
-  url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
 />
+
+{/* مسارات الضربات */}
+
+{strikeLines.map((line,i)=>(
+<Polyline
+key={i}
+positions={line}
+pathOptions={{
+color:"#ff4d4d",
+weight:2,
+dashArray:"6"
+}}
+/>
+))}
+
+{/* نقاط الأحداث */}
 
 {points.map((p,i)=>{
 
 let color="#27ae60";
 let radius=8;
+let impact=40000;
 
 if(p.urgency==="high"){
 color="#e74c3c";
 radius=14;
+impact=90000;
 }
 else if(p.urgency==="medium"){
 color="#f39c12";
 radius=10;
+impact=60000;
 }
 
 return(
 
+<div key={i}>
+
+<Circle
+center={[p.lat,p.lng]}
+radius={impact}
+pathOptions={{
+color:color,
+fillColor:color,
+fillOpacity:0.15
+}}
+/>
+
 <CircleMarker
-key={i}
 center={[p.lat,p.lng]}
 radius={radius}
 pathOptions={{
 color:color,
 fillColor:color,
-fillOpacity:0.85,
+fillOpacity:0.9,
 weight:2
 }}
 >
@@ -663,6 +697,8 @@ p.urgency==="high"
 </Popup>
 
 </CircleMarker>
+
+</div>
 
 )
 
