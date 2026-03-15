@@ -1,3 +1,10 @@
+function extractImageFromDescription(str = "") {
+  const match =
+    str.match(/<img[^>]+src="([^"]+)"/i) ||
+    str.match(/<img[^>]+src='([^']+)'/i);
+
+  return match ? decodeHtml(match[1]) : "";
+}
 function decodeHtml(str = "") {
   return str
     .replace(/<!\[CDATA\[|\]\]>/g, "")
