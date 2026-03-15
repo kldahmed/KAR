@@ -10,16 +10,17 @@ const RSS_SOURCES = [
     url: "https://feeds.reuters.com/reuters/worldNews",
     category: "world"
   },
-  {
-    name: "Al Jazeera",
-    url: "https://www.aljazeera.com/xml/rss/all.xml",
-    category: "world"
-  },
-  {
-    name: "CNN",
-    url: "http://rss.cnn.com/rss/edition_world.rss",
-    category: "world"
-  },
+  // Al Jazeera and CNN RSS are often unreliable on Vercel, so disabled
+  // {
+  //   name: "Al Jazeera",
+  //   url: "https://www.aljazeera.com/xml/rss/all.xml",
+  //   category: "world"
+  // },
+  // {
+  //   name: "CNN",
+  //   url: "http://rss.cnn.com/rss/edition_world.rss",
+  //   category: "world"
+  // },
   {
     name: "Yahoo Finance",
     url: "https://finance.yahoo.com/news/rssindex",
@@ -55,10 +56,16 @@ async function fetchRssSources(category) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 1500);
-      const res = await fetch(src.url, { signal: controller.signal });
-      clearTimeout(timeout);
-      if (!res.ok) return;
-      const xml = await res.text();
+      let xml = "";
+      try {
+        const res = await fetch(src.url, { signal: controller.signal });
+        clearTimeout(timeout);
+        if (!res.ok) return;
+        xml = await res.text();
+      } catch {
+        clearTimeout(timeout);
+        return;
+      }
       results.push(...parseGenericRss(xml, src.name, src.category));
     } catch {}
   }));
@@ -198,8 +205,7 @@ async function fetchGoogleNews(category) {
   const url = `https://news.google.com/rss/search?q=${q}&hl=ar&gl=AE&ceid=AE:ar`;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 2000);
-
+  const timeout = setTimeout(() => controller.abort(), 1500);
   let xml = "";
   try {
     const res = await fetch(url, {
@@ -232,52 +238,84 @@ export default async function handler(req, res) {
     return res.status(200).json(CACHE.data);
   }
 
+  let allNews = [];
+  let errorCount = 0;
+  let googleNews = [];
+  let rssNews = [];
   try {
-    // Fetch Google News and all RSS sources
-    const googleNews = await fetchGoogleNews(category);
-    const rssNews = await fetchRssSources(category);
-    let allNews = [...googleNews, ...rssNews];
-
-    // Smart ranking
-    const trustedSources = ["Reuters", "BBC", "CNN"];
-    const now = Date.now();
-    allNews = allNews.map(item => {
-      let score = 0;
-      // Breaking news
-      if (item.urgency === "high" || /breaking|urgent|عاجل/i.test(item.title)) score += 50;
-      // Recent news (last 3h)
-      const t = new Date(item.time).getTime();
-      if (now - t < 3 * 60 * 60 * 1000) score += 30;
-      // Trusted sources
-      if (trustedSources.includes(item.source)) score += 20;
-      item._score = score;
-      return item;
-    });
-    // Remove duplicated titles
-    const seenTitles = new Set();
-    allNews = allNews.filter(item => {
-      const key = item.title.trim();
-      if (seenTitles.has(key)) return false;
-      seenTitles.add(key);
-      return true;
-    });
-    // Sort by score desc, then time desc
-    allNews.sort((a, b) => b._score - a._score || new Date(b.time).getTime() - new Date(a.time).getTime());
-    // Limit to 200 items
-    const finalNews = Array.isArray(allNews) ? allNews.slice(0, MAX_NEWS) : [];
-    const result = {
-      news: finalNews,
-      updated: new Date().toLocaleString("ar-AE", { timeZone: "Asia/Dubai" }),
-      category
-    };
-    CACHE.data = { ...result, category };
-    CACHE.time = Date.now();
-    res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=120");
-    return res.status(200).json(result);
-  } catch (error) {
-    return res.status(200).json({
-      news: [],
-      updated: new Date().toLocaleString("ar-AE", { timeZone: "Asia/Dubai" })
-    });
+    googleNews = await fetchGoogleNews(category);
+  } catch {
+    errorCount++;
   }
+  try {
+    rssNews = await fetchRssSources(category);
+  } catch {
+    errorCount++;
+  }
+  allNews = [...googleNews, ...rssNews];
+
+  // Smart ranking
+  const trustedSources = ["Reuters", "BBC"];
+  const nowTime = Date.now();
+  allNews = allNews.map(item => {
+    let score = 0;
+    // Breaking news
+    if (item.urgency === "high" || /breaking|urgent|عاجل/i.test(item.title)) score += 50;
+    // Recent news (last 3h)
+    const t = new Date(item.time).getTime();
+    if (nowTime - t < 3 * 60 * 60 * 1000) score += 30;
+    // Trusted sources
+    if (trustedSources.includes(item.source)) score += 20;
+    item._score = score;
+    return item;
+  });
+  // Remove duplicated titles
+  const seenTitles = new Set();
+  allNews = allNews.filter(item => {
+    const key = item.title.trim();
+    if (seenTitles.has(key)) return false;
+    seenTitles.add(key);
+    return true;
+  });
+  // Sort by score desc, then time desc
+  allNews.sort((a, b) => b._score - a._score || new Date(b.time).getTime() - new Date(a.time).getTime());
+  // Limit to 200 items
+  let finalNews = Array.isArray(allNews) ? allNews.slice(0, MAX_NEWS) : [];
+  // Fallback demo news if all fail
+  if (finalNews.length === 0) {
+    finalNews = [
+      {
+        id: "demo-1",
+        title: "تحديثات إقليمية مستمرة في عدد من المناطق",
+        summary: "هذه بيانات احتياطية تظهر عند تعذر الوصول إلى الخادم.",
+        urgency: "medium",
+        source: "Fallback Feed",
+        time: new Date().toISOString(),
+        category: "regional",
+        url: "#",
+        image: ""
+      },
+      {
+        id: "demo-2",
+        title: "تحليل سياسي للتطورات الأخيرة",
+        summary: "يمكن استبدال هذا المحتوى بالبيانات الحقيقية من نقطة النهاية الخاصة بالأخبار.",
+        urgency: "low",
+        source: "Fallback Feed",
+        time: new Date().toISOString(),
+        category: "politics",
+        url: "#",
+        image: ""
+      }
+    ];
+  }
+  const result = {
+    news: finalNews,
+    updated: new Date().toLocaleString("ar-AE", { timeZone: "Asia/Dubai" }),
+    category,
+    source: errorCount > 0 ? "partial-fallback" : "ok"
+  };
+  CACHE.data = { ...result, category };
+  CACHE.time = Date.now();
+  res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=120");
+  return res.status(200).json(result);
 }
