@@ -1292,6 +1292,9 @@ export default function App() {
   const [alerts, setAlerts] = useState([]);
   const [tab, setTab] = useState("news");
   const [cat, setCat] = useState("all");
+   const [xNews,setXNews] = useState([]);
+useEffect(()=>{fetch("/api/xintel").then(r=>r.json()).then(d=>setXNews(d.news||[]))},[]);
+   
 
   const [news, setNews] = useState([]);
   const [videos, setVideos] = useState([]);
