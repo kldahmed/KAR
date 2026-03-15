@@ -40,9 +40,9 @@ const DEMO_NEWS = [
   {
     id: 1,
     title: "تحديثات إقليمية مستمرة في عدد من المناطق",
-    summary: "هذه بيانات تجريبية مؤقتة تظهر عندما لا تكون هناك بيانات قادمة من الـ API.",
+    summary: "هذه بيانات احتياطية تظهر عند تعذر الوصول إلى الخادم.",
     urgency: "medium",
-    source: "Demo Feed",
+    source: "Fallback Feed",
     time: new Date().toISOString(),
     category: "regional"
   },
@@ -51,7 +51,7 @@ const DEMO_NEWS = [
     title: "تحليل سياسي للتطورات الأخيرة",
     summary: "يمكن استبدال هذا المحتوى بالبيانات الحقيقية من نقطة النهاية الخاصة بالأخبار.",
     urgency: "low",
-    source: "Demo Feed",
+    source: "Fallback Feed",
     time: new Date().toISOString(),
     category: "politics"
   }
@@ -61,7 +61,8 @@ const FALLBACK_LIVE_CHANNEL = {
   id: "fallback-live",
   name: "Live Channel",
   flag: "🌍",
-  youtubeId: ""
+  youtubeId: "",
+  title: ""
 };
 
 /* =========================
@@ -197,9 +198,14 @@ function AlertBanner({ alerts, onClose }) {
             </div>
           ))}
         </div>
+
         <button
           onClick={onClose}
-          style={buttonStyle({ color: "#ff8a80", borderColor: "#ff8a8030", background: "rgba(255,138,128,.07)" })}
+          style={buttonStyle({
+            color: "#ff8a80",
+            borderColor: "#ff8a8030",
+            background: "rgba(255,138,128,.07)"
+          })}
         >
           إغلاق
         </button>
@@ -317,74 +323,6 @@ function VideoCard({ item }) {
   );
 }
 
-function TensionMeter({ data }) {
-  const last = data[data.length - 1]?.value ?? 0;
-
-  return (
-    <div
-      style={{
-        background: "linear-gradient(180deg,#0a0906,#080808)",
-        border: "1px solid rgba(255,255,255,.06)",
-        borderRadius: "16px",
-        padding: "16px",
-        marginBottom: "16px"
-      }}
-    >
-      <div style={{ color: goldL, fontWeight: 800, fontSize: "14px", marginBottom: "12px" }}>مؤشر التوتر</div>
-
-      <div
-        style={{
-          height: "12px",
-          background: "#121212",
-          borderRadius: "999px",
-          overflow: "hidden",
-          border: "1px solid rgba(255,255,255,.04)"
-        }}
-      >
-        <div
-          style={{
-            width: `${Math.max(0, Math.min(100, last))}%`,
-            height: "100%",
-            background: "linear-gradient(90deg,#27ae60,#f39c12,#e74c3c)"
-          }}
-        />
-      </div>
-
-      <div style={{ color: "#888", fontSize: "12px", marginTop: "8px" }}>المستوى الحالي: {last}%</div>
-    </div>
-  );
-}
-
-function ConflictMap() {
-  return (
-    <div
-      style={{
-        background: "linear-gradient(180deg,#0a0906,#080808)",
-        border: "1px solid rgba(255,255,255,.06)",
-        borderRadius: "16px",
-        padding: "16px",
-        minHeight: "280px"
-      }}
-    >
-      <div style={{ color: goldL, fontWeight: 800, fontSize: "14px", marginBottom: "12px" }}>خريطة المتابعة</div>
-      <div
-        style={{
-          minHeight: "220px",
-          border: "1px dashed rgba(200,150,12,.25)",
-          borderRadius: "12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "#666",
-          fontSize: "13px"
-        }}
-      >
-        أضف هنا مكون الخريطة الحقيقي لاحقًا
-      </div>
-    </div>
-  );
-}
-
 function StatsPanel({ news, tensionData }) {
   const high = news.filter((n) => n.urgency === "high").length;
   const medium = news.filter((n) => n.urgency === "medium").length;
@@ -441,22 +379,6 @@ function ChannelCard({ ch, active, onSelect }) {
         {ch.title ? ch.title : "YouTube Live"}
       </div>
     </button>
-  );
-}
-
-function XFeed() {
-  return (
-    <div
-      style={{
-        background: "linear-gradient(180deg,#0a0906,#080808)",
-        border: "1px solid rgba(255,255,255,.06)",
-        borderRadius: "16px",
-        padding: "18px",
-        color: "#777"
-      }}
-    >
-      X Feed placeholder
-    </div>
   );
 }
 
@@ -522,7 +444,6 @@ export default function App() {
         return acc + 4;
       }, 0)
     );
-
     return [{ label: "now", value }];
   }, [news]);
 
@@ -554,7 +475,7 @@ export default function App() {
     } catch {
       setErrN(getUserErrorMessage());
       setNews([]);
-      setAlerts((prev) => [...prev, "تعذر تحميل الأخبار من الخادم"]);
+      setAlerts((prev) => (prev.includes("تعذر تحميل الأخبار من الخادم") ? prev : [...prev, "تعذر تحميل الأخبار من الخادم"]));
     } finally {
       setLoadN(false);
     }
@@ -582,56 +503,56 @@ export default function App() {
     } catch {
       setErrV(getUserErrorMessage());
       setVideos([]);
-      setAlerts((prev) => [...prev, "تعذر تحميل الفيديوهات من الخادم"]);
+      setAlerts((prev) => (prev.includes("تعذر تحميل الفيديوهات من الخادم") ? prev : [...prev, "تعذر تحميل الفيديوهات من الخادم"]));
     } finally {
       setLoadV(false);
     }
   }
 
   async function fetchLiveChannels() {
-  try {
-    setLoadL(true);
-    setErrL("");
+    try {
+      setLoadL(true);
+      setErrL("");
 
-    let res = await fetch("/api/live", {
-      method: "GET",
-      headers: { Accept: "application/json" }
-    });
-
-    if (!res.ok) {
-      res = await fetch("/api/livebackup", {
+      let res = await fetch("/api/live", {
         method: "GET",
         headers: { Accept: "application/json" }
       });
-    }
 
-    if (!res.ok) {
-      throw new Error("LIVE_API_FAILED");
-    }
+      if (!res.ok) {
+        res = await fetch("/api/livebackup", {
+          method: "GET",
+          headers: { Accept: "application/json" }
+        });
+      }
 
-    const data = await res.json();
-    const channels = safeArray(data?.channels)
-      .map(normalizeLiveChannel)
-      .filter((ch) => ch.youtubeId);
+      if (!res.ok) {
+        throw new Error("LIVE_API_FAILED");
+      }
 
-    setLiveChannels(channels);
+      const data = await res.json();
+      const channels = safeArray(data?.channels)
+        .map(normalizeLiveChannel)
+        .filter((ch) => ch.youtubeId);
 
-    if (channels.length > 0) {
-      setLiveCh((prev) => {
-        const existing = channels.find((ch) => ch.id === prev?.id);
-        return existing || channels[0];
-      });
-    } else {
+      setLiveChannels(channels);
+
+      if (channels.length > 0) {
+        setLiveCh((prev) => {
+          const existing = channels.find((ch) => ch.id === prev?.id);
+          return existing || channels[0];
+        });
+      } else {
+        setLiveCh(FALLBACK_LIVE_CHANNEL);
+      }
+    } catch {
+      setErrL("تعذر تحميل البث المباشر");
+      setLiveChannels([]);
       setLiveCh(FALLBACK_LIVE_CHANNEL);
+    } finally {
+      setLoadL(false);
     }
-  } catch {
-    setErrL("تعذر تحميل البث المباشر");
-    setLiveChannels([]);
-    setLiveCh(FALLBACK_LIVE_CHANNEL);
-  } finally {
-    setLoadL(false);
   }
-}
 
   function changeCat(categoryId) {
     setCat(categoryId);
