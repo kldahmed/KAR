@@ -802,7 +802,7 @@ setAlerts(buildSmartAlerts(safeNewsData));
 
     const channels = safeArray(data?.channels)
       .map(normalizeLiveChannel)
-      .filter((ch) => ch.youtubeId);
+   .filter((ch) => ch.youtubeId || ch.externalUrl);
 
     setLiveChannels(channels);
 
