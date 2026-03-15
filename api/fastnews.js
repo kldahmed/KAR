@@ -1,60 +1,240 @@
+function decodeHtml(str = "") {
+  return String(str || "")
+    .replace(/<!\[CDATA\[|\]\]>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
+}
+
+function stripHtml(str = "") {
+  return decodeHtml(str)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractTag(block, tag) {
+  const re = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "i");
+  const m = String(block || "").match(re);
+  return m ? m[1].trim() : "";
+}
+
+function extractImage(block = "") {
+  const fromMedia =
+    block.match(/<media:content[^>]+url="([^"]+)"/i) ||
+    block.match(/<media:thumbnail[^>]+url="([^"]+)"/i);
+
+  if (fromMedia?.[1]) return decodeHtml(fromMedia[1]);
+
+  const fromImg =
+    block.match(/<img[^>]+src="([^"]+)"/i) ||
+    block.match(/<img[^>]+src='([^']+)'/i);
+
+  if (fromImg?.[1]) return decodeHtml(fromImg[1]);
+
+  return "";
+}
+
+function looksUseful(title = "", summary = "") {
+  const text = `${title} ${summary}`.trim();
+  if (!text || text.length < 12) return false;
+
+  const blocked =
+    /podcast|newsletter|opinion|video:|listen to|watch live|advertisement|sponsored/i;
+
+  return !blocked.test(text);
+}
+
+function scoreUrgency(text = "") {
+  const t = String(text || "").toLowerCase();
+
+  if (
+    /عاجل|هجوم|قصف|غارة|صاروخ|صواريخ|انفجار|اشتباكات|استهداف|ضربة|ضربات|اعتراض|طائرة مسيرة|مسيرة|توتر|هجمات|drone|missile|strike|raid|attack|intercept|explosion|war/i.test(
+      t
+    )
+  ) {
+    return "high";
+  }
+
+  if (
+    /سياسة|حكومة|وزير|رئيس|اجتماع|بيان|تحذير|تحليل|اقتصاد|نفط|طاقة|أسواق|موانئ|shipping|oil|market|diplomatic/i.test(
+      t
+    )
+  ) {
+    return "medium";
+  }
+
+  return "low";
+}
+
+function normalizeCategory(title = "", summary = "", source = "") {
+  const hay = `${title} ${summary} ${source}`.toLowerCase();
+
+  if (/economy|economics|business|oil|gas|energy|market|نفط|اقتصاد|طاقة|أسواق|شحن|موانئ/i.test(hay)) {
+    return "economy";
+  }
+
+  if (/politics|government|president|minister|diplomatic|بيان|سياسة|حكومة|وزير|رئيس|دبلوماسية/i.test(hay)) {
+    return "politics";
+  }
+
+  if (/attack|strike|raid|drone|missile|war|army|military|قصف|غارة|هجوم|صاروخ|مسيرة|عسكري|اشتباكات/i.test(hay)) {
+    return "military";
+  }
+
+  return "regional";
+}
+
+function cleanSourceName(src = "") {
+  const s = String(src || "").toLowerCase();
+
+  if (/nytimes/.test(s)) return "New York Times";
+  if (/bbc/.test(s)) return "BBC";
+  if (/aljazeera/.test(s)) return "Al Jazeera";
+  if (/reuters/.test(s)) return "Reuters";
+
+  return src || "Fast Feed";
+}
+
+function dedupeArticles(items) {
+  const seen = new Map();
+
+  for (const item of items) {
+    const key = stripHtml(item.title || "")
+      .toLowerCase()
+      .replace(/[^\u0600-\u06FFa-z0-9\s]/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 160);
+
+    if (!key) continue;
+
+    const prev = seen.get(key);
+    if (!prev) {
+      seen.set(key, item);
+      continue;
+    }
+
+    const prevTime = new Date(prev.time).getTime() || 0;
+    const nextTime = new Date(item.time).getTime() || 0;
+
+    if (nextTime > prevTime) {
+      seen.set(key, item);
+    }
+  }
+
+  return Array.from(seen.values());
+}
+
+function urgencyWeight(level) {
+  if (level === "high") return 3;
+  if (level === "medium") return 2;
+  return 1;
+}
+
+function sourceWeight(source = "") {
+  const s = String(source || "").toLowerCase();
+
+  if (/reuters/.test(s)) return 10;
+  if (/bbc/.test(s)) return 9;
+  if (/new york times|nytimes/.test(s)) return 8;
+  if (/al jazeera|aljazeera/.test(s)) return 8;
+
+  return 5;
+}
+
+function sortArticles(items) {
+  return [...items].sort((a, b) => {
+    const urgencyDiff = urgencyWeight(b.urgency) - urgencyWeight(a.urgency);
+    if (urgencyDiff !== 0) return urgencyDiff;
+
+    const sourceDiff = sourceWeight(b.source) - sourceWeight(a.source);
+    if (sourceDiff !== 0) return sourceDiff;
+
+    const tb = new Date(b.time).getTime() || 0;
+    const ta = new Date(a.time).getTime() || 0;
+    return tb - ta;
+  });
+}
+
+function parseRssItems(xml = "", sourceUrl = "") {
+  const items = String(xml || "").match(/<item>([\s\S]*?)<\/item>/gi) || [];
+
+  return items.map((item, index) => {
+    const rawTitle = extractTag(item, "title");
+    const title = stripHtml(rawTitle) || "بدون عنوان";
+
+    const rawDescription = extractTag(item, "description");
+    const summary = stripHtml(rawDescription) || "خبر عالمي مباشر";
+
+    const link = extractTag(item, "link") || "#";
+    const pubDate = extractTag(item, "pubDate") || new Date().toISOString();
+    const image = extractImage(item);
+    const source = cleanSourceName(sourceUrl);
+    const urgency = scoreUrgency(`${title} ${summary}`);
+    const category = normalizeCategory(title, summary, source);
+
+    return {
+      id: `${sourceUrl}-${index}-${Date.now()}`,
+      title,
+      summary,
+      source,
+      time: pubDate,
+      urgency,
+      category,
+      url: link,
+      image
+    };
+  });
+}
+
 export default async function handler(req, res) {
+  try {
+    const sources = [
+      "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
+      "https://feeds.bbci.co.uk/news/world/rss.xml",
+      "https://www.aljazeera.com/xml/rss/all.xml",
+      "https://www.reutersagency.com/feed/?best-topics=world&post_type=best"
+    ];
 
-try {
+    let articles = [];
 
-const sources = [
+    for (const src of sources) {
+      try {
+        const r = await fetch(src, {
+          headers: {
+            "User-Agent": "Mozilla/5.0",
+            Accept: "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8"
+          }
+        });
 
-"https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
-"https://feeds.bbci.co.uk/news/world/rss.xml",
-"https://www.aljazeera.com/xml/rss/all.xml",
-"https://www.reutersagency.com/feed/?best-topics=world&post_type=best"
-];
+        if (!r.ok) continue;
 
-let articles = [];
+        const text = await r.text();
+        const parsed = parseRssItems(text, src);
 
-for (const src of sources) {
+        articles.push(...parsed.slice(0, 8));
+      } catch {}
+    }
 
-try {
+    articles = articles.filter((item) => looksUseful(item.title, item.summary));
+    articles = dedupeArticles(articles);
+    articles = sortArticles(articles).slice(0, 24);
 
-const r = await fetch(src);
-const text = await r.text();
+    res.setHeader("Cache-Control", "s-maxage=180, stale-while-revalidate=360");
 
-const items = text.match(/<item>(.*?)<\/item>/gs) || [];
-
-items.slice(0,5).forEach((it,i)=>{
-
-const title =
-(it.match(/<title>(.*?)<\/title>/)?.[1] || "")
-.replace(/<!\[CDATA\[|\]\]>/g,"");
-
-const link =
-(it.match(/<link>(.*?)<\/link>/)?.[1] || "");
-
-articles.push({
-
-id: src+"-"+i,
-title,
-summary: "خبر عالمي مباشر",
-source: src,
-time: new Date().toISOString(),
-urgency: "medium",
-category: "regional",
-link
-
-});
-
-});
-
-}catch{}
-
-}
-
-res.status(200).json({news:articles.slice(0,20)});
-
-} catch (e) {
-
-res.status(500).json({news:[]});
-
-}
-
+    return res.status(200).json({
+      news: articles,
+      updated: new Date().toLocaleString("ar-AE", { timeZone: "Asia/Dubai" }),
+      live: true,
+      source: "fast-global-feed"
+    });
+  } catch (e) {
+    return res.status(500).json({
+      news: []
+    });
+  }
 }
