@@ -1831,74 +1831,59 @@ export default function App() {
   }, [news]);
 
   async function fetchNews(category = "all", force = false) {
-    try {
-      setLoadN(true);
-      setErrN("");
+  try {
+    setLoadN(true);
+    setErrN("");
 
-let apiCategory = category;
-
-if (["sports","tourism","markets"].includes(category)) {
-  apiCategory = "all";
-}
-
-const url = `/api/news?category=${encodeURIComponent(apiCategory)}${force ? "&force=1" : ""}`;
-      const res = await fetch(url, {
-        method: "GET",
-        headers: { Accept: "application/json" }
-      });
-
-      if (!res.ok) {
-        throw new Error("NEWS_API_FAILED");
-      }
-
-      const data = await res.json();
-
-      let safeNewsData = safeArray(data?.news).map(normalizeNewsItem);
-
-      try {
-        const xintel = await fetch("/api/xintel");
-        const xdata = await xintel.json();
-        if (xdata?.news) {
-          safeNewsData.push(...xdata.news.map(normalizeNewsItem));
-        }
-      } catch {}
-
-      try {
-        const intel = await fetch("/api/intelnews");
-        const intelData = await intel.json();
-        if (intelData?.news) {
-          safeNewsData.push(...intelData.news.map(normalizeNewsItem));
-        }
-      } catch {}
-
-      try {
-        const live = await fetch("/api/liveevents");
-        const liveData = await live.json();
-        if (liveData?.events) {
-          safeNewsData.push(...liveData.events.map(normalizeNewsItem));
-        }
-      } catch {}
-
-      try {
-        const fast = await fetch("/api/fastnews");
-        const fastData = await fast.json();
-        if (fastData?.news) {
-          safeNewsData.push(...fastData.news.map(normalizeNewsItem));
-        }
-      } catch {}
-
-      setNews(safeNewsData);
-      setUpdated(safeText(data?.updated, formatDisplayTime(new Date())));
-    } catch {
-      setErrN(getUserErrorMessage());
-      setNews([]);
-      setAlerts((prev) =>
-        prev.includes("تعذر تحميل الأخبار من الخادم") ? prev : [...prev, "تعذر تحميل الأخبار من الخادم"]
-      );
-    } finally {
-      setLoadN(false);
+    // منع التصنيفات غير المدعومة
+    let apiCategory = category;
+    if (["sports","tourism","markets"].includes(category)) {
+      apiCategory = "all";
     }
+
+    const url = `/api/news?category=${encodeURIComponent(apiCategory)}${force ? "&force=1" : ""}`;
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" }
+    });
+
+    if (!res.ok) throw new Error("NEWS_API_FAILED");
+
+    const data = await res.json();
+
+    // تنظيف الأخبار
+    const safeNewsData = (data?.news || []).map(normalizeNewsItem);
+
+    // تحديد حد أقصى للأخبار
+    const limitedNews = safeNewsData.slice(0, 200);
+
+    setNews(limitedNews);
+
+    setUpdated(
+      safeText(
+        data?.updated,
+        formatDisplayTime(new Date())
+      )
+    );
+
+  } catch (err) {
+
+    console.error("NEWS ERROR", err);
+
+    setErrN(getUserErrorMessage());
+    setNews([]);
+
+    setAlerts((prev) =>
+      prev.includes("تعذر تحميل الأخبار من الخادم")
+        ? prev
+        : [...prev, "تعذر تحميل الأخبار من الخادم"]
+    );
+
+  } finally {
+    setLoadN(false);
   }
+}
 
   async function fetchRadar() {
     try {
