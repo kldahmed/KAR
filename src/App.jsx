@@ -1403,7 +1403,20 @@ async function fetchNews(category = "all", force = false) {
     setLoadN(false);
   }
 }
+const [radarPoints, setRadarPoints] = useState([]);
+   async function fetchRadar() {
+  try {
+    const res = await fetch("/api/radar", {
+      method: "GET",
+      headers: { Accept: "application/json" }
+    });
 
+    const data = await res.json();
+    setRadarPoints(Array.isArray(data?.aircraft) ? data.aircraft : []);
+  } catch {
+    setRadarPoints([]);
+  }
+}
   async function fetchVideos(category = "all", force = false) {
     try {
       setLoadV(true);
