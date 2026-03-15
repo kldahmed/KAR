@@ -2176,11 +2176,11 @@ const safeNewsList = news.filter((n) => {
                     letterSpacing: "2px"
                   }}
                 >
-                  WAR UPDATE
+                GLOBAL NEWS
                 </span>
                 <span style={{ color: "#444", fontSize: "12px" }}>by</span>
                 <span style={{ color: gold, fontSize: "17px", fontWeight: "900", letterSpacing: "4px" }}>
-                  K.A.R
+                  
                 </span>
                 <span style={{ fontSize: "13px" }}>🇦🇪</span>
               </div>
@@ -2190,7 +2190,7 @@ const safeNewsList = news.filter((n) => {
               </div>
 
               <div style={{ color: "#252525", fontSize: "9px", letterSpacing: "2px" }}>
-                MIDDLE EAST INTELLIGENCE DASHBOARD
+                GLOBAL NEWS INTELLIGENCE DASHBOARD
               </div>
             </div>
           </div>
