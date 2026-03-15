@@ -1,3 +1,104 @@
+function decodeHtml(str = "") {
+  return str
+    .replace(/<!\[CDATA\[|\]\]>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+function stripHtml(str = "") {
+  return decodeHtml(str).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function extractTag(block, tag) {
+  const re = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "i");
+  const m = block.match(re);
+  return m ? m[1].trim() : "";
+}
+
+function parseRss(xml) {
+  const items = xml.match(/<item>([\s\S]*?)<\/item>/gi) || [];
+  return items.map((item, index) => {
+    const title = stripHtml(extractTag(item, "title"));
+    const link = extractTag(item, "link");
+    const pubDate = extractTag(item, "pubDate");
+    const description = stripHtml(extractTag(item, "description"));
+
+    let source = "Google News";
+    const sourceMatch = title.match(/\s*-\s*([^-\n]+)$/);
+    const cleanTitle = sourceMatch ? title.replace(/\s*-\s*([^-\n]+)$/, "").trim() : title;
+    if (sourceMatch) source = sourceMatch[1].trim();
+
+    return {
+      id: `${Date.now()}-${index}`,
+      title: cleanTitle || "بدون عنوان",
+      summary: description || "لا يوجد ملخص متاح.",
+      urgency: "medium",
+      source,
+      time: pubDate || new Date().toISOString(),
+      url: link
+    };
+  });
+}
+
+function scoreUrgency(text = "") {
+  const t = text.toLowerCase();
+  if (
+    /breaking|urgent|attack|strike|killed|missile|drone|explosion|عاجل|هجوم|قصف|صاروخ|انفجار|اشتباك/.test(t)
+  ) {
+    return "high";
+  }
+  if (
+    /talks|statement|meeting|warning|analysis|تصريحات|اجتماع|تحذير|بيان|تحليل/.test(t)
+  ) {
+    return "medium";
+  }
+  return "low";
+}
+
+function categoryQuery(category) {
+  switch (category) {
+    case "regional":
+      return "Middle East OR Gulf OR UAE OR Saudi OR Iran OR Iraq";
+    case "politics":
+      return "Middle East politics OR government OR diplomacy OR statement";
+    case "military":
+      return "Middle East military OR missile OR drone OR airstrike OR conflict";
+    case "economy":
+      return "Middle East economy OR oil OR shipping OR markets";
+    default:
+      return "Middle East";
+  }
+}
+
+async function fetchGoogleNews(category) {
+  const q = encodeURIComponent(`${categoryQuery(category)} when:12h`);
+  const url = `https://news.google.com/rss/search?q=${q}&hl=ar&gl=AE&ceid=AE:ar`;
+
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0"
+    }
+  });
+
+  if (!res.ok) {
+    throw new Error(`RSS fetch failed: ${res.status}`);
+  }
+
+  const xml = await res.text();
+  const parsed = parseRss(xml);
+
+  return parsed
+    .map((item) => ({
+      ...item,
+      urgency: scoreUrgency(`${item.title} ${item.summary}`),
+      category
+    }))
+    .slice(0, 12);
+}
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -6,68 +107,19 @@ export default async function handler(req, res) {
   try {
     const { category = "all" } = req.query;
 
-    const allNews = [
-      {
-        id: 1,
-        title: "تصاعد المتابعة الإعلامية للتطورات الإقليمية",
-        summary: "تشهد الساحة الإقليمية متابعة مكثفة مع صدور تقارير وتحليلات جديدة من عدة مصادر.",
-        urgency: "high",
-        source: "News Desk",
-        time: new Date().toISOString(),
-        category: "regional"
-      },
-      {
-        id: 2,
-        title: "تصريحات سياسية جديدة حول الوضع الراهن",
-        summary: "مسؤولون أدلوا بتصريحات جديدة بشأن آخر التطورات مع توقعات باستمرار المتابعة خلال الساعات المقبلة.",
-        urgency: "medium",
-        source: "Political Monitor",
-        time: new Date().toISOString(),
-        category: "politics"
-      },
-      {
-        id: 3,
-        title: "قراءة عسكرية للمشهد الميداني",
-        summary: "تحليلات جديدة تتناول التحركات والتقديرات المرتبطة بالمشهد العسكري الحالي.",
-        urgency: "medium",
-        source: "Defense Watch",
-        time: new Date().toISOString(),
-        category: "military"
-      },
-      {
-        id: 4,
-        title: "تأثيرات اقتصادية مرتبطة بالتطورات الأخيرة",
-        summary: "الأسواق تتابع المستجدات وسط تقييمات مختلفة للتأثيرات الاقتصادية المحتملة.",
-        urgency: "low",
-        source: "Economic Brief",
-        time: new Date().toISOString(),
-        category: "economy"
-      },
-      {
-        id: 5,
-        title: "تحديث شامل لأبرز المستجدات",
-        summary: "ملخص عام لأهم الأخبار والتطورات المتداولة خلال اليوم.",
-        urgency: "high",
-        source: "Live Updates",
-        time: new Date().toISOString(),
-        category: "all"
-      }
-    ];
+    const news = await fetchGoogleNews(category);
 
-    const filteredNews =
-      category === "all"
-        ? allNews
-        : allNews.filter(
-            (item) => item.category === category || item.category === "all"
-          );
+    res.setHeader("Cache-Control", "s-maxage=120, stale-while-revalidate=300");
 
     return res.status(200).json({
-      news: filteredNews,
-      updated: new Date().toLocaleString("ar-AE", {
-        timeZone: "Asia/Dubai"
-      })
+      news,
+      updated: new Date().toLocaleString("ar-AE", { timeZone: "Asia/Dubai" }),
+      live: true,
+      source: "Google News RSS"
     });
   } catch (error) {
-    return res.status(500).json({ error: "Failed to fetch news" });
+    return res.status(500).json({
+      error: "Failed to fetch live news"
+    });
   }
 }
