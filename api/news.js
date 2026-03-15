@@ -31,11 +31,22 @@ function extractTag(block, tag) {
 }
 
 function extractImageFromDescription(str = "") {
-  const match =
+
+  if(!str) return "";
+
+  // صورة داخل img
+  let match =
     str.match(/<img[^>]+src="([^"]+)"/i) ||
     str.match(/<img[^>]+src='([^']+)'/i);
 
-  return match?.[1] || "";
+  if (match?.[1]) return match[1];
+
+  // صور Google News
+  match = str.match(/https:\/\/lh3\.googleusercontent\.com\/[^\s"'<>]+/i);
+
+  if (match?.[0]) return match[0];
+
+  return "";
 }
 
 function scoreUrgency(text = "") {
