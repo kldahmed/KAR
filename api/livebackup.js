@@ -1,37 +1,28 @@
-export default function handler(req, res) {
+export default async function handler(req, res) {
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
   const channels = [
-
     {
-      id: "aj",
+      id: "aj-en",
       name: "Al Jazeera English",
       flag: "🌍",
-      youtubeId: "gCNeDWCI0vo"
+      youtubeId: "gCNeDWCI0vo",
+      title: "Al Jazeera English Live"
     },
-
     {
-      id: "fr24",
-      name: "France 24",
+      id: "fr24-en",
+      name: "France 24 English",
       flag: "🇫🇷",
-      youtubeId: "Ap-UM1O9RBU"
-    },
-
-    {
-      id: "dw",
-      name: "DW News",
-      flag: "🇩🇪",
-      youtubeId: "Niq9D7p4Qzw"
-    },
-
-    {
-      id: "trt",
-      name: "TRT World",
-      flag: "🇹🇷",
-      youtubeId: "w-Ma8oQLmSM"
+      youtubeId: "Ap-UM1O9RBU",
+      title: "France 24 English Live"
     }
-
   ];
 
-  res.status(200).json({ channels });
-
+  return res.status(200).json({
+    channels,
+    live: false,
+    source: "Backup channels"
+  });
 }
