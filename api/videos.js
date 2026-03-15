@@ -54,11 +54,13 @@ export default async function handler(req, res) {
     const videos =
       category === "all"
         ? allVideos
-        : allVideos.filter(
-            (item) => item.category === category || item.category === "all"
-          );
+        : allVideos.filter((item) => item.category === category || item.category === "all");
 
-    return res.status(200).json({ videos, live: false, source: "Static YouTube channels" });
+    return res.status(200).json({
+      videos,
+      live: false,
+      source: "Static YouTube channels"
+    });
   } catch (error) {
     return res.status(500).json({ error: "Failed to fetch videos" });
   }
