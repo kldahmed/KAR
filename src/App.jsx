@@ -1331,9 +1331,9 @@ useEffect(()=>{fetch("/api/xintel").then(r=>r.json()).then(d=>setXNews(d.news||[
   }, [news]);
 
   const ticker = useMemo(() => {
-    const source = news.length ? news : DEMO_NEWS;
-    return source.map((n) => n.title).slice(0, 5).join("   •   ");
-  }, [news]);
+  const source = news.length ? news : DEMO_NEWS;
+  return source.map((n) => n.title).slice(0, 20).join("   •   ");
+}, [news]);
 async function fetchNews(category = "all", force = false) {
   try {
     setLoadN(true);
