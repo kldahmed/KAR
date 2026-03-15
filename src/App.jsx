@@ -517,8 +517,287 @@ function StatsPanel({ news, tensionData }) {
 /* =========================
    Styling Helper
 ========================= */
+function StatsPanel({ news, tensionData }) {
+  const now = Date.now();
 
+  const last6hItems = news.filter((n) => {
+    const t = new Date(n.time).getTime();
+    return Number.isFinite(t) && now - t < 6 * 60 * 60 * 1000;
+  });
 
+  const todayItems = news.filter((n) => {
+    const t = new Date(n.time).getTime();
+    return Number.isFinite(t) && now - t < 24 * 60 * 60 * 1000;
+  });
+
+  const last6h = last6hItems.length;
+  const today = todayItems.length;
+
+  const high = news.filter((n) => n.urgency === "high").length;
+  const medium = news.filter((n) => n.urgency === "medium").length;
+  const low = news.filter((n) => n.urgency === "low").length;
+
+  const tension = tensionData[tensionData.length - 1]?.value ?? 0;
+
+  const sources = {};
+  news.forEach((n) => {
+    const src = n?.source || "غير معروف";
+    sources[src] = (sources[src] || 0) + 1;
+  });
+
+  const topSource =
+    Object.entries(sources).sort((a, b) => b[1] - a[1])[0]?.[0] || "غير معروف";
+
+  const categories = {};
+  news.forEach((n) => {
+    const c = n?.category || "all";
+    categories[c] = (categories[c] || 0) + 1;
+  });
+
+  const topCategory =
+    Object.entries(categories).sort((a, b) => b[1] - a[1])[0]?.[0] || "all";
+
+  const categoryLabelMap = {
+    all: "الكل",
+    regional: "إقليمي",
+    politics: "سياسة",
+    military: "عسكري",
+    economy: "اقتصاد"
+  };
+
+  const regionPatterns = [
+    { label: "إيران", re: /إيران|ايران|iran/i },
+    { label: "إسرائيل", re: /إسرائيل|اسرائيل|israel/i },
+    { label: "غزة", re: /غزة|gaza/i },
+    { label: "لبنان", re: /لبنان|lebanon/i },
+    { label: "سوريا", re: /سوريا|syria/i },
+    { label: "العراق", re: /العراق|iraq/i },
+    { label: "اليمن", re: /اليمن|yemen/i },
+    { label: "الإمارات", re: /الإمارات|الامارات|uae|emirates/i },
+    { label: "السعودية", re: /السعودية|saudi/i },
+    { label: "قطر", re: /قطر|qatar/i }
+  ];
+
+  const regionCounts = {};
+  news.forEach((item) => {
+    const hay = `${item.title} ${item.summary}`;
+    regionPatterns.forEach((r) => {
+      if (r.re.test(hay)) {
+        regionCounts[r.label] = (regionCounts[r.label] || 0) + 1;
+      }
+    });
+  });
+
+  const topRegion =
+    Object.entries(regionCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "غير واضح";
+
+  const militaryKeywords =
+    /هجوم|قصف|غارة|صاروخ|صواريخ|مسيرة|طائرة مسيرة|اشتباكات|استهداف|ضربة|ضربات|اعتراض|منظومة دفاع|drone|missile|strike|raid|attack|intercept/i;
+
+  const militaryEscalation = Math.min(
+    100,
+    news.reduce((acc, item) => {
+      const hay = `${item.title} ${item.summary}`;
+      return acc + (militaryKeywords.test(hay) ? 18 : 0);
+    }, 0)
+  );
+
+  const newsVelocity = Number((last6h / 6).toFixed(1));
+
+  const cards = [
+    { label: "سرعة الأخبار/ساعة", value: newsVelocity, accent: "#00c2ff" },
+    { label: "أخبار آخر 6 ساعات", value: last6h, accent: "#e67e22" },
+    { label: "أخبار اليوم", value: today, accent: "#c8960c" },
+    { label: "عاجل", value: high, accent: "#e74c3c" },
+    { label: "متوسط", value: medium, accent: "#f39c12" },
+    { label: "منخفض", value: low, accent: "#27ae60" },
+    { label: "مؤشر التوتر", value: `${tension}%`, accent: "#3498db" },
+    { label: "التصعيد العسكري", value: `${militaryEscalation}%`, accent: "#ff5e57" },
+    { label: "أكثر منطقة ذكرًا", value: topRegion, accent: "#1abc9c" },
+    { label: "أكثر مصدر نشرًا", value: topSource, accent: "#9b59b6" },
+    { label: "أكثر تصنيف", value: categoryLabelMap[topCategory] || topCategory, accent: "#16a085" }
+  ];
+
+  const maxBar = Math.max(high, medium, low, 1);
+
+  const topSources = Object.entries(sources)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  return (
+    <div style={{ display: "grid", gap: "16px" }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+          gap: "12px"
+        }}
+      >
+        {cards.map((card) => (
+          <div
+            key={card.label}
+            style={{
+              background: "linear-gradient(180deg,#0a0906,#080808)",
+              border: "1px solid rgba(255,255,255,.06)",
+              borderRadius: "16px",
+              padding: "16px"
+            }}
+          >
+            <div style={{ color: "#777", fontSize: "12px", marginBottom: "8px" }}>
+              {card.label}
+            </div>
+            <div
+              style={{
+                color: card.accent,
+                fontSize:
+                  typeof card.value === "string" && String(card.value).length > 18 ? "18px" : "26px",
+                fontWeight: 900,
+                lineHeight: 1.4,
+                wordBreak: "break-word"
+              }}
+            >
+              {card.value}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))",
+          gap: "16px"
+        }}
+      >
+        <div
+          style={{
+            background: "linear-gradient(180deg,#0a0906,#080808)",
+            border: "1px solid rgba(255,255,255,.06)",
+            borderRadius: "16px",
+            padding: "16px"
+          }}
+        >
+          <div style={{ color: goldL, fontWeight: 800, fontSize: "14px", marginBottom: "14px" }}>
+            توزيع شدة الأخبار
+          </div>
+
+          <div style={{ display: "grid", gap: "12px" }}>
+            {[
+              { label: "عاجل", value: high, color: "#e74c3c" },
+              { label: "متوسط", value: medium, color: "#f39c12" },
+              { label: "منخفض", value: low, color: "#27ae60" }
+            ].map((row) => (
+              <div key={row.label}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "6px"
+                  }}
+                >
+                  <span style={{ color: row.color, fontSize: "12px", fontWeight: "700" }}>
+                    {row.label}
+                  </span>
+                  <span style={{ color: "#888", fontSize: "12px" }}>{row.value}</span>
+                </div>
+
+                <div
+                  style={{
+                    height: "10px",
+                    background: "#121212",
+                    borderRadius: "999px",
+                    overflow: "hidden",
+                    border: "1px solid rgba(255,255,255,.04)"
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${(row.value / maxBar) * 100}%`,
+                      height: "100%",
+                      background: row.color,
+                      borderRadius: "999px",
+                      transition: "width .3s ease"
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: "linear-gradient(180deg,#0a0906,#080808)",
+            border: "1px solid rgba(255,255,255,.06)",
+            borderRadius: "16px",
+            padding: "16px"
+          }}
+        >
+          <div style={{ color: goldL, fontWeight: 800, fontSize: "14px", marginBottom: "14px" }}>
+            المصادر الأكثر نشاطًا
+          </div>
+
+          <div style={{ display: "grid", gap: "10px" }}>
+            {topSources.length > 0 ? (
+              topSources.map(([name, count]) => (
+                <div
+                  key={name}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                    borderBottom: "1px solid rgba(255,255,255,.05)",
+                    paddingBottom: "8px"
+                  }}
+                >
+                  <span style={{ color: "#ddd", fontSize: "13px" }}>{name}</span>
+                  <span style={{ color: goldL, fontSize: "13px", fontWeight: "700" }}>{count}</span>
+                </div>
+              ))
+            ) : (
+              <div style={{ color: "#777", fontSize: "13px" }}>لا توجد بيانات كافية</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          background: "linear-gradient(180deg,#0a0906,#080808)",
+          border: "1px solid rgba(255,255,255,.06)",
+          borderRadius: "16px",
+          padding: "16px"
+        }}
+      >
+        <div style={{ color: goldL, fontWeight: 800, fontSize: "14px", marginBottom: "12px" }}>
+          ملخص استخباري سريع
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
+            gap: "10px"
+          }}
+        >
+          <div style={{ color: "#aaa", fontSize: "13px", lineHeight: 1.8 }}>
+            سرعة التدفق الحالية: <span style={{ color: "#fff" }}>{newsVelocity} خبر/ساعة</span>
+          </div>
+          <div style={{ color: "#aaa", fontSize: "13px", lineHeight: 1.8 }}>
+            أعلى نشاط جغرافي: <span style={{ color: "#fff" }}>{topRegion}</span>
+          </div>
+          <div style={{ color: "#aaa", fontSize: "13px", lineHeight: 1.8 }}>
+            أكثر مصدر نشاطًا: <span style={{ color: "#fff" }}>{topSource}</span>
+          </div>
+          <div style={{ color: "#aaa", fontSize: "13px", lineHeight: 1.8 }}>
+            مستوى التصعيد العسكري: <span style={{ color: "#fff" }}>{militaryEscalation}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 /* =========================
    Main App
 ========================= */
