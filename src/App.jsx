@@ -1463,7 +1463,7 @@ safeNewsData.push(...liveEvents);
   void fetchNews(cat, true);
   void fetchVideos(cat, true);
   void fetchLiveChannels();
-  setNextRefresh(60 * 1000);
+  setNextRefresh(30000);
 }
 
   useEffect(() => {
