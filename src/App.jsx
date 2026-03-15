@@ -2050,10 +2050,11 @@ export default function App() {
       style={{
         minHeight: "100vh",
         background: `radial-gradient(circle at top, ${bg2} 0%, ${bg1} 35%, ${bg0} 100%)`,
-color: text,
+        color: text,
         fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
       }}
-    <style>{`
+    >
+      <style>{`
   * { box-sizing: border-box; }
 
   html, body, #root {
