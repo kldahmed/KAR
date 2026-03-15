@@ -62,7 +62,13 @@ function categoryQuery(category) {
       return "الشرق الأوسط آخر الأخبار";
   }
 }
+function extractImageFromDescription(str = "") {
+  const match =
+    str.match(/<img[^>]+src="([^"]+)"/i) ||
+    str.match(/<img[^>]+src='([^']+)'/i);
 
+  return match ? decodeHtml(match[1]) : "";
+}
 function parseGoogleRss(xml, category) {
   const items = xml.match(/<item>([\s\S]*?)<\/item>/gi) || [];
 
@@ -70,7 +76,9 @@ function parseGoogleRss(xml, category) {
     const rawTitle = stripHtml(extractTag(item, "title"));
     const link = extractTag(item, "link");
     const pubDate = extractTag(item, "pubDate");
-    const description = stripHtml(extractTag(item, "description"));
+    const rawDescription = extractTag(item, "description");
+    const description = stripHtml(rawDescription);
+    const image = extractImageFromDescription(rawDescription);
 
     let source = "Google News";
     let title = rawTitle || "بدون عنوان";
@@ -89,7 +97,8 @@ function parseGoogleRss(xml, category) {
       time: pubDate || new Date().toISOString(),
       url: link,
       category,
-      urgency: scoreUrgency(`${title} ${description}`)
+      urgency: scoreUrgency(`${title} ${description}`),
+      image
     };
   });
 }
