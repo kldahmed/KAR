@@ -1337,6 +1337,14 @@ async function fetchNews(category = "all", force = false) {
     setErrN("");
 
     const url = `/api/news?category=${encodeURIComponent(category)}${force ? "&force=1" : ""}`;
+     try{
+
+const fast = await fetch("/api/fastnews");
+const fastData = await fast.json();
+
+safeNewsData.push(...(fastData.news || []));
+
+}catch{}
     const res = await fetch(url, {
       method: "GET",
       headers: { Accept: "application/json" }
