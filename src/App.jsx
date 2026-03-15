@@ -510,50 +510,55 @@ export default function App() {
   }
 
   async function fetchLiveChannels() {
-    try {
-      setLoadL(true);
-      setErrL("");
+  try {
+    setLoadL(true);
+    setErrL("");
 
-      let res = await fetch("/api/live", {
+    let data = null;
+
+    const primaryRes = await fetch("/api/live", {
+      method: "GET",
+      headers: { Accept: "application/json" }
+    });
+
+    if (primaryRes.ok) {
+      data = await primaryRes.json();
+    } else {
+      const backupRes = await fetch("/api/livebackup", {
         method: "GET",
         headers: { Accept: "application/json" }
       });
 
-      if (!res.ok) {
-        res = await fetch("/api/livebackup", {
-          method: "GET",
-          headers: { Accept: "application/json" }
-        });
+      if (!backupRes.ok) {
+        throw new Error("LIVE_AND_BACKUP_FAILED");
       }
 
-      if (!res.ok) {
-        throw new Error("LIVE_API_FAILED");
-      }
-
-      const data = await res.json();
-      const channels = safeArray(data?.channels)
-        .map(normalizeLiveChannel)
-        .filter((ch) => ch.youtubeId);
-
-      setLiveChannels(channels);
-
-      if (channels.length > 0) {
-        setLiveCh((prev) => {
-          const existing = channels.find((ch) => ch.id === prev?.id);
-          return existing || channels[0];
-        });
-      } else {
-        setLiveCh(FALLBACK_LIVE_CHANNEL);
-      }
-    } catch {
-      setErrL("تعذر تحميل البث المباشر");
-      setLiveChannels([]);
-      setLiveCh(FALLBACK_LIVE_CHANNEL);
-    } finally {
-      setLoadL(false);
+      data = await backupRes.json();
     }
-  }
 
+    const channels = safeArray(data?.channels)
+      .map(normalizeLiveChannel)
+      .filter((ch) => ch.youtubeId);
+
+    setLiveChannels(channels);
+
+    if (channels.length > 0) {
+      setLiveCh((prev) => {
+        const existing = channels.find((ch) => ch.id === prev?.id);
+        return existing || channels[0];
+      });
+    } else {
+      setLiveCh(FALLBACK_LIVE_CHANNEL);
+      setErrL("لا توجد قنوات مباشرة متاحة الآن");
+    }
+  } catch {
+    setErrL("تعذر تحميل البث المباشر");
+    setLiveChannels([]);
+    setLiveCh(FALLBACK_LIVE_CHANNEL);
+  } finally {
+    setLoadL(false);
+  }
+}
   function changeCat(categoryId) {
     setCat(categoryId);
   }
