@@ -426,7 +426,347 @@ const image = item.image;
     </a>
   );
 }
+function HeroSection({ news = [], tensionData = [] }) {
+  const lead = news[0] || null;
+  const secondary = news.slice(1, 4);
 
+  const highCount = news.filter((n) => n.urgency === "high").length;
+
+  const hotZones = [
+    { name: "إيران", re: /إيران|ايران|iran/i },
+    { name: "إسرائيل", re: /إسرائيل|اسرائيل|israel/i },
+    { name: "غزة", re: /غزة|gaza/i },
+    { name: "لبنان", re: /لبنان|lebanon/i },
+    { name: "سوريا", re: /سوريا|syria/i },
+    { name: "العراق", re: /العراق|iraq/i },
+    { name: "اليمن", re: /اليمن|yemen/i },
+    { name: "مضيق هرمز", re: /مضيق هرمز|هرمز|strait of hormuz/i }
+  ];
+
+  const zoneCounts = {};
+  news.forEach((item) => {
+    const hay = `${item.title} ${item.summary}`;
+    hotZones.forEach((z) => {
+      if (z.re.test(hay)) {
+        zoneCounts[z.name] = (zoneCounts[z.name] || 0) + 1;
+      }
+    });
+  });
+
+  const hottestZone =
+    Object.entries(zoneCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "غير واضح";
+
+  const risk = getWarRiskLevel(news, tensionData);
+
+  if (!lead) return null;
+
+  const leadUrgency = URGENCY_MAP[lead.urgency] || URGENCY_MAP.low;
+
+  return (
+    <div style={{ display: "grid", gap: "16px", marginBottom: "18px" }}>
+      <div
+        className="hero-grid"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1.6fr .9fr",
+          gap: "16px",
+          alignItems: "stretch"
+        }}
+      >
+        <a
+          href={lead.url || "#"}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            textDecoration: "none",
+            color: "inherit",
+            display: "block"
+          }}
+        >
+          <div
+            style={{
+              background: "linear-gradient(180deg,#0a0906,#080808)",
+              border: "1px solid rgba(255,255,255,.06)",
+              borderRadius: "18px",
+              overflow: "hidden",
+              minHeight: "100%"
+            }}
+          >
+            {lead.image && (
+              <div
+                style={{
+                  width: "100%",
+                  height: "320px",
+                  overflow: "hidden",
+                  background: "#0b0b0b",
+                  borderBottom: "1px solid rgba(255,255,255,.05)"
+                }}
+              >
+                <img
+                  src={lead.image}
+                  alt={lead.title}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block"
+                  }}
+                />
+              </div>
+            )}
+
+            <div style={{ padding: "18px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "8px",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  marginBottom: "12px"
+                }}
+              >
+                <span
+                  style={{
+                    background: `${leadUrgency.color}18`,
+                    border: `1px solid ${leadUrgency.color}55`,
+                    color: leadUrgency.color,
+                    borderRadius: "999px",
+                    padding: "5px 10px",
+                    fontSize: "11px",
+                    fontWeight: "800"
+                  }}
+                >
+                  {leadUrgency.label}
+                </span>
+
+                <span style={{ color: "#666", fontSize: "12px" }}>{lead.source}</span>
+
+                <span style={{ color: "#444", fontSize: "12px", marginRight: "auto" }}>
+                  {formatDisplayTime(lead.time)}
+                </span>
+              </div>
+
+              <div
+                style={{
+                  color: goldL,
+                  fontSize: "28px",
+                  fontWeight: "900",
+                  lineHeight: 1.45,
+                  marginBottom: "12px"
+                }}
+              >
+                {lead.title}
+              </div>
+
+              <div
+                style={{
+                  color: "#b8b8b8",
+                  fontSize: "15px",
+                  lineHeight: 1.9,
+                  marginBottom: "14px"
+                }}
+              >
+                {lead.summary}
+              </div>
+
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  background: "rgba(200,150,12,.12)",
+                  border: `1px solid ${gold}44`,
+                  color: goldL,
+                  borderRadius: "10px",
+                  padding: "8px 12px",
+                  fontSize: "13px",
+                  fontWeight: "800"
+                }}
+              >
+                قراءة التفاصيل ←
+              </div>
+            </div>
+          </div>
+        </a>
+
+        <div style={{ display: "grid", gap: "12px" }}>
+          <div
+            style={{
+              background: "linear-gradient(180deg,#0a0906,#080808)",
+              border: "1px solid rgba(255,255,255,.06)",
+              borderRadius: "16px",
+              padding: "16px"
+            }}
+          >
+            <div style={{ color: "#777", fontSize: "12px", marginBottom: "8px" }}>
+              مؤشر خطر الحرب
+            </div>
+            <div style={{ color: risk.color, fontSize: "34px", fontWeight: "900", marginBottom: "6px" }}>
+              {risk.score}%
+            </div>
+            <div style={{ color: risk.color, fontSize: "14px", fontWeight: "800" }}>
+              {risk.label}
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: "linear-gradient(180deg,#0a0906,#080808)",
+              border: "1px solid rgba(255,255,255,.06)",
+              borderRadius: "16px",
+              padding: "16px"
+            }}
+          >
+            <div style={{ color: "#777", fontSize: "12px", marginBottom: "8px" }}>
+              الأخبار العاجلة الآن
+            </div>
+            <div style={{ color: "#e74c3c", fontSize: "34px", fontWeight: "900", marginBottom: "6px" }}>
+              {highCount}
+            </div>
+            <div style={{ color: "#999", fontSize: "13px" }}>
+              أعلى القصص حساسية في التدفق الحالي
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: "linear-gradient(180deg,#0a0906,#080808)",
+              border: "1px solid rgba(255,255,255,.06)",
+              borderRadius: "16px",
+              padding: "16px"
+            }}
+          >
+            <div style={{ color: "#777", fontSize: "12px", marginBottom: "8px" }}>
+              أكثر منطقة سخونة
+            </div>
+            <div style={{ color: "#00c2ff", fontSize: "28px", fontWeight: "900", marginBottom: "6px" }}>
+              {hottestZone}
+            </div>
+            <div style={{ color: "#999", fontSize: "13px" }}>
+              بناءً على تكرار الذكر في الأخبار الحالية
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {secondary.length > 0 && (
+        <div
+          className="top-stories-grid"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3,minmax(0,1fr))",
+            gap: "14px"
+          }}
+        >
+          {secondary.map((item, i) => {
+            const urgency = URGENCY_MAP[item.urgency] || URGENCY_MAP.low;
+
+            return (
+              <a
+                key={`${item.id}-${i}`}
+                href={item.url || "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ textDecoration: "none", color: "inherit" }}
+              >
+                <div
+                  style={{
+                    background: "linear-gradient(180deg,#0a0906,#080808)",
+                    border: "1px solid rgba(255,255,255,.06)",
+                    borderRadius: "16px",
+                    overflow: "hidden",
+                    minHeight: "100%"
+                  }}
+                >
+                  {item.image && (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "150px",
+                        overflow: "hidden",
+                        background: "#0b0b0b",
+                        borderBottom: "1px solid rgba(255,255,255,.05)"
+                      }}
+                    >
+                      <img
+                        src={item.image}
+                        alt={item.title}
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          display: "block"
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  <div style={{ padding: "14px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "8px",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        marginBottom: "8px"
+                      }}
+                    >
+                      <span
+                        style={{
+                          color: urgency.color,
+                          fontSize: "11px",
+                          fontWeight: "800"
+                        }}
+                      >
+                        {urgency.label}
+                      </span>
+
+                      <span style={{ color: "#555", fontSize: "11px", marginRight: "auto" }}>
+                        {item.source}
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        color: goldL,
+                        fontSize: "16px",
+                        fontWeight: "800",
+                        lineHeight: 1.6,
+                        marginBottom: "8px"
+                      }}
+                    >
+                      {item.title}
+                    </div>
+
+                    <div
+                      style={{
+                        color: "#aaa",
+                        fontSize: "13px",
+                        lineHeight: 1.8
+                      }}
+                    >
+                      {item.summary.slice(0, 110)}...
+                    </div>
+                  </div>
+                </div>
+              </a>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 function VideoCard({ item }) {
   const safeId = isValidYouTubeId(item.youtubeId) ? item.youtubeId : "";
   const embedUrl = safeId ? `https://www.youtube-nocookie.com/embed/${safeId}` : "";
