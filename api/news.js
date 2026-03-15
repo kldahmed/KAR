@@ -1,5 +1,5 @@
-const ANALYZE_LIMIT = 12;
-const MAX_NEWS = 40;
+const ANALYZE_LIMIT = 5;
+const MAX_NEWS = 20;
 
 const EXTRA_RSS_SOURCES = [
   // عالمي
