@@ -1,173 +1,173 @@
 export default function handler(req, res) {
-
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   const channels = [
-
     {
       id: "aljazeera-ar",
       name: "Al Jazeera Arabic",
       flag: "🇶🇦",
-      youtubeId: "gCNeDWCI0vo",
-      title: "Al Jazeera Arabic Live"
+      mode: "external",
+      externalUrl: "https://www.youtube.com/channel/UCfiwzLy-8yKzIbsmZTzxDgw/live",
+      title: "البث الحي لقناة الجزيرة"
     },
-
+    {
+      id: "aljazeera-mubasher",
+      name: "Al Jazeera Mubasher",
+      flag: "🇶🇦",
+      mode: "external",
+      externalUrl: "https://www.youtube.com/channel/UCCv1Pd24oPErw5S7zJWltnQ/live",
+      title: "البث الحي لقناة الجزيرة مباشر"
+    },
     {
       id: "alarabiya",
       name: "Al Arabiya",
       flag: "🇸🇦",
-      youtubeId: "8d0xN7n4Vqk",
-      title: "Al Arabiya Live"
+      mode: "embed",
+      youtubeId: "n7eQejkXbnM",
+      title: "العربية مباشر"
     },
-
-    {
-      id: "sky-arabia",
-      name: "Sky News Arabia",
-      flag: "🇦🇪",
-      youtubeId: "rjM1lX1E4wA",
-      title: "Sky News Arabia Live"
-    },
-
-    {
-      id: "france24-ar",
-      name: "France 24 Arabic",
-      flag: "🇫🇷",
-      youtubeId: "h3MuIUNCCzI",
-      title: "France 24 Arabic Live"
-    },
-
-    {
-      id: "trt-ar",
-      name: "TRT عربي",
-      flag: "🇹🇷",
-      youtubeId: "8ZsTq8Hc6NQ",
-      title: "TRT Arabic Live"
-    },
-
-    {
-      id: "rt-ar",
-      name: "RT Arabic",
-      flag: "🇷🇺",
-      youtubeId: "4F8d8xq6VQk",
-      title: "RT Arabic Live"
-    },
-
     {
       id: "alhadath",
       name: "Al Hadath",
       flag: "🇸🇦",
-      youtubeId: "x8M3F5xkGv0",
-      title: "Al Hadath Live"
+      mode: "embed",
+      youtubeId: "xWXpl7azI8k",
+      title: "الحدث مباشر"
     },
-
     {
-      id: "asharq",
-      name: "Asharq News",
-      flag: "🇸🇦",
-      youtubeId: "y60wDzZt8yg",
-      title: "Asharq News Live"
+      id: "skynewsarabia",
+      name: "Sky News Arabia",
+      flag: "🇦🇪",
+      mode: "embed",
+      youtubeId: "U--OjmpjF5o",
+      title: "سكاي نيوز عربية مباشر"
     },
-
+    {
+      id: "france24-ar",
+      name: "France 24 Arabic",
+      flag: "🇫🇷",
+      mode: "embed",
+      youtubeId: "3ursYA8HMeo",
+      title: "فرانس 24 عربي مباشر"
+    },
+    {
+      id: "alaraby-news",
+      name: "Alaraby TV News",
+      flag: "🇶🇦",
+      mode: "embed",
+      youtubeId: "e2RgSa1Wt5o",
+      title: "العربي أخبار مباشر"
+    },
+    {
+      id: "bbc-arabic",
+      name: "BBC News Arabic",
+      flag: "🇬🇧",
+      mode: "embed",
+      youtubeId: "O1pGmVtj2Y8",
+      title: "BBC عربي مباشر"
+    },
+    {
+      id: "almayadeen",
+      name: "Al Mayadeen Live",
+      flag: "🇱🇧",
+      mode: "embed",
+      youtubeId: "jLlb3ryS-HM",
+      title: "الميادين مباشر"
+    },
     {
       id: "alghad",
       name: "Alghad TV",
       flag: "🇪🇬",
-      youtubeId: "JAzRXBI2nQg",
-      title: "Alghad TV Live"
+      mode: "embed",
+      youtubeId: "4N5jTVWB7vA",
+      title: "قناة الغد مباشر"
     },
-
     {
-      id: "almamlaka",
-      name: "AlMamlaka TV",
+      id: "trt-arabi",
+      name: "TRT عربي",
+      flag: "🇹🇷",
+      mode: "embed",
+      youtubeId: "0YBF1h2oFcM",
+      title: "TRT عربي مباشر"
+    },
+    {
+      id: "cnbc-arabia",
+      name: "CNBC Arabia",
+      flag: "🇦🇪",
+      mode: "embed",
+      youtubeId: "pQSTFsOtrH0",
+      title: "CNBC Arabia مباشر"
+    },
+    {
+      id: "syria-ikhbariyah",
+      name: "Alikhbariah Syria",
+      flag: "🇸🇾",
+      mode: "embed",
+      youtubeId: "h57b676emP8",
+      title: "الإخبارية السورية مباشر"
+    },
+    {
+      id: "jordan-tv",
+      name: "Jordan TV",
       flag: "🇯🇴",
-      youtubeId: "pH3D4F3rN2k",
-      title: "AlMamlaka Live"
+      mode: "embed",
+      youtubeId: "CclSsWpp2to",
+      title: "التلفزيون الأردني مباشر"
     },
-
     {
-      id: "alikhbariya",
-      name: "Al Ekhbariya",
+      id: "asharq-news",
+      name: "Asharq News",
       flag: "🇸🇦",
-      youtubeId: "S9b9k8d9S7Q",
-      title: "Al Ekhbariya Live"
+      mode: "embed",
+      youtubeId: "f6VpkfV7m4Y",
+      title: "الشرق للأخبار مباشر"
     },
-
     {
-      id: "dubai-tv",
-      name: "Dubai TV",
-      flag: "🇦🇪",
-      youtubeId: "F6GJ3x4vF6U",
-      title: "Dubai TV Live"
-    },
-
-    {
-      id: "abu-dhabi",
-      name: "Abu Dhabi TV",
-      flag: "🇦🇪",
-      youtubeId: "X7Y9N0K9F8M",
-      title: "Abu Dhabi TV Live"
-    },
-
-    {
-      id: "saudi-channel",
-      name: "Saudi TV",
+      id: "alarabiya-business",
+      name: "Al Arabiya Business",
       flag: "🇸🇦",
-      youtubeId: "O3DPVlynUM0",
-      title: "Saudi TV Live"
+      mode: "embed",
+      youtubeId: "rXnG4eiVVdM",
+      title: "العربية Business مباشر"
     },
-
     {
-      id: "aliraqiya",
-      name: "Al Iraqiya",
-      flag: "🇮🇶",
-      youtubeId: "VY9u3pE0o1E",
-      title: "Al Iraqiya Live"
+      id: "aljadeed",
+      name: "Al Jadeed",
+      flag: "🇱🇧",
+      mode: "embed",
+      youtubeId: "Pg2paSZ1byM",
+      title: "الجديد مباشر"
     },
-
     {
       id: "syria-tv",
       name: "Syria TV",
       flag: "🇸🇾",
-      youtubeId: "gqVYc7n5LkE",
-      title: "Syria TV Live"
+      mode: "embed",
+      youtubeId: "ZN0aK3V0ds0",
+      title: "تلفزيون سوريا مباشر"
     },
-
     {
-      id: "palestine-tv",
-      name: "Palestine TV",
-      flag: "🇵🇸",
-      youtubeId: "dXqP4Kf0s3g",
-      title: "Palestine TV Live"
+      id: "alrasheed",
+      name: "Al Rasheed",
+      flag: "🇮🇶",
+      mode: "external",
+      externalUrl: "https://www.youtube.com/alrasheedmedia/streams",
+      title: "الرشيد - صفحة البث"
     },
-
     {
-      id: "alalam",
-      name: "Al Alam",
-      flag: "🇮🇷",
-      youtubeId: "vR6e7p0y9uM",
-      title: "Al Alam Live"
-    },
-
-    {
-      id: "yemen-tv",
-      name: "Yemen TV",
-      flag: "🇾🇪",
-      youtubeId: "h8P0xR9vC8E",
-      title: "Yemen TV Live"
-    },
-
-    {
-      id: "libya-tv",
-      name: "Libya TV",
-      flag: "🇱🇾",
-      youtubeId: "k9V8pF1wM3E",
-      title: "Libya TV Live"
+      id: "dijlah",
+      name: "Dijlah TV",
+      flag: "🇮🇶",
+      mode: "external",
+      externalUrl: "https://www.youtube.com/%40DijlahTV",
+      title: "دجلة - صفحة القناة"
     }
-
   ];
 
-  return res.status(200).json({ channels });
-
+  return res.status(200).json({
+    channels,
+    source: "verified-arabic-live-mix"
+  });
 }
