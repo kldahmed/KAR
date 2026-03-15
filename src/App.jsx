@@ -1048,18 +1048,7 @@ function ConflictMiniMap({ news, radarPoints = [] }) {
       [26.5667, 56.25]
     ]
   ];
-<style>
-{`
-@keyframes radarSpin {
-  0% {
-    transform: translate(-50%,-50%) rotate(0deg);
-  }
-  100% {
-    transform: translate(-50%,-50%) rotate(360deg);
-  }
-}
-`}
-</style>
+
   return (
     <div
       style={{
@@ -1069,34 +1058,47 @@ function ConflictMiniMap({ news, radarPoints = [] }) {
         padding: "16px"
       }}
     >
-      <div style={{ color: goldL, fontWeight: 800, fontSize: "14px", marginBottom: "14px" }}>
+      <div
+        style={{
+          color: goldL,
+          fontWeight: 800,
+          fontSize: "14px",
+          marginBottom: "14px"
+        }}
+      >
         خريطة الصراع المباشرة
       </div>
 
-  <div
-  style={{
-    height: "500px",
-    borderRadius: "14px",
-    overflow: "hidden",
-    position: "relative"
-  }}
->
+      <div
+        style={{
+          height: "500px",
+          borderRadius: "14px",
+          overflow: "hidden",
+          position: "relative"
+        }}
+      >
         <div
-  style={{
-    position: "absolute",
-width: "100%",
-height: "100%",
-    borderRadius: "50%",
-    border: "2px solid rgba(0,255,150,.25)",
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%,-50%)",
-    animation: "radarSpin 8s linear infinite",
-    pointerEvents: "none",
-    zIndex: 500
-  }}
-/>
-        <MapContainer center={defaultCenter} zoom={5} scrollWheelZoom={true} style={{ height: "100%", width: "100%" }}>
+          style={{
+            position: "absolute",
+            width: "100%",
+            height: "100%",
+            borderRadius: "50%",
+            border: "2px solid rgba(0,255,150,.25)",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%,-50%)",
+            animation: "radarSpin 8s linear infinite",
+            pointerEvents: "none",
+            zIndex: 500
+          }}
+        />
+
+        <MapContainer
+          center={defaultCenter}
+          zoom={5}
+          scrollWheelZoom={true}
+          style={{ height: "100%", width: "100%" }}
+        >
           <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
 
           {strikeLines.map((line, i) => (
@@ -1127,7 +1129,7 @@ height: "100%",
             }
 
             return (
-              <div key={i}>
+              <React.Fragment key={i}>
                 <Circle
                   center={[p.lat, p.lng]}
                   radius={impact}
@@ -1150,16 +1152,32 @@ height: "100%",
                 >
                   <Popup>
                     <div dir="rtl" style={{ minWidth: "200px" }}>
-                      <div style={{ fontWeight: "800", marginBottom: "6px" }}>📍 {p.name}</div>
-                      <div style={{ fontSize: "13px", lineHeight: 1.7, marginBottom: "6px" }}>{p.title}</div>
+                      <div style={{ fontWeight: "800", marginBottom: "6px" }}>
+                        📍 {p.name}
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: "13px",
+                          lineHeight: 1.7,
+                          marginBottom: "6px"
+                        }}
+                      >
+                        {p.title}
+                      </div>
+
                       <div style={{ fontSize: "12px", color: "#666" }}>
                         مستوى الحدث:
-                        {p.urgency === "high" ? " عاجل" : p.urgency === "medium" ? " متوسط" : " منخفض"}
+                        {p.urgency === "high"
+                          ? " عاجل"
+                          : p.urgency === "medium"
+                          ? " متوسط"
+                          : " منخفض"}
                       </div>
                     </div>
                   </Popup>
                 </CircleMarker>
-              </div>
+              </React.Fragment>
             );
           })}
 
@@ -1180,8 +1198,14 @@ height: "100%",
               >
                 <Popup>
                   <div dir="rtl" style={{ minWidth: "160px", lineHeight: 1.7 }}>
-                    <div style={{ fontWeight: "800", marginBottom: "6px" }}>نشاط جوي</div>
-                    <div style={{ fontSize: "13px" }}>النداء: {p.callsign || "غير معروف"}</div>
+                    <div style={{ fontWeight: "800", marginBottom: "6px" }}>
+                      نشاط جوي
+                    </div>
+
+                    <div style={{ fontSize: "13px" }}>
+                      النداء: {p.callsign || "غير معروف"}
+                    </div>
+
                     <div style={{ fontSize: "12px", color: "#666" }}>
                       الارتفاع: {p.altitude ?? "غير متوفر"}
                     </div>
@@ -2089,7 +2113,10 @@ color: text,
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
   }
-
+@keyframes radarSpin {
+  0% { transform: translate(-50%,-50%) rotate(0deg); }
+  100% { transform: translate(-50%,-50%) rotate(360deg); }
+}
   @keyframes radarSpin {
     0% { transform: translate(-50%,-50%) rotate(0deg); }
     100% { transform: translate(-50%,-50%) rotate(360deg); }
