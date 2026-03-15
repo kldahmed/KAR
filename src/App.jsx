@@ -2071,16 +2071,6 @@ color: text,
     gap: 14px;
   }
 
-  .card-hover {
-    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-  }
-
-  .card-hover:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 28px rgba(0,0,0,.28), 0 0 18px rgba(200,155,60,.06);
-    border-color: ${line};
-  }
-
   @keyframes pulse {
     0% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.15); opacity: .75; }
@@ -2113,10 +2103,7 @@ color: text,
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
   }
-@keyframes radarSpin {
-  0% { transform: translate(-50%,-50%) rotate(0deg); }
-  100% { transform: translate(-50%,-50%) rotate(360deg); }
-}
+
   @keyframes radarSpin {
     0% { transform: translate(-50%,-50%) rotate(0deg); }
     100% { transform: translate(-50%,-50%) rotate(360deg); }
