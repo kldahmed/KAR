@@ -1068,8 +1068,8 @@ function ConflictMiniMap({ news, radarPoints = [] }) {
         <div
   style={{
     position: "absolute",
-    width: "600px",
-    height: "600px",
+width: "100%",
+height: "100%",
     borderRadius: "50%",
     border: "2px solid rgba(0,255,150,.25)",
     top: "50%",
