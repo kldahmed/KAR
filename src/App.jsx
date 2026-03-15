@@ -628,6 +628,34 @@ color="#e74c3c";
 radius=14;
 impact=90000;
 }
+{radarPoints
+  .filter((p) => Number.isFinite(p?.lat) && Number.isFinite(p?.lng))
+  .slice(0, 80)
+  .map((p, i) => (
+    <CircleMarker
+      key={`radar-${i}`}
+      center={[p.lat, p.lng]}
+      radius={4}
+      pathOptions={{
+        color: "#00c2ff",
+        fillColor: "#00c2ff",
+        fillOpacity: 0.9,
+        weight: 1
+      }}
+    >
+      <Popup>
+        <div dir="rtl" style={{ minWidth: "160px", lineHeight: 1.7 }}>
+          <div style={{ fontWeight: "800", marginBottom: "6px" }}>نشاط جوي</div>
+          <div style={{ fontSize: "13px" }}>
+            النداء: {p.callsign || "غير معروف"}
+          </div>
+          <div style={{ fontSize: "12px", color: "#666" }}>
+            الارتفاع: {p.altitude ?? "غير متوفر"}
+          </div>
+        </div>
+      </Popup>
+    </CircleMarker>
+  ))}
 else if(p.urgency==="medium"){
 color="#f39c12";
 radius=10;
