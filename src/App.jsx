@@ -14,9 +14,25 @@ import L from "leaflet";
 /* =========================
    Constants
 ========================= */
-const gold = "#c8960c";
-const goldL = "#f0d27a";
-const green = "#0fa958";
+const bg0 = "#060708";     // الخلفية الأعمق
+const bg1 = "#0b0d10";     // الطبقة العامة
+const bg2 = "#11151a";     // البطاقات
+const bg3 = "#161b22";     // البطاقات المرتفعة
+const line = "#27303a";    // الحدود
+const lineSoft = "#1b222b";
+
+const gold = "#c89b3c";
+const goldL = "#f3d38a";
+const goldSoft = "rgba(200,155,60,.16)";
+
+const green = "#22c55e";
+const red = "#ff6b57";
+const orange = "#f59e0b";
+const blue = "#38bdf8";
+
+const text = "#e8edf2";
+const textSoft = "#a8b3c2";
+const textDim = "#6b7280";
 
 const TABS = [
   { id: "news", label: "الأخبار", icon: "📰" },
