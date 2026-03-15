@@ -146,8 +146,10 @@ function normalizeLiveChannel(item, index = 0) {
     id: item?.id ?? `live-${index}`,
     name: safeText(item?.name, "Live Channel"),
     flag: safeText(item?.flag, "🌍"),
-    youtubeId: isValidYouTubeId(item?.youtubeId) ? item.youtubeId : "",
-    title: safeText(item?.title, "")
+    title: safeText(item?.title, ""),
+    mode: item?.mode === "external" ? "external" : "embed",
+    externalUrl: safeText(item?.externalUrl, ""),
+    youtubeId: isValidYouTubeId(item?.youtubeId) ? item.youtubeId : ""
   };
 }
 
