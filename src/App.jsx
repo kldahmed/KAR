@@ -1754,11 +1754,37 @@ const currentEmbedUrl = currentLiveId
             )}
           </div>
         )}
+{tab === "stats" && (
+  <div style={{ display: "grid", gap: "16px" }}>
 
-        {tab === "stats" && (
-          <StatsPanel news={safeNewsList.length > 0 ? safeNewsList : DEMO_NEWS} tensionData={tensionData} />
-        )}
+    <WarRiskCard
+      news={safeNewsList.length > 0 ? safeNewsList : DEMO_NEWS}
+      tensionData={tensionData}
+    />
 
+    <ConflictMiniMap
+      news={safeNewsList.length > 0 ? safeNewsList : DEMO_NEWS}
+    />
+
+    <TensionHeatmap
+      news={safeNewsList.length > 0 ? safeNewsList : DEMO_NEWS}
+    />
+
+    <StatsPanel
+      news={safeNewsList.length > 0 ? safeNewsList : DEMO_NEWS}
+      tensionData={tensionData}
+    />
+
+    <TimelinePanel
+      news={safeNewsList.length > 0 ? safeNewsList : DEMO_NEWS}
+    />
+
+    <AISummaryPanel
+      news={safeNewsList.length > 0 ? safeNewsList : DEMO_NEWS}
+    />
+
+  </div>
+)}
         {tab === "live" && (
           <div className="live-grid" style={{ display: "grid", gridTemplateColumns: "1fr 285px", gap: "15px", alignItems: "start" }}>
             <div style={{ background: "#0a0800", borderRadius: "16px", overflow: "hidden", border: `1px solid ${gold}2a` }}>
