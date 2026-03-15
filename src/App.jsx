@@ -1355,7 +1355,18 @@ safeNewsData.push(...(fastData.news || []));
     }
 
     const data = await res.json();try{
+try{
 
+const intel = await fetch("/api/intelnews");
+const intelData = await intel.json();
+
+if(intelData?.news){
+
+safeNewsData.push(...intelData.news);
+
+}
+
+}catch{}
 const live = await fetch("/api/liveevents");
 const liveData = await live.json();
 
