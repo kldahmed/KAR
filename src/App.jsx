@@ -257,7 +257,9 @@ function Skeleton() {
 
 function NewsCard({ item, index = 0 }) {
   const urgency = URGENCY_MAP[item.urgency] || URGENCY_MAP.low;
-  const hasImage = !!item.image;
+  const image =
+  item.image ||
+  "https://images.unsplash.com/photo-1504711434969-e33886168f5c";
 
   return (
     <div
