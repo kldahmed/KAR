@@ -6,9 +6,9 @@ const CHANNELS = [
     name: "الجزيرة مباشر",
     country: "Qatar",
     language: "العربية",
-    type: "external",
+    type: "embed",
     source: "Al Jazeera",
-    youtubeId: "",
+    youtubeId: "zE2HZiMThhQ",
     externalUrl: "https://www.youtube.com/@aljazeeraarabic/live"
   },
   {
@@ -16,9 +16,9 @@ const CHANNELS = [
     name: "سكاي نيوز عربية",
     country: "UAE",
     language: "العربية",
-    type: "external",
+    type: "embed",
     source: "Sky News Arabia",
-    youtubeId: "",
+    youtubeId: "MEtF7xJzn4Y",
     externalUrl: "https://www.youtube.com/@skynewsarabia/live"
   },
   {
@@ -26,21 +26,22 @@ const CHANNELS = [
     name: "فرانس 24 بالعربي",
     country: "International",
     language: "العربية",
-    type: "external",
+    type: "embed",
     source: "France 24",
-    youtubeId: "",
+    youtubeId: "QlTQhQL5M4E",
     externalUrl: "https://www.youtube.com/@FRANCE24Arabic/live"
   },
   {
-    id: "bbc-world-live",
-    name: "BBC World News",
+    id: "dw-live",
+    name: "DW News",
     country: "International",
     language: "English",
-    type: "external",
-    source: "BBC",
-    youtubeId: "",
-    externalUrl: "https://www.youtube.com/@BBCNews/live"
-  },
+    type: "embed",
+    source: "DW",
+    youtubeId: "NvqKZHpKs-g",
+    externalUrl: "https://www.youtube.com/@dwnews/live"
+  }
+];
   {
     id: "dw-live",
     name: "DW News",
