@@ -151,40 +151,38 @@ export default function App() {
   }, [news]);
 
   async function fetchNews(category = "all", force = false) {
-    try {
-      setLoadN(true);
-      setErrN("");
+  try {
+    setLoadN(true);
+    setErrN("");
 
-      // منع التصنيفات غير المدعومة
-      let apiCategory = category;
-      if (["sports", "tourism", "markets"].includes(category)) {
-        apiCategory = "all";
-      }
-
-      const url = `/api/news?category=${encodeURIComponent(apiCategory)}${force ? "&force=1" : ""}`;
-      const res = await fetch(url);
-      const data = await res.json();
-
-      // Use data.news only
-      setNews(Array.isArray(data.news) ? data.news : []);
-      setUpdated(
-        safeText(
-          data?.updated,
-          formatDisplayTime(new Date())
-        )
-      );
-    } catch (err) {
-      console.error("NEWS ERROR", err);
-      setErrN(getUserErrorMessage());
-      setNews([]);
-      setAlerts((prev) =>
-        prev.includes("تعذر تحميل الأخبار من الخادم")
-          ? prev
-          : [...prev, "تعذر تحميل الأخبار من الخادم"]
-      );
-    } finally {
-      setLoadN(false);
+    let apiCategory = category;
+    if (["sports", "tourism", "markets"].includes(category)) {
+      apiCategory = "all";
     }
+
+    const url = `/api/news?category=${encodeURIComponent(apiCategory)}${force ? "&force=1" : ""}`;
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" }
+    });
+
+    if (!res.ok) {
+      throw new Error("NEWS_API_FAILED");
+    }
+
+    const data = await res.json();
+    const newsList = Array.isArray(data?.news) ? data.news.map(normalizeNewsItem) : [];
+
+    setNews(newsList.slice(0, 200));
+    setUpdated(safeText(data?.updated, formatDisplayTime(new Date())));
+    setErrN("");
+  } catch (err) {
+    console.error("NEWS ERROR", err);
+    setNews([]);
+    setErrN("تعذر تحميل الأخبار من الخادم");
+  } finally {
+    setLoadN(false);
+  }
   }
 
   async function fetchRadar() {
@@ -320,6 +318,7 @@ export default function App() {
   }, [nextRefresh]);
 
   const safeNewsList = news.length ? news : [];
+  const displayedNews = safeNewsList.length > 0 ? safeNewsList : DEMO_NEWS;
   const safeVideosList = videos.length ? videos : [];
   const safeLiveChannels = liveChannels.length ? liveChannels : [];
 
@@ -354,9 +353,8 @@ export default function App() {
       <div style={{ padding: "18px 20px 50px" }}>
         {tab === "news" && (
           <ErrorBoundary>
-            {/* Render fallback DEMO_NEWS cards if news fails */}
             <div className="news-grid">
-              {(news.length ? news : DEMO_NEWS).map((item, i) => (
+              {displayedNews.map((item, i) => (
                 <NewsCard key={`${item.id}-${i}`} item={item} index={i} />
               ))}
             </div>
