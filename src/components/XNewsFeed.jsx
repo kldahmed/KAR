@@ -3,6 +3,7 @@ import XPostCard from "./XPostCard";
 
 export default function XNewsFeed() {
   const [posts, setPosts] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [updated, setUpdated] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -17,10 +18,12 @@ export default function XNewsFeed() {
       .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((data) => {
         setPosts(Array.isArray(data.posts) ? data.posts : []);
+        setAccounts(Array.isArray(data.accounts) ? data.accounts : []);
         setUpdated(data.updated || "");
       })
       .catch(() => {
         setPosts([]);
+        setAccounts([]);
         setError("تعذر تحميل نبض X");
       })
       .finally(() => setLoading(false));
@@ -37,9 +40,15 @@ export default function XNewsFeed() {
     };
   }, []);
 
-  const uniqueSources = useMemo(() => {
-    return ["all", ...Array.from(new Set(posts.map((p) => p.account)))];
-  }, [posts]);
+  const sourceButtons = useMemo(() => {
+    return [
+      { key: "all", label: "الكل" },
+      ...accounts.map((acc) => ({
+        key: acc.account,
+        label: acc.account
+      }))
+    ];
+  }, [accounts]);
 
   const displayedPosts = useMemo(() => {
     if (sourceFilter === "all") return posts;
@@ -60,7 +69,7 @@ export default function XNewsFeed() {
           display: "flex",
           justifyContent: "space-between",
           gap: "16px",
-          alignItems: "center",
+          alignItems: "flex-start",
           flexWrap: "wrap"
         }}
       >
@@ -81,7 +90,10 @@ export default function XNewsFeed() {
               fontSize: "14px"
             }}
           >
-            تحديثات فورية من الحسابات الرسمية والموثوقة
+            تحديثات فورية من الحسابات الإماراتية والعالمية الرسمية والموثوقة، مترجمة للعربية
+          </div>
+          <div style={{ color: "#94a3b8", fontSize: "13px", marginTop: "8px" }}>
+            آخر تحديث: {updated ? new Date(updated).toLocaleString("ar") : "غير متوفر"}
           </div>
         </div>
 
@@ -89,16 +101,17 @@ export default function XNewsFeed() {
           style={{
             display: "flex",
             gap: "10px",
-            flexWrap: "wrap"
+            flexWrap: "wrap",
+            justifyContent: "flex-end"
           }}
         >
-          {uniqueSources.map((src) => (
+          {sourceButtons.map((src) => (
             <button
-              key={src}
-              onClick={() => setSourceFilter(src)}
+              key={src.key}
+              onClick={() => setSourceFilter(src.key)}
               style={{
-                background: sourceFilter === src ? "#38bdf8" : "#1f2937",
-                color: sourceFilter === src ? "#fff" : "#93c5fd",
+                background: sourceFilter === src.key ? "#38bdf8" : "#1f2937",
+                color: sourceFilter === src.key ? "#fff" : "#93c5fd",
                 border: "none",
                 borderRadius: "999px",
                 padding: "8px 14px",
@@ -107,7 +120,7 @@ export default function XNewsFeed() {
                 cursor: "pointer"
               }}
             >
-              {src === "all" ? "الكل" : src}
+              {src.label}
             </button>
           ))}
         </div>
@@ -124,15 +137,6 @@ export default function XNewsFeed() {
           {error}
         </div>
       )}
-
-      <div
-        style={{
-          color: "#94a3b8",
-          fontSize: "13px"
-        }}
-      >
-        آخر تحديث: {updated ? new Date(updated).toLocaleString("ar") : "غير متوفر"}
-      </div>
 
       <div
         style={{
