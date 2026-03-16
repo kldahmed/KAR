@@ -29,6 +29,7 @@ const DEMO_NEWS = [
 
 const TABS = [
   { id: "news", label: "الأخبار", icon: "📰" },
+  { id: "intel", label: "مركز التحليل", icon: "🌐" },
   { id: "live", label: "البث المباشر", icon: "📺" }
 ];
 
