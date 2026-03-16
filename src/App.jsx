@@ -356,78 +356,50 @@ export default function App() {
       dir="rtl"
       style={{
         minHeight: "100vh",
-        background: `radial-gradient(circle at top, ${bg2} 0%, ${bg1} 35%, ${bg0} 100%)`,
-        color: text,
+        background: `radial-gradient(circle at top, ${Helpers.bg2} 0%, ${Helpers.bg1} 35%, ${Helpers.bg0} 100%)`,
+        color: Helpers.text,
         fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
       }}
     >
-      <style>{`
-  * { box-sizing: border-box; }
-
-  html, body, #root {
-    margin: 0;
-    min-height: 100%;
-    background: ${bg0};
-    color: ${text};
-  }
-
-  a { color: inherit; }
-
-  .news-grid, .vid-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 14px;
-  }
-
-    <React.Fragment>
-      <div
-        dir="rtl"
-        style={{
-          minHeight: "100vh",
-          background: `radial-gradient(circle at top, ${Helpers.bg2} 0%, ${Helpers.bg1} 35%, ${Helpers.bg0} 100%)`,
-          color: Helpers.text,
-          fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-        }}
-      >
-        <AlertBanner alerts={alerts} onClose={() => setAlerts([])} />
-        {/* header, tabs, category buttons, etc. */}
-        {/* ...existing header and controls code... */}
-        <div style={{ padding: "18px 20px 50px" }}>
-          {tab === "news" && (
-            <ErrorBoundary>
-              {/* Render fallback DEMO_NEWS cards if news fails */}
-              <div className="news-grid">
-                {(news.length ? news : DEMO_NEWS).map((item, i) => (
-                  <NewsCard key={`${item.id}-${i}`} item={item} index={i} />
-                ))}
-              </div>
-            </ErrorBoundary>
-          )}
-          {tab === "videos" && (
-            <ErrorBoundary>
-              {/* Temporarily bypass videos panel if needed */}
-              <div style={{ textAlign: "center", color: "#666", padding: "60px" }}>
-                اضغط تحديث لتحميل الفيديوهات
-              </div>
-            </ErrorBoundary>
-          )}
-          {tab === "stats" && (
-            <ErrorBoundary>
-              {/* Temporarily bypass stats panels if needed */}
-              <div style={{ textAlign: "center", color: "#666", padding: "40px" }}>
-                قسم الإحصاءات غير متاح مؤقتًا
-              </div>
-            </ErrorBoundary>
-          )}
-          {tab === "live" && (
-            <ErrorBoundary>
-              {/* Temporarily bypass live panel if needed */}
-              <div style={{ textAlign: "center", color: "#666", padding: "40px" }}>
-                قسم البث المباشر غير متاح مؤقتًا
-              </div>
-            </ErrorBoundary>
-          )}
-        </div>
+      <AlertBanner alerts={alerts} onClose={() => setAlerts([])} />
+      {/* header, tabs, category buttons, etc. */}
+      {/* ...existing header and controls code... */}
+      <div style={{ padding: "18px 20px 50px" }}>
+        {tab === "news" && (
+          <ErrorBoundary>
+            {/* Render fallback DEMO_NEWS cards if news fails */}
+            <div className="news-grid">
+              {(news.length ? news : DEMO_NEWS).map((item, i) => (
+                <NewsCard key={`${item.id}-${i}`} item={item} index={i} />
+              ))}
+            </div>
+          </ErrorBoundary>
+        )}
+        {tab === "videos" && (
+          <ErrorBoundary>
+            {/* Temporarily bypass videos panel if needed */}
+            <div style={{ textAlign: "center", color: "#666", padding: "60px" }}>
+              اضغط تحديث لتحميل الفيديوهات
+            </div>
+          </ErrorBoundary>
+        )}
+        {tab === "stats" && (
+          <ErrorBoundary>
+            {/* Temporarily bypass stats panels if needed */}
+            <div style={{ textAlign: "center", color: "#666", padding: "40px" }}>
+              قسم الإحصاءات غير متاح مؤقتًا
+            </div>
+          </ErrorBoundary>
+        )}
+        {tab === "live" && (
+          <ErrorBoundary>
+            {/* Temporarily bypass live panel if needed */}
+            <div style={{ textAlign: "center", color: "#666", padding: "40px" }}>
+              قسم البث المباشر غير متاح مؤقتًا
+            </div>
+          </ErrorBoundary>
+        )}
       </div>
-    </React.Fragment>
-                <span style={{ fontSize: "13px" }}>🇦🇪</span>
+    </div>
+  );
+}
