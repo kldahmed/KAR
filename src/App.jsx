@@ -12,6 +12,7 @@ import LiveChannelsPanel from "./components/LiveChannelsPanel";
 import GlobalIntelligenceCenter from "./components/GlobalIntelligenceCenter";
 import ThreatRadar from "./components/ThreatRadar";
 import StrategicForecast from "./components/StrategicForecast";
+import EnergyShockIndex from "./components/EnergyShockIndex";
 
 const DEMO_NEWS = [
   {
