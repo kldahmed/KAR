@@ -151,7 +151,12 @@ const fetchNews = async () => {
   };
 }, [cat, tab]);
 
-  const displayedNews = news.length > 0 ? news : DEMO_NEWS;
+const displayedNews =
+  news.length > 0
+    ? news
+    : cat === "sports"
+    ? []
+    : DEMO_NEWS;
   const tickerHeadlines = displayedNews.slice(0, 10).map((n) => n.title);
 
   const handleCardClick = (article) => {
