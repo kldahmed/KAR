@@ -131,16 +131,47 @@ export default function App() {
           </button>
         ))}
       </div>
-      {/* News Cards Grid */}
       <main style={{ padding: "0 20px 50px" }}>
-        {loading && <div style={{ textAlign: "center", color: "#38bdf8", padding: "30px" }}>جاري التحميل...</div>}
-        {error && <div style={{ textAlign: "center", color: "#e74c3c", padding: "30px" }}>{error}</div>}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "18px", maxWidth: "1400px", margin: "0 auto" }}>
-          {displayedNews.map((item, idx) => (
-            <NewsCard key={item.id || idx} {...item} onClick={() => handleCardClick(item)} />
-          ))}
+  {tab === "news" && (
+    <>
+      {loading && (
+        <div style={{ textAlign: "center", color: "#38bdf8", padding: "30px" }}>
+          جاري التحميل...
         </div>
-      </main>
+      )}
+
+      {error && (
+        <div style={{ textAlign: "center", color: "#e74c3c", padding: "30px" }}>
+          {error}
+        </div>
+      )}
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+          gap: "18px",
+          maxWidth: "1400px",
+          margin: "0 auto"
+        }}
+      >
+        {displayedNews.map((item, idx) => (
+          <NewsCard
+            key={item.id || idx}
+            {...item}
+            onClick={() => handleCardClick(item)}
+          />
+        ))}
+      </div>
+    </>
+  )}
+
+  {tab === "live" && (
+    <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
+      <LiveChannelsPanel />
+    </div>
+  )}
+</main>
       {/* Article Modal */}
       <ArticleModal open={modalOpen} onClose={() => setModalOpen(false)} article={modalArticle} />
       {/* Map Panel */}
