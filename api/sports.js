@@ -1,5 +1,6 @@
+const MIN_SPORTS = 20;
 const MAX_SPORTS = 60;
-const FETCH_TIMEOUT = 4000;
+const FETCH_TIMEOUT = 5000;
 const CACHE_TTL = 60 * 1000;
 
 const SPORTS_SOURCES = [
@@ -22,6 +23,39 @@ const SPORTS_SOURCES = [
     name: "Goal",
     url: "https://www.goal.com/feeds/en/news",
     competition: "world"
+  }
+];
+
+const FALLBACK_SPORTS_SOURCES = [
+  {
+    name: "The Guardian Football",
+    url: "https://www.theguardian.com/football/rss",
+    competition: "world"
+  },
+  {
+    name: "Google News Premier League",
+    url: "https://news.google.com/rss/search?q=premier+league+football&hl=en-US&gl=US&ceid=US:en",
+    competition: "premier-league"
+  },
+  {
+    name: "Google News UAE Football",
+    url: "https://news.google.com/rss/search?q=UAE+Pro+League+ADNOC+football&hl=en&gl=AE&ceid=AE:en",
+    competition: "uae"
+  },
+  {
+    name: "Google News Champions League",
+    url: "https://news.google.com/rss/search?q=UEFA+Champions+League+football&hl=en-US&gl=US&ceid=US:en",
+    competition: "champions-league"
+  },
+  {
+    name: "Google News LaLiga",
+    url: "https://news.google.com/rss/search?q=LaLiga+Real+Madrid+Barcelona&hl=en-US&gl=US&ceid=US:en",
+    competition: "laliga"
+  },
+  {
+    name: "Google News Football Transfers",
+    url: "https://news.google.com/rss/search?q=football+transfer+signing+news&hl=en-US&gl=US&ceid=US:en",
+    competition: "transfers"
   }
 ];
 
@@ -161,7 +195,14 @@ function sportsUrgency(title = "", summary = "") {
   const hay = `${title} ${summary}`.toLowerCase();
 
   if (/breaking|official|confirmed|عاجل|رسمي|مؤكد|نهائي/.test(hay)) return "high";
-  if (/injury|suspension|win|defeat|goal|draw|إصابة|إيقاف|فوز|خسارة|تعادل|هدف/.test(hay)) {
+
+  // Goals and match results are high-priority live events
+  if (/\bgoal(s)?\b|hat.?trick|full.?time|final score|match result|هدف|أهداف|نتيجة المباراة|انتهت المباراة/.test(hay)) return "high";
+
+  // Confirmed transfers are high priority
+  if (/transfer confirmed|deal done|officially signed|انتقل رسميًا|تم التعاقد|وقّع رسميًا/.test(hay)) return "high";
+
+  if (/injury|injuries|injured|suspension|win|defeat|goal|draw|transfer|signing|loan|إصابة|إيقاف|فوز|خسارة|تعادل|هدف|انتقال|تعاقد|إعارة/.test(hay)) {
     return "medium";
   }
   return "low";
@@ -174,17 +215,23 @@ function sportsScore(item, nowTime) {
   if (item.urgency === "high") score += 40;
   else if (item.urgency === "medium") score += 20;
 
-  if (["BBC Sport Football", "Sky Sports Football", "ESPN Soccer", "Goal"].includes(item.source)) {
+  // Bonus for specific high-value content types
+  if (/\bgoal(s)?\b|hat.?trick|scored/.test(joined)) score += 15;
+  if (/match result|full.?time|final score/.test(joined)) score += 12;
+  if (/transfer|signing|signed/.test(joined)) score += 10;
+  if (/injur(y|ies|ed)/.test(joined)) score += 8;
+
+  if (["BBC Sport Football", "Sky Sports Football", "ESPN Soccer", "Goal", "The Guardian Football"].includes(item.source)) {
     score += 20;
   }
 
   if (item.competition === "champions-league") score += 20;
-  if (item.competition === "premier-league") score += 15;
-  if (item.competition === "laliga") score += 15;
   if (item.competition === "uae") score += 18;
-  if (item.competition === "transfers") score += 10;
+  if (item.competition === "premier-league") score += 16;
+  if (item.competition === "laliga") score += 16;
+  if (item.competition === "transfers") score += 12;
 
-  if (/liverpool|arsenal|manchester|real madrid|barcelona|uefa|champions/.test(joined)) {
+  if (/liverpool|arsenal|manchester|chelsea|tottenham|real madrid|barcelona|atletico|al ain|al jazira|al wasl/.test(joined)) {
     score += 8;
   }
 
@@ -287,7 +334,65 @@ async function fetchSportsSources(competition = "all") {
     })
   );
 
+  // If primary sources returned fewer than the minimum, try fallback sources
+  if (results.length < MIN_SPORTS) {
+    await Promise.all(
+      FALLBACK_SPORTS_SOURCES.map(async (src) => {
+        // For specific competition requests, prefer matching fallback sources;
+        // always include "world"-tagged fallbacks as they cover all competitions
+        if (
+          competition !== "all" &&
+          src.competition !== "world" &&
+          src.competition !== competition
+        ) {
+          return;
+        }
+        try {
+          const res = await fetchWithTimeout(src.url, {
+            headers: { "User-Agent": "Mozilla/5.0" }
+          });
+
+          if (!res.ok) return;
+          const xml = await res.text();
+
+          const parsed = parseSportsRss(xml, src.name).filter((item) =>
+            competitionMatches(item.competition, competition)
+          );
+
+          results.push(...parsed);
+        } catch {}
+      })
+    );
+  }
+
   return results;
+}
+
+async function fetchUaeStandingsAndFixtures() {
+  const standingsUrl =
+    "https://news.google.com/rss/search?q=UAE+Pro+League+standings+table&hl=en&gl=AE&ceid=AE:en";
+  const fixturesUrl =
+    "https://news.google.com/rss/search?q=UAE+Pro+League+fixtures+schedule+match&hl=en&gl=AE&ceid=AE:en";
+
+  async function fetchAndParse(url, sourceName) {
+    try {
+      const res = await fetchWithTimeout(url, {
+        headers: { "User-Agent": "Mozilla/5.0" }
+      });
+      if (!res.ok) return [];
+      const xml = await res.text();
+      return parseSportsRss(xml, sourceName).slice(0, 5);
+    } catch {
+      return [];
+    }
+  }
+
+  const [standings, fixtures] = await Promise.all([
+    fetchAndParse(standingsUrl, "UAE Standings"),
+    fetchAndParse(fixturesUrl, "UAE Fixtures")
+  ]);
+
+  return { standings, fixtures };
 }
 
 function getFallbackSports(competition = "all") {
@@ -307,7 +412,7 @@ function getFallbackSports(competition = "all") {
     },
     {
       id: "sports-fallback-2",
-      title: "متابعة مبدئية لأخبار الدوري الإنجليزي",
+      title: "متابعة مستمرة لأخبار الدوري الإنجليزي الممتاز",
       summary: "يمكن استبدال هذا المحتوى مباشرة بالأخبار الحية عند عودة المصادر.",
       source: "Sports Feed",
       time: new Date().toISOString(),
@@ -330,11 +435,234 @@ function getFallbackSports(competition = "all") {
       competition: "champions-league",
       competitionLabel: "دوري أبطال أوروبا",
       urgency: "medium"
+    },
+    {
+      id: "sports-fallback-4",
+      title: "آخر أخبار الدوري الإسباني لكرة القدم",
+      summary: "تابع آخر أخبار برشلونة وريال مدريد وباقي أندية لاليغا.",
+      source: "Sports Feed",
+      time: new Date().toISOString(),
+      url: "#",
+      image: "",
+      category: "sports",
+      competition: "laliga",
+      competitionLabel: "الدوري الإسباني",
+      urgency: "low"
+    },
+    {
+      id: "sports-fallback-5",
+      title: "تحديثات سوق الانتقالات الكروية",
+      summary: "آخر صفقات الانتقالات والإعارات في كرة القدم الأوروبية والعالمية.",
+      source: "Sports Feed",
+      time: new Date().toISOString(),
+      url: "#",
+      image: "",
+      category: "sports",
+      competition: "transfers",
+      competitionLabel: "الانتقالات",
+      urgency: "medium"
+    },
+    {
+      id: "sports-fallback-6",
+      title: "آخر نتائج الدوري الإماراتي للمحترفين",
+      summary: "تابع أحدث نتائج وأخبار أندية دوري أدنوك الإماراتي للمحترفين.",
+      source: "Sports Feed",
+      time: new Date().toISOString(),
+      url: "#",
+      image: "",
+      category: "sports",
+      competition: "uae",
+      competitionLabel: "الدوري الإماراتي",
+      urgency: "medium"
+    },
+    {
+      id: "sports-fallback-7",
+      title: "جدول ترتيب الدوري الإنجليزي الممتاز",
+      summary: "تابع الترتيب الحالي وأبرز المباريات القادمة في البريميرليغ.",
+      source: "Sports Feed",
+      time: new Date().toISOString(),
+      url: "#",
+      image: "",
+      category: "sports",
+      competition: "premier-league",
+      competitionLabel: "الدوري الإنجليزي",
+      urgency: "low"
+    },
+    {
+      id: "sports-fallback-8",
+      title: "أبرز أخبار مباريات دوري أبطال أوروبا",
+      summary: "تغطية مستمرة لمرحلة المجموعات والأدوار الإقصائية في دوري الأبطال.",
+      source: "Sports Feed",
+      time: new Date().toISOString(),
+      url: "#",
+      image: "",
+      category: "sports",
+      competition: "champions-league",
+      competitionLabel: "دوري أبطال أوروبا",
+      urgency: "medium"
+    },
+    {
+      id: "sports-fallback-9",
+      title: "تقارير الإصابات وغيابات لاعبي الدوري الإنجليزي",
+      summary: "آخر تقارير الإصابات التي قد تؤثر على مباريات الجولة القادمة.",
+      source: "Sports Feed",
+      time: new Date().toISOString(),
+      url: "#",
+      image: "",
+      category: "sports",
+      competition: "premier-league",
+      competitionLabel: "الدوري الإنجليزي",
+      urgency: "medium"
+    },
+    {
+      id: "sports-fallback-10",
+      title: "ملخص أهداف الجولة في دوري لاليغا الإسباني",
+      summary: "أبرز الأهداف والأحداث من جولة نهاية الأسبوع في الدوري الإسباني.",
+      source: "Sports Feed",
+      time: new Date().toISOString(),
+      url: "#",
+      image: "",
+      category: "sports",
+      competition: "laliga",
+      competitionLabel: "الدوري الإسباني",
+      urgency: "medium"
+    },
+    {
+      id: "sports-fallback-11",
+      title: "تشكيلات الجولة القادمة من الدوري الإماراتي",
+      summary: "تفاصيل مواعيد وملاعب مباريات الجولة القادمة في دوري أدنوك الإماراتي.",
+      source: "Sports Feed",
+      time: new Date().toISOString(),
+      url: "#",
+      image: "",
+      category: "sports",
+      competition: "uae",
+      competitionLabel: "الدوري الإماراتي",
+      urgency: "low"
+    },
+    {
+      id: "sports-fallback-12",
+      title: "صفقات الانتقالات الرسمية المعلنة هذا الأسبوع",
+      summary: "أبرز الصفقات المعلنة رسميًا في نوافذ الانتقالات الشتوية والصيفية.",
+      source: "Sports Feed",
+      time: new Date().toISOString(),
+      url: "#",
+      image: "",
+      category: "sports",
+      competition: "transfers",
+      competitionLabel: "الانتقالات",
+      urgency: "medium"
+    },
+    {
+      id: "sports-fallback-13",
+      title: "أبرز تصريحات المدربين قبل مباريات نهاية الأسبوع",
+      summary: "مؤتمرات صحفية وتصريحات مدربي الفرق الكبرى قبيل الجولة الجديدة.",
+      source: "Sports Feed",
+      time: new Date().toISOString(),
+      url: "#",
+      image: "",
+      category: "sports",
+      competition: "world",
+      competitionLabel: "كرة القدم العالمية",
+      urgency: "low"
+    },
+    {
+      id: "sports-fallback-14",
+      title: "تقرير: أفضل لاعبي الجولة في الدوريات الأوروبية الكبرى",
+      summary: "إحصائيات وتقييمات أفضل لاعبي الجولة في الدوريات الخمس الكبرى.",
+      source: "Sports Feed",
+      time: new Date().toISOString(),
+      url: "#",
+      image: "",
+      category: "sports",
+      competition: "world",
+      competitionLabel: "كرة القدم العالمية",
+      urgency: "low"
+    },
+    {
+      id: "sports-fallback-15",
+      title: "نتائج مباريات الدوري الإماراتي للمحترفين",
+      summary: "نتائج وملخصات مباريات الجولة الأخيرة في دوري أدنوك للمحترفين.",
+      source: "Sports Feed",
+      time: new Date().toISOString(),
+      url: "#",
+      image: "",
+      category: "sports",
+      competition: "uae",
+      competitionLabel: "الدوري الإماراتي",
+      urgency: "medium"
+    },
+    {
+      id: "sports-fallback-16",
+      title: "تقرير الإصابات والغيابات في دوري أبطال أوروبا",
+      summary: "قائمة اللاعبين الغائبين عن مباريات دوري الأبطال في الجولات القادمة.",
+      source: "Sports Feed",
+      time: new Date().toISOString(),
+      url: "#",
+      image: "",
+      category: "sports",
+      competition: "champions-league",
+      competitionLabel: "دوري أبطال أوروبا",
+      urgency: "medium"
+    },
+    {
+      id: "sports-fallback-17",
+      title: "إحصائيات الهدافين في الدوريات الأوروبية الكبرى",
+      summary: "ترتيب الهدافين والمُمررين في الدوري الإنجليزي والإسباني ودوري الأبطال.",
+      source: "Sports Feed",
+      time: new Date().toISOString(),
+      url: "#",
+      image: "",
+      category: "sports",
+      competition: "world",
+      competitionLabel: "كرة القدم العالمية",
+      urgency: "low"
+    },
+    {
+      id: "sports-fallback-18",
+      title: "صفقة محتملة تجمع نجمًا عالميًا بنادٍ من الدوري الإماراتي",
+      summary: "تقارير عن اهتمام أندية إماراتية بالتعاقد مع لاعبين عالميين بارزين.",
+      source: "Sports Feed",
+      time: new Date().toISOString(),
+      url: "#",
+      image: "",
+      category: "sports",
+      competition: "uae",
+      competitionLabel: "الدوري الإماراتي",
+      urgency: "medium"
+    },
+    {
+      id: "sports-fallback-19",
+      title: "تحليل تكتيكي لأبرز مباريات الجولة الأخيرة",
+      summary: "تحليل ملاعب وتكتيكات المدربين في أبرز مباريات الأسبوع.",
+      source: "Sports Feed",
+      time: new Date().toISOString(),
+      url: "#",
+      image: "",
+      category: "sports",
+      competition: "world",
+      competitionLabel: "كرة القدم العالمية",
+      urgency: "low"
+    },
+    {
+      id: "sports-fallback-20",
+      title: "ترتيب الدوري الإسباني بعد انتهاء الجولة",
+      summary: "جدول ترتيب فرق لاليغا الإسبانية بعد نتائج آخر جولة في الدوري.",
+      source: "Sports Feed",
+      time: new Date().toISOString(),
+      url: "#",
+      image: "",
+      category: "sports",
+      competition: "laliga",
+      competitionLabel: "الدوري الإسباني",
+      urgency: "low"
     }
   ];
 
   if (competition === "all") return base;
-  return base.filter((item) => item.competition === competition);
+  const filtered = base.filter((item) => item.competition === competition);
+  // If no items match the requested competition, return the full base as fallback
+  return filtered.length > 0 ? filtered : base;
 }
 
 export default async function handler(req, res) {
@@ -349,9 +677,21 @@ export default async function handler(req, res) {
 
   let news = [];
   let sourceState = "ok";
+  let uaeStandings = [];
+  let uaeFixtures = [];
 
   try {
-    news = await fetchSportsSources(competition);
+    if (competition === "uae") {
+      const [fetchedNews, uaeData] = await Promise.all([
+        fetchSportsSources(competition),
+        fetchUaeStandingsAndFixtures()
+      ]);
+      news = fetchedNews;
+      uaeStandings = uaeData.standings;
+      uaeFixtures = uaeData.fixtures;
+    } else {
+      news = await fetchSportsSources(competition);
+    }
   } catch {
     sourceState = "fallback";
   }
@@ -410,7 +750,8 @@ export default async function handler(req, res) {
     }),
     category: "sports",
     competition,
-    source: sourceState
+    source: sourceState,
+    ...(competition === "uae" && { standings: uaeStandings, fixtures: uaeFixtures })
   };
 
   CATEGORY_CACHE.set(competition, {
