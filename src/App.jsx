@@ -34,7 +34,8 @@ const CATEGORIES = [
   { id: "politics", label: "سياسة", emoji: "🏛️" },
   { id: "military", label: "عسكري", emoji: "⚔️" },
   { id: "economy", label: "اقتصاد", emoji: "💰" },
-  { id: "sports", label: "رياضة", emoji: "⚽" }
+  { id: "sports", label: "رياضة", emoji: "⚽" },
+  { id: "x", label: "نبض X", emoji: "𝕏" }
 ];
 
 class ErrorBoundary extends React.Component {
