@@ -402,6 +402,13 @@ export default function App() {
           </div>
         </>
       )}
+      {tab === "xfeed" && (
+  <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
+    <ErrorBoundary>
+      <XNewsFeed />
+    </ErrorBoundary>
+  </div>
+)}
 
       {tab === "live" && (
         <div style={{ margin: "32px 20px" }}>
