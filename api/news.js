@@ -124,7 +124,7 @@ function categoryQuery(category) {
 }
 
 function normalizeCategory(category = "all") {
-  if (["sports", "tourism"].includes(category)) return "all";
+if (["tourism"].includes(category)) return "all";
   return category || "all";
 }
 
