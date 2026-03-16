@@ -28,7 +28,6 @@ const DEMO_NEWS = [
     image: ""
   }
 ];
-
 const CATEGORIES = [
   { id: "all", label: "الكل", emoji: "🌍" },
   { id: "regional", label: "إقليمي", emoji: "🗺️" },
