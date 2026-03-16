@@ -29,11 +29,13 @@ const DEMO_NEWS = [
   }
 ];
 
-const TABS = [
-  { id: "news", label: "الأخبار", icon: "📰" },
-  { id: "intel", label: "مركز التحليل", icon: "🌐" },
-  { id: "live", label: "البث المباشر", icon: "📺" },
-  { id: "xfeed", label: "نبض X", icon: "𝕏" }
+const CATEGORIES = [
+  { id: "all", label: "الكل", emoji: "🌍" },
+  { id: "regional", label: "إقليمي", emoji: "🗺️" },
+  { id: "politics", label: "سياسة", emoji: "🏛️" },
+  { id: "military", label: "عسكري", emoji: "⚔️" },
+  { id: "economy", label: "اقتصاد", emoji: "💰" },
+  { id: "sports", label: "رياضة", emoji: "⚽" }
 ];
 
 const CATEGORIES = [
