@@ -163,15 +163,109 @@ async function fetchPostsForHandle(accountInfo) {
 
   return normalized;
 }
+function getFallbackPosts() {
+  const now = Date.now();
 
+  return [
+    {
+      id: "fallback-1",
+      account: "Reuters World",
+      handle: "@ReutersWorld",
+      text: "Oil markets react to rising shipping risk near strategic waterways.",
+      translated: "أسواق النفط تتفاعل مع ارتفاع مخاطر الملاحة قرب الممرات المائية الاستراتيجية.",
+      time: new Date(now - 1000 * 60 * 2).toISOString(),
+      url: "https://x.com/ReutersWorld",
+      verified: true,
+      category: "economy",
+      lang: "en",
+      sourceType: "media",
+      avatar: "https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png",
+      urgency: "medium"
+    },
+    {
+      id: "fallback-2",
+      account: "Sky News Arabia",
+      handle: "@skynewsarabia",
+      text: "تحركات سياسية واقتصادية جديدة مرتبطة بالتوترات الإقليمية.",
+      translated: "تحركات سياسية واقتصادية جديدة مرتبطة بالتوترات الإقليمية.",
+      time: new Date(now - 1000 * 60 * 6).toISOString(),
+      url: "https://x.com/skynewsarabia",
+      verified: true,
+      category: "politics",
+      lang: "ar",
+      sourceType: "media",
+      avatar: "https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png",
+      urgency: "medium"
+    },
+    {
+      id: "fallback-3",
+      account: "Dubai Media Office",
+      handle: "@DXBMediaOffice",
+      text: "Official updates continue regarding regional developments and travel conditions.",
+      translated: "تتواصل التحديثات الرسمية بشأن التطورات الإقليمية وظروف السفر.",
+      time: new Date(now - 1000 * 60 * 10).toISOString(),
+      url: "https://x.com/DXBMediaOffice",
+      verified: true,
+      category: "uae",
+      lang: "en",
+      sourceType: "official",
+      avatar: "https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png",
+      urgency: "low"
+    },
+    {
+      id: "fallback-4",
+      account: "WAM News",
+      handle: "@wamnews_eng",
+      text: "UAE agencies continue monitoring regional developments and humanitarian responses.",
+      translated: "تواصل الجهات الإماراتية متابعة التطورات الإقليمية والاستجابات الإنسانية.",
+      time: new Date(now - 1000 * 60 * 14).toISOString(),
+      url: "https://x.com/wamnews_eng",
+      verified: true,
+      category: "uae",
+      lang: "en",
+      sourceType: "official",
+      avatar: "https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png",
+      urgency: "low"
+    },
+    {
+      id: "fallback-5",
+      account: "K.A.R",
+      handle: "@khalldahmd",
+      text: "متابعة وتحليل للتطورات الجيوسياسية والاقتصادية العالمية.",
+      translated: "متابعة وتحليل للتطورات الجيوسياسية والاقتصادية العالمية.",
+      time: new Date(now - 1000 * 60 * 18).toISOString(),
+      url: "https://x.com/khalldahmd",
+      verified: true,
+      category: "analysis",
+      lang: "ar",
+      sourceType: "official",
+      avatar: "https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png",
+      urgency: "low"
+    }
+  ];
+}
 async function fetchLivePosts() {
   const chunks = [];
+  const debug = [];
+
   for (const account of WATCHED_ACCOUNTS) {
     try {
       const posts = await fetchPostsForHandle(account);
-      chunks.push(...posts);
+      debug.push({
+        handle: account.handle,
+        fetched: Array.isArray(posts) ? posts.length : 0
+      });
+
+      if (Array.isArray(posts) && posts.length) {
+        chunks.push(...posts);
+      }
     } catch (error) {
       console.error(`X feed failed for ${account.handle}:`, error.message);
+      debug.push({
+        handle: account.handle,
+        fetched: 0,
+        error: error.message
+      });
     }
   }
 
@@ -186,14 +280,25 @@ async function fetchLivePosts() {
 
   deduped.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
 
+  if (deduped.length === 0) {
+    return {
+      posts: getFallbackPosts(),
+      accounts: WATCHED_ACCOUNTS,
+      updated: new Date().toISOString(),
+      live: false,
+      debug,
+      error: "No live posts returned from X API"
+    };
+  }
+
   return {
     posts: deduped.slice(0, 60),
     accounts: WATCHED_ACCOUNTS,
     updated: new Date().toISOString(),
-    live: true
+    live: true,
+    debug
   };
 }
-
 async function getPayload() {
   const now = Date.now();
 
