@@ -327,7 +327,7 @@ export default async function handler(req, res) {
     console.error("x-feed fatal:", error.message);
 
     res.status(200).json({
-      posts: [],
+      posts: getFallbackPosts(),
       accounts: WATCHED_ACCOUNTS,
       updated: new Date().toISOString(),
       live: false,
