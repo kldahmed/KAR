@@ -104,24 +104,38 @@ export default function App() {
     document.title = "Global Pulse 🌍";
   }, []);
 
-const fetchNews = () => {
+const fetchNews = async () => {
   setLoading(true);
   setError("");
 
-  const endpoint =
-    cat === "sports" ? "/api/sports" : `/api/news?category=${cat}`;
+  try {
+    let endpoint = `/api/news?category=${cat}`;
 
-  fetch(endpoint)
-    .then((res) => (res.ok ? res.json() : Promise.reject()))
-    .then((data) => {
-      setNews(Array.isArray(data.news) ? data.news.slice(0, 100) : []);
-      setError("");
-    })
-    .catch(() => {
-      setNews([]);
-      setError("تعذر تحميل الأخبار من الخادم");
-    })
-    .finally(() => setLoading(false));
+    if (cat === "sports") {
+      endpoint = `/api/sports?competition=${sportsCompetition}`;
+    }
+
+    const res = await fetch(endpoint);
+    if (!res.ok) throw new Error("fetch_failed");
+
+    const data = await res.json();
+
+    const incomingNews = Array.isArray(data.news) ? data.news.slice(0, 100) : [];
+
+    // مهم جدًا: إذا كانت الفئة رياضة، لا نسمح إلا بأخبار sports فقط
+    const filteredNews =
+      cat === "sports"
+        ? incomingNews.filter((item) => item.category === "sports")
+        : incomingNews.filter((item) => item.category !== "sports" || cat === "all");
+
+    setNews(filteredNews);
+    setError("");
+  } catch {
+    setNews([]);
+    setError("تعذر تحميل الأخبار من الخادم");
+  } finally {
+    setLoading(false);
+  }
 };
 
   useEffect(() => {
