@@ -1,5 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import NewsCard from "./components/NewsCard";
+import BreakingNewsTicker from "./components/BreakingNewsTicker";
+import ArticleModal from "./components/ArticleModal";
+import ConflictMiniMap from "./components/ConflictMiniMap";
+import WarRiskPanel from "./components/WarRiskPanel";
+import StatsPanel from "./components/StatsPanel";
 
 const DEMO_NEWS = [
   {
@@ -26,20 +31,42 @@ const CATEGORIES = [
   { id: "economy", label: "اقتصاد", emoji: "💰" }
 ];
 
+// ErrorBoundary for risky panels
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+  componentDidCatch(error, info) {}
+  render() {
+    if (this.state.hasError) {
+      return <div style={{ color: "#e74c3c", padding: "16px", textAlign: "center", background: "#222", borderRadius: "8px", margin: "18px 0" }}>⚠️ تعذر تحميل خريطة النزاعات</div>;
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   const [tab, setTab] = useState("news");
   const [cat, setCat] = useState("all");
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalArticle, setModalArticle] = useState(null);
+  const intervalRef = useRef(null);
 
-  useEffect(() => {
+  // Fetch news with fallback and limit
+  const fetchNews = () => {
     setLoading(true);
     setError("");
     fetch(`/api/news?category=${cat}`)
       .then((res) => res.ok ? res.json() : Promise.reject())
       .then((data) => {
-        setNews(Array.isArray(data.news) ? data.news : []);
+        setNews(Array.isArray(data.news) ? data.news.slice(0, 100) : []);
         setError("");
       })
       .catch(() => {
@@ -47,12 +74,28 @@ export default function App() {
         setError("تعذر تحميل الأخبار من الخادم");
       })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchNews();
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(fetchNews, 60000);
+    return () => intervalRef.current && clearInterval(intervalRef.current);
   }, [cat]);
 
   const displayedNews = news.length > 0 ? news : DEMO_NEWS;
+  const tickerHeadlines = displayedNews.slice(0, 10).map(n => n.title);
+
+  // Modal handler
+  const handleCardClick = (article) => {
+    setModalArticle(article);
+    setModalOpen(true);
+  };
 
   return (
     <div dir="rtl" style={{ minHeight: "100vh", background: "#11151a", color: "#e2e8f0", fontFamily: "system-ui, sans-serif" }}>
+      {/* Breaking News Ticker */}
+      <BreakingNewsTicker headlines={tickerHeadlines} />
       {/* Header */}
       <header style={{ padding: "24px 0 12px", textAlign: "center", fontWeight: "bold", fontSize: "2rem", letterSpacing: "2px" }}>
         🦅 لوحة الحرب Dashboard
@@ -87,10 +130,27 @@ export default function App() {
         {error && <div style={{ textAlign: "center", color: "#e74c3c", padding: "30px" }}>{error}</div>}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "18px", maxWidth: "1400px", margin: "0 auto" }}>
           {displayedNews.map((item, idx) => (
-            <NewsCard key={item.id || idx} {...item} />
+            <NewsCard key={item.id || idx} {...item} onClick={() => handleCardClick(item)} />
           ))}
         </div>
       </main>
+      {/* Article Modal */}
+      <ArticleModal open={modalOpen} onClose={() => setModalOpen(false)} article={modalArticle} />
+      {/* Map Panel */}
+      <div style={{ margin: "32px 0" }}>
+        <ErrorBoundary>
+          <ConflictMiniMap news={displayedNews} radarPoints={[]} />
+        </ErrorBoundary>
+      </div>
+      {/* War Risk Panel */}
+      <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", justifyContent: "center", margin: "32px 0" }}>
+        <ErrorBoundary>
+          <WarRiskPanel news={displayedNews} />
+        </ErrorBoundary>
+        <ErrorBoundary>
+          <StatsPanel news={displayedNews} updated={news.length > 0 ? news[0].time : DEMO_NEWS[0].time} />
+        </ErrorBoundary>
+      </div>
     </div>
   );
 }
