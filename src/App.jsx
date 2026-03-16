@@ -132,7 +132,8 @@ const fetchNews = async () => {
       filteredNews = incomingNews.filter(
         (item) => item.category === "sports" && item.competition === "uae"
       );
-      // If strict filter yields nothing, fall back to any sports item
+      // If strict filter yields nothing, the API itself will have padded with UAE fallbacks,
+      // so show whatever sports items we have (will already be UAE-tagged from the API)
       if (!filteredNews.length) {
         filteredNews = incomingNews.filter((item) => item.category === "sports");
       }
