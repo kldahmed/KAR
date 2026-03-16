@@ -11,6 +11,7 @@ import AISummaryPanel from "./components/AISummaryPanel";
 import GlobalTensionHeatmap from "./components/GlobalTensionHeatmap";
 import GlobalRiskMeter from "./components/GlobalRiskMeter";
 import LiveChannelsPanel from "./components/LiveChannelsPanel";
+import GlobalIntelligenceCenter from "./components/GlobalIntelligenceCenter";
 
 const DEMO_NEWS = [
   {
