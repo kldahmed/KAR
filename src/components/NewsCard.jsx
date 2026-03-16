@@ -7,12 +7,27 @@ const SOURCE_BADGES = {
   "Google News": { label: "Google News", color: "#4285F4", logo: "🔎" }
 };
 
+const RELIABILITY = {
+  "BBC": { score: "high", color: "#22c55e" },
+  "Reuters": { score: "high", color: "#22c55e" },
+  "Google News": { score: "medium", color: "#38bdf8" },
+  "default": { score: "medium", color: "#f39c12" }
+};
+
 function getSourceBadge(source) {
   if (!source) return { label: "Unknown", color: "#444", logo: "❓" };
   if (source.includes("BBC")) return SOURCE_BADGES["BBC"];
   if (source.includes("Reuters")) return SOURCE_BADGES["Reuters"];
   if (source.includes("Google")) return SOURCE_BADGES["Google News"];
   return { label: source, color: "#444", logo: "🗞️" };
+}
+
+function getReliability(source) {
+  if (!source) return RELIABILITY["default"];
+  if (source.includes("BBC")) return RELIABILITY["BBC"];
+  if (source.includes("Reuters")) return RELIABILITY["Reuters"];
+  if (source.includes("Google")) return RELIABILITY["Google News"];
+  return RELIABILITY["default"];
 }
 
 export default function NewsCard({
@@ -31,6 +46,7 @@ export default function NewsCard({
   const safeTime = typeof time === "string" ? time : "";
   const badge = getSourceBadge(safeSource);
   const urgencyColor = URGENCY_MAP[urgency]?.color || "#38bdf8";
+  const reliability = getReliability(safeSource);
 
   return (
     <div
@@ -67,6 +83,9 @@ export default function NewsCard({
         </span>
         <span style={{ background: urgencyColor, color: "#fff", borderRadius: "6px", padding: "2px 8px", fontSize: "12px", fontWeight: "700" }}>
           {URGENCY_MAP[urgency]?.label || "منخفض"}
+        </span>
+        <span style={{ background: reliability.color, color: "#fff", borderRadius: "6px", padding: "2px 8px", fontSize: "12px", fontWeight: "700", marginLeft: "4px" }}>
+          {reliability.score === "high" ? "موثوقية عالية" : "موثوقية متوسطة"}
         </span>
       </div>
       <p style={{ marginBottom: "10px", color: "#cbd5e1" }}>{safeSummary}</p>

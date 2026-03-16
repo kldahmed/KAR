@@ -5,6 +5,11 @@ import ArticleModal from "./components/ArticleModal";
 import ConflictMiniMap from "./components/ConflictMiniMap";
 import WarRiskPanel from "./components/WarRiskPanel";
 import StatsPanel from "./components/StatsPanel";
+import LiveConflictMap from "./components/LiveConflictMap";
+import EscalationTimelinePanel from "./components/EscalationTimelinePanel";
+import AISummaryPanel from "./components/AISummaryPanel";
+import GlobalTensionHeatmap from "./components/GlobalTensionHeatmap";
+import GlobalRiskMeter from "./components/GlobalRiskMeter";
 
 const DEMO_NEWS = [
   {
@@ -149,6 +154,36 @@ export default function App() {
         </ErrorBoundary>
         <ErrorBoundary>
           <StatsPanel news={displayedNews} updated={news.length > 0 ? news[0].time : DEMO_NEWS[0].time} />
+        </ErrorBoundary>
+      </div>
+      {/* Live Conflict Map */}
+      <div style={{ margin: "32px 0" }}>
+        <ErrorBoundary>
+          <LiveConflictMap />
+        </ErrorBoundary>
+      </div>
+      {/* Escalation Timeline Panel */}
+      <div style={{ margin: "32px 0" }}>
+        <ErrorBoundary>
+          <EscalationTimelinePanel news={displayedNews} />
+        </ErrorBoundary>
+      </div>
+      {/* AISummaryPanel */}
+      <div style={{ margin: "32px 0" }}>
+        <ErrorBoundary>
+          <AISummaryPanel news={displayedNews} />
+        </ErrorBoundary>
+      </div>
+      {/* GlobalTensionHeatmap */}
+      <div style={{ margin: "32px 0" }}>
+        <ErrorBoundary>
+          <GlobalTensionHeatmap news={displayedNews} />
+        </ErrorBoundary>
+      </div>
+      {/* GlobalRiskMeter */}
+      <div style={{ margin: "32px 0" }}>
+        <ErrorBoundary>
+          <GlobalRiskMeter news={displayedNews} />
         </ErrorBoundary>
       </div>
     </div>

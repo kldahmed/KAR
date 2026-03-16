@@ -1,8 +1,24 @@
 import React from "react";
 
+const RELIABILITY = {
+  "BBC": { score: "high", color: "#22c55e" },
+  "Reuters": { score: "high", color: "#22c55e" },
+  "Google News": { score: "medium", color: "#38bdf8" },
+  "default": { score: "medium", color: "#f39c12" }
+};
+
+function getReliability(source) {
+  if (!source) return RELIABILITY["default"];
+  if (source.includes("BBC")) return RELIABILITY["BBC"];
+  if (source.includes("Reuters")) return RELIABILITY["Reuters"];
+  if (source.includes("Google")) return RELIABILITY["Google News"];
+  return RELIABILITY["default"];
+}
+
 export default function ArticleModal({ open, onClose, article }) {
   if (!open || !article) return null;
   const { title, summary, source, time, url } = article;
+  const reliability = getReliability(source);
   return (
     <div style={{
       position: "fixed",
@@ -33,6 +49,9 @@ export default function ArticleModal({ open, onClose, article }) {
           <span style={{ color: "#38bdf8", fontWeight: "700" }}>{source}</span>
           <span style={{ color: "#f3d38a" }}>{time}</span>
         </div>
+        <span style={{ background: reliability.color, color: "#fff", borderRadius: "6px", padding: "2px 8px", fontSize: "12px", fontWeight: "700", marginLeft: "8px" }}>
+          {reliability.score === "high" ? "موثوقية عالية" : "موثوقية متوسطة"}
+        </span>
         <a href={url} target="_blank" rel="noopener noreferrer" style={{ background: "#38bdf8", color: "#fff", borderRadius: "8px", padding: "10px 18px", fontWeight: "700", textDecoration: "none", display: "inline-block", marginTop: "8px" }}>
           قراءة المقال الأصلي
         </a>
