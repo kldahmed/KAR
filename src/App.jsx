@@ -316,13 +316,32 @@ export default function App() {
           </>
         )}
 
-        {tab === "intel" && (
-          <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
-            <ErrorBoundary>
-              <GlobalIntelligenceCenter news={displayedNews} />
-            </ErrorBoundary>
-          </div>
-        )}
+    {tab === "intel" && (
+  <div
+    style={{
+      maxWidth: "1400px",
+      margin: "0 auto",
+      display: "grid",
+      gap: "28px"
+    }}
+  >
+    <ErrorBoundary>
+      <GlobalIntelligenceCenter news={displayedNews} />
+    </ErrorBoundary>
+
+    <ErrorBoundary>
+      <ThreatRadar news={displayedNews} />
+    </ErrorBoundary>
+
+    <ErrorBoundary>
+      <StrategicForecast news={displayedNews} />
+    </ErrorBoundary>
+
+    <ErrorBoundary>
+      <EnergyShockIndex news={displayedNews} />
+    </ErrorBoundary>
+  </div>
+)}
 
         {tab === "live" && (
           <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
