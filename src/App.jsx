@@ -317,8 +317,7 @@ export default function App() {
     }
   }, [nextRefresh]);
 
-  const safeNewsList = news.length ? news : [];
-  const displayedNews = safeNewsList.length > 0 ? safeNewsList : DEMO_NEWS;
+  const displayedNews = (Array.isArray(news) && news.length > 0) ? news : DEMO_NEWS;
   const safeVideosList = videos.length ? videos : [];
   const safeLiveChannels = liveChannels.length ? liveChannels : [];
 
@@ -354,8 +353,17 @@ export default function App() {
         {tab === "news" && (
           <ErrorBoundary>
             <div className="news-grid">
-              {displayedNews.map((item, i) => (
-                <NewsCard key={`${item.id}-${i}`} item={item} index={i} />
+              {displayedNews.map((item, idx) => (
+                <NewsCard
+                  key={item.id || idx}
+                  title={item.title || "خبر عاجل"}
+                  summary={item.summary || ""}
+                  source={item.source || ""}
+                  time={item.time || ""}
+                  image={item.image || ""}
+                  url={item.url || "#"}
+                  urgency={item.urgency || "low"}
+                />
               ))}
             </div>
           </ErrorBoundary>
