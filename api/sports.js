@@ -109,8 +109,13 @@ function isArabicText(str = "") {
   return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(str);
 }
 
+const TAG_RE_CACHE = new Map();
 function extractTag(block, tag) {
-  const re = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "i");
+  let re = TAG_RE_CACHE.get(tag);
+  if (!re) {
+    re = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "i");
+    TAG_RE_CACHE.set(tag, re);
+  }
   const m = String(block || "").match(re);
   return m ? m[1].trim() : "";
 }
