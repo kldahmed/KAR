@@ -34,7 +34,7 @@ import GlobalEventTimeline from "./components/GlobalEventTimeline";
 import StrategicForecastCenter from "./components/StrategicForecastCenter";
 import AgentDashboard from "./components/AgentDashboard";
 import { ingestBatch } from "./lib/agent/ingestionAgent";
-import { useI18n } from "./i18n/I18nProvider";
+import { useI18n, I18nContext } from "./i18n/I18nProvider";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { OrbitalMap } from "./components/OrbitalMap";
 
@@ -79,6 +79,7 @@ const TABS = [
   { id: "xfeed", key: "xfeed", icon: "𝕏" }
 ];
 class ErrorBoundary extends React.Component {
+  static contextType = I18nContext;
   constructor(props) {
     super(props);
     this.state = { hasError: false };
@@ -94,6 +95,7 @@ class ErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
+      const t = this.context?.t;
       return (
         <div
           style={{
@@ -107,7 +109,7 @@ class ErrorBoundary extends React.Component {
             border: "1px solid rgba(231,76,60,.25)"
           }}
         >
-          ⚠️ تعذر تحميل هذا القسم حاليًا
+          ⚠️ {t ? t("common.sectionError") : "Section failed to load"}
         </div>
       );
     }
@@ -539,12 +541,12 @@ const fetchNews = async () => {
                   >
                     <span style={{ fontSize: "20px" }}>🇦🇪</span>
                     <span style={{ fontWeight: 800, fontSize: "1.05rem", color: "#4ade80" }}>
-                      ترتيب دوري أدنوك للمحترفين
+                      {t("standings.title")}
                     </span>
                   </div>
                   {isStandingsLoading && !uaeStandings.length ? (
                     <div style={{ textAlign: "center", color: "#4ade80", padding: "24px" }}>
-                      ⏳ جاري تحميل الترتيب...
+                      ⏳ {t("standings.loading")}
                     </div>
                   ) : (
                     <div style={{ overflowX: "auto" }}>
@@ -558,8 +560,14 @@ const fetchNews = async () => {
                       >
                         <thead>
                           <tr style={{ background: "rgba(255,255,255,0.04)", color: "#94a3b8", fontSize: "0.78rem" }}>
-                            {["#", "النادي", "لع", "ف", "ت", "خ", "له", "عليه", "فرق", "نقاط"].map((h) => (
-                              <th key={h} style={{ padding: "10px 12px", textAlign: "center", fontWeight: 700 }}>{h}</th>
+                            {[
+                              t("standings.headers.rank"), t("standings.headers.team"),
+                              t("standings.headers.played"), t("standings.headers.won"),
+                              t("standings.headers.drawn"), t("standings.headers.lost"),
+                              t("standings.headers.goalsFor"), t("standings.headers.goalsAgainst"),
+                              t("standings.headers.goalDiff"), t("standings.headers.points")
+                            ].map((h, idx) => (
+                              <th key={idx} style={{ padding: "10px 12px", textAlign: "center", fontWeight: 700 }}>{h}</th>
                             ))}
                           </tr>
                         </thead>
@@ -592,7 +600,7 @@ const fetchNews = async () => {
                       </table>
                       {uaeStandingsUpdatedAt && (
                         <div style={{ textAlign: "center", color: "#64748b", fontSize: "0.75rem", padding: "8px 16px" }}>
-                          آخر تحديث: {uaeStandingsUpdatedAt}
+                          {t("standings.lastUpdate")}: {uaeStandingsUpdatedAt}
                         </div>
                       )}
                     </div>
@@ -614,10 +622,10 @@ const fetchNews = async () => {
               {cat === "sports" && sportsCompetition === "uae" && (
                 <div style={{ gridColumn: "1 / -1", marginBottom: "4px" }}>
                   <div style={{ fontWeight: 800, fontSize: "1.1rem", color: "#f3d38a", marginBottom: "4px" }}>
-                    📰 أخبار دوري أدنوك والأندية
+                    📰 {t("standings.newsTitle")}
                   </div>
                   <div style={{ fontSize: "0.85rem", color: "#64748b" }}>
-                    آخر أخبار الشارقة والعين وشباب الأهلي والوصل وبقية أندية الدوري
+                    {t("standings.newsSubtitle")}
                   </div>
                 </div>
               )}

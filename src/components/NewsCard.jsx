@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { URGENCY_MAP, formatDisplayTime } from "../AppHelpers";
+import { useI18n } from "../i18n/I18nProvider";
 
 const SOURCE_BADGES = {
   "BBC": { label: "BBC", color: "#1a1a1a", logo: "🌐" },
@@ -40,7 +41,8 @@ export default function NewsCard({
   urgency = "low",
   onClick
 }) {
-  const safeTitle = typeof title === "string" ? title : "خبر";
+  const { t } = useI18n();
+  const safeTitle = typeof title === "string" ? title : t("news.unknown");
   const safeSummary = typeof summary === "string" ? summary : "";
   const safeSource = typeof source === "string" ? source : "";
   const rawTime = typeof time === "string" ? time : "";
@@ -82,10 +84,10 @@ export default function NewsCard({
           {badge.logo} {badge.label}
         </span>
         <span style={{ background: urgencyColor, color: "#fff", borderRadius: "6px", padding: "2px 8px", fontSize: "12px", fontWeight: "700" }}>
-          {URGENCY_MAP[urgency]?.label || "منخفض"}
+          {t(`news.urgency.${urgency}`)}
         </span>
         <span style={{ background: reliability.color, color: "#fff", borderRadius: "6px", padding: "2px 8px", fontSize: "12px", fontWeight: "700", marginLeft: "4px" }}>
-          {reliability.score === "high" ? "موثوقية عالية" : "موثوقية متوسطة"}
+          {reliability.score === "high" ? t("news.reliabilityHigh") : t("news.reliabilityMedium")}
         </span>
       </div>
       <p style={{ marginBottom: "10px", color: "#cbd5e1" }}>{safeSummary}</p>

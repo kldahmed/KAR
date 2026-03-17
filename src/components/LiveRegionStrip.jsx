@@ -1,16 +1,19 @@
 import React from "react";
+import { useI18n } from "../i18n/I18nProvider";
 
 const REGIONS = [
-  { id: "me",   label: "الشرق الأوسط", flag: "🌍", color: "#f3d38a" },
-  { id: "eu",   label: "أوروبا",        flag: "🇪🇺", color: "#38bdf8" },
-  { id: "na",   label: "أمريكا",        flag: "🌎", color: "#60a5fa" },
-  { id: "asia", label: "آسيا",          flag: "🌏", color: "#a78bfa" },
-  { id: "mkt",  label: "الأسواق",       flag: "📊", color: "#34d399" },
-  { id: "spt",  label: "رياضة",         flag: "⚽", color: "#fb923c" },
-  { id: "live", label: "بث مباشر",      flag: "📺", color: "#ef4444" },
+  { id: "me",   key: "me",   flag: "🌍", color: "#f3d38a" },
+  { id: "eu",   key: "eu",   flag: "🇪🇺", color: "#38bdf8" },
+  { id: "na",   key: "na",   flag: "🌎", color: "#60a5fa" },
+  { id: "asia", key: "asia", flag: "🌏", color: "#a78bfa" },
+  { id: "mkt",  key: "mkt",  flag: "📊", color: "#34d399" },
+  { id: "spt",  key: "spt",  flag: "⚽", color: "#fb923c" },
+  { id: "live", key: "live", flag: "📺", color: "#ef4444" },
 ];
 
 export default function LiveRegionStrip() {
+  const { t } = useI18n();
+
   return (
     <div
       style={{
@@ -44,7 +47,7 @@ export default function LiveRegionStrip() {
             flexShrink: 0,
           }}
         >
-          GLOBAL
+          {t("strip.global")}
         </span>
 
         {REGIONS.map((r, i) => (
@@ -77,7 +80,7 @@ export default function LiveRegionStrip() {
                   fontFamily: "inherit",
                 }}
               >
-                {r.label}
+                {t(`strip.regions.${r.key}`)}
               </span>
             </div>
           </React.Fragment>
@@ -99,7 +102,7 @@ export default function LiveRegionStrip() {
         >
           <span className="nr-live-dot" />
           <span style={{ fontSize: "10px", fontWeight: 800, color: "#ef4444", letterSpacing: "1px" }}>
-            LIVE
+            {t("strip.live")}
           </span>
         </span>
       </div>

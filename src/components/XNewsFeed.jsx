@@ -9,6 +9,7 @@
  */
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import XPostCard from "./XPostCard";
+import { useI18n } from "../i18n/I18nProvider";
 
 const C = {
   bg:"#080c12", surface:"#0c1220", border:"rgba(56,189,248,0.12)",
@@ -17,19 +18,19 @@ const C = {
   muted:"#475569", text:"#e2e8f0", dim:"#1e293b",
 };
 
-const SIGNAL_TABS = [
-  { id:"priority",  label:"أعلى تأثير",    icon:"🎯" },
-  { id:"urgent",    label:"عاجل",          icon:"🔴" },
-  { id:"regional",  label:"إقليمي",        icon:"🌍" },
-  { id:"uae",       label:"إماراتي",       icon:"🇦🇪" },
-  { id:"economy",   label:"اقتصاد",        icon:"📊" },
-  { id:"sports",    label:"رياضة",         icon:"⚽" },
-  { id:"clusters",  label:"مجموعات صاعدة", icon:"🔗" },
-  { id:"all",       label:"كل الإشارات",   icon:"📡" },
+const SIGNAL_TAB_KEYS = [
+  { id:"priority",  key: "priority",  icon:"🎯" },
+  { id:"urgent",    key: "urgent",    icon:"🔴" },
+  { id:"regional",  key: "regional",  icon:"🌍" },
+  { id:"uae",       key: "uae",       icon:"🇦🇪" },
+  { id:"economy",   key: "economy",   icon:"📊" },
+  { id:"sports",    key: "sports",    icon:"⚽" },
+  { id:"clusters",  key: "clusters",  icon:"🔗" },
+  { id:"all",       key: "all",       icon:"📡" },
 ];
 
 // ── Signal Priority Strip ─────────────────────────────────────────────────────
-function SignalPriorityStrip({ signals }) {
+function SignalPriorityStrip({ signals, t }) {
   if (!signals?.length) return null;
   return (
     <div style={{
@@ -42,9 +43,9 @@ function SignalPriorityStrip({ signals }) {
           background:C.red, boxShadow:`0 0 8px ${C.red}80`,
           animation:"pulse 1.4s ease-in-out infinite" }} />
         <span style={{ color:C.gold, fontWeight:800, fontSize:"14px", letterSpacing:".04em" }}>
-          X Signal Priority
+          {t("xfeed.signalPriority")} 𝕏
         </span>
-        <span style={{ color:C.muted, fontSize:"12px" }}>أقوى الإشارات المرصودة الآن</span>
+        <span style={{ color:C.muted, fontSize:"12px" }}>{t("xfeed.strongestSignals")}</span>
       </div>
       <div style={{ display:"grid", gap:"8px" }}>
         {signals.slice(0, 5).map((sig, i) => (
@@ -64,7 +65,7 @@ function SignalPriorityStrip({ signals }) {
               <div style={{ display:"flex", gap:"10px", marginTop:"5px", flexWrap:"wrap" }}>
                 {sig.region && <span style={{ color:C.blue, fontSize:"11px" }}>📍 {sig.region}</span>}
                 <span style={{ color:C.muted, fontSize:"11px" }}>
-                  تأثير: <span style={{ color: sig.impactScore >= 70 ? C.red : C.amber, fontWeight:700 }}>
+                  {t("xfeed.impact")}: <span style={{ color: sig.impactScore >= 70 ? C.red : C.amber, fontWeight:700 }}>
                     {sig.impactScore}
                   </span>
                 </span>
@@ -88,7 +89,7 @@ function SignalPriorityStrip({ signals }) {
 }
 
 // ── Rising Cluster Card ───────────────────────────────────────────────────────
-function ClusterCard({ cluster }) {
+function ClusterCard({ cluster, t }) {
   const typeColor = cluster.urgencyCount > 0 ? C.red :
     cluster.category === "economy" ? "#34d399" :
     cluster.category === "sports"  ? "#fb923c" : C.purple;
@@ -103,7 +104,7 @@ function ClusterCard({ cluster }) {
         <div>
           <div style={{ color:typeColor, fontSize:"10px", fontWeight:800,
             letterSpacing:".06em", marginBottom:"4px" }}>
-            {cluster.label || "إشارة ناشئة"}
+            {cluster.label || t("xfeed.emergingSignal")}
           </div>
           <div style={{ color:C.text, fontWeight:700, fontSize:"13px" }}>{cluster.topic}</div>
         </div>
@@ -113,7 +114,7 @@ function ClusterCard({ cluster }) {
           borderRadius:"999px", padding:"3px 10px",
           fontSize:"11px", fontWeight:800, whiteSpace:"nowrap"
         }}>
-          {cluster.volume} إشارة
+          {cluster.volume} {t("xfeed.signalCount")}
         </div>
       </div>
       <div style={{ display:"flex", gap:"8px", flexWrap:"wrap" }}>
@@ -136,7 +137,7 @@ function ClusterCard({ cluster }) {
             background:typeColor, borderRadius:"2px" }} />
         </div>
         <span style={{ color:C.muted, fontSize:"10px", whiteSpace:"nowrap" }}>
-          ثقة: <span style={{ color:typeColor, fontWeight:700 }}>{cluster.confidence}%</span>
+          {t("xfeed.confidence")}: <span style={{ color:typeColor, fontWeight:700 }}>{cluster.confidence}%</span>
         </span>
       </div>
     </div>
@@ -144,7 +145,7 @@ function ClusterCard({ cluster }) {
 }
 
 // ── Stats Bar ─────────────────────────────────────────────────────────────────
-function StatsBar({ stats, live, updated }) {
+function StatsBar({ stats, live, updated, t }) {
   return (
     <div style={{
       display:"flex", gap:"16px", flexWrap:"wrap", alignItems:"center",
@@ -155,14 +156,14 @@ function StatsBar({ stats, live, updated }) {
         <div style={{ width:"6px", height:"6px", borderRadius:"50%",
           background: live ? C.green : C.muted }} />
         <span style={{ color: live ? C.green : C.muted, fontSize:"11px", fontWeight:700 }}>
-          {live ? "بث مباشر" : "بيانات محلية"}
+          {live ? t("xfeed.liveStream") : t("xfeed.localData")}
         </span>
       </div>
       {stats && <>
-        <Pill label="إشارة" value={stats.total} color={C.blue} />
-        <Pill label="عاجل"  value={stats.urgent} color={C.red} />
-        <Pill label="مجموعة" value={stats.clusterCount} color={C.purple} />
-        <Pill label="نطاق"  value={stats.domains} color={C.amber} />
+        <Pill label={t("xfeed.signalLabel")} value={stats.total} color={C.blue} />
+        <Pill label={t("xfeed.urgentLabel")}  value={stats.urgent} color={C.red} />
+        <Pill label={t("xfeed.clusterLabel")} value={stats.clusterCount} color={C.purple} />
+        <Pill label={t("xfeed.domainLabel")}  value={stats.domains} color={C.amber} />
       </>}
       {updated && <span style={{ color:C.muted, fontSize:"11px", marginRight:"auto" }}>{updated}</span>}
     </div>
@@ -180,6 +181,7 @@ function Pill({ label, value, color }) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function XNewsFeed() {
+  const { t } = useI18n();
   const [posts, setPosts]         = useState([]);
   const [clusters, setClusters]   = useState([]);
   const [layers, setLayers]       = useState(null);
@@ -192,6 +194,11 @@ export default function XNewsFeed() {
   const [debug, setDebug]         = useState(null);
   const [showDebug, setShowDebug] = useState(false);
   const intervalRef = useRef(null);
+
+  const SIGNAL_TABS = useMemo(() =>
+    SIGNAL_TAB_KEYS.map(tab => ({ ...tab, label: t(`xfeed.tabs.${tab.key}`) })),
+    [t]
+  );
 
   const fetchData = () => {
     setLoading(true);
@@ -207,10 +214,10 @@ export default function XNewsFeed() {
         setDebug(data.debug || null);
         if (data.updated) {
           try {
-            const t = new Intl.DateTimeFormat("ar-AE", {
+            const ts = new Intl.DateTimeFormat("ar-AE", {
               timeZone:"Asia/Dubai", hour:"2-digit", minute:"2-digit", hour12:false
             }).format(new Date(data.updated));
-            setUpdated(t + " (توقيت الإمارات)");
+            setUpdated(ts + " (" + t("xfeed.uaeTime") + ")");
           } catch { setUpdated(data.updated); }
         }
       })
@@ -251,21 +258,21 @@ export default function XNewsFeed() {
       {/* Header */}
       <div>
         <div style={{ display:"flex", alignItems:"center", gap:"10px", marginBottom:"5px" }}>
-          <span style={{ color:"#f8fafc", fontSize:"26px", fontWeight:900 }}>رادار 𝕏 الاستخباراتي</span>
+          <span style={{ color:"#f8fafc", fontSize:"26px", fontWeight:900 }}>{t("xfeed.title")} 𝕏</span>
           <span style={{ background:"rgba(239,68,68,.1)", color:C.red,
             border:"1px solid rgba(239,68,68,.18)", fontSize:"10px", fontWeight:800,
             padding:"3px 9px", borderRadius:"999px", letterSpacing:".06em" }}>
             LIVE SIGNAL ENGINE
           </span>
-          {loading && <span style={{ color:C.muted, fontSize:"12px" }}>يجلب الإشارات…</span>}
+          {loading && <span style={{ color:C.muted, fontSize:"12px" }}>{t("common.loading")}</span>}
         </div>
         <p style={{ color:C.muted, fontSize:"12px", margin:0, lineHeight:1.6 }}>
-          محرك استشعار حي يفحص 𝕏 بحثاً عن إشارات عالمية — جيوسياسية، اقتصادية، رياضية — دون تحديد حسابات مسبقة
+          {t("xfeed.subtitle")}
         </p>
       </div>
 
       {/* Stats */}
-      <StatsBar stats={stats} live={live} updated={updated} />
+      <StatsBar stats={stats} live={live} updated={updated} t={t} />
 
       {/* Low Signal Activity Banner */}
       {lowSignal && (
@@ -277,17 +284,17 @@ export default function XNewsFeed() {
           <span style={{ fontSize:"18px" }}>📡</span>
           <div>
             <span style={{ color:"#f59e0b", fontWeight:800, fontSize:"13px" }}>
-              نشاط إشارة منخفض
+              {t("xfeed.lowSignalTitle")}
             </span>
             <span style={{ color:"#94a3b8", fontSize:"12px", marginRight:"8px" }}>
-              — تم توسيع نطاق البحث تلقائياً. تُعرض أفضل الإشارات المتاحة.
+              — {t("xfeed.lowSignalDesc")}
             </span>
           </div>
         </div>
       )}
 
       {/* Signal Priority */}
-      {topSignals.length > 0 && <SignalPriorityStrip signals={topSignals} />}
+      {topSignals.length > 0 && <SignalPriorityStrip signals={topSignals} t={t} />}
 
       {/* Tabs */}
       <div style={{
@@ -320,15 +327,15 @@ export default function XNewsFeed() {
       {activeTab === "clusters" && (
         <div>
           <div style={{ color:C.muted, fontSize:"12px", marginBottom:"12px" }}>
-            {risingClusters.length} مجموعة إشارات نشطة — مجموعات من منشورات متعددة حول نفس الموضوع
+            {risingClusters.length} {t("xfeed.activeClusters")}
           </div>
           {risingClusters.length === 0 ? (
             <div style={{ color:C.muted, textAlign:"center", padding:"40px" }}>
-              لا توجد مجموعات نشطة بعد — ستظهر عند تجمع إشارات متعددة حول موضوع واحد
+              {t("xfeed.noClusters")}
             </div>
           ) : (
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))", gap:"12px" }}>
-              {risingClusters.map(cl => <ClusterCard key={cl.clusterId} cluster={cl} />)}
+              {risingClusters.map(cl => <ClusterCard key={cl.clusterId} cluster={cl} t={t} />)}
             </div>
           )}
         </div>
@@ -338,7 +345,7 @@ export default function XNewsFeed() {
       {activeTab !== "clusters" && (
         displayedItems?.length === 0 ? (
           <div style={{ color:C.muted, textAlign:"center", padding:"40px", fontSize:"13px" }}>
-            لا توجد إشارات في هذه الفئة حالياً
+            {t("xfeed.noSignals")}
           </div>
         ) : (
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(340px,1fr))", gap:"14px" }}>
@@ -357,7 +364,7 @@ export default function XNewsFeed() {
           cursor: loading ? "not-allowed" : "pointer",
           opacity: loading ? 0.6 : 1
         }}>
-          {loading ? "جاري المسح…" : "🔄 مسح الإشارات الجديدة"}
+          {loading ? t("xfeed.scanning") : `🔄 ${t("xfeed.scanNew")}`}
         </button>
         <button onClick={() => setShowDebug(v => !v)} style={{
           background:"rgba(167,139,250,.06)", color:"#a78bfa",
@@ -365,7 +372,7 @@ export default function XNewsFeed() {
           borderRadius:"8px", padding:"9px 14px",
           fontSize:"11px", fontWeight:700, cursor:"pointer"
         }}>
-          {showDebug ? "إخفاء" : "🛠 مقاييس"}
+          {showDebug ? t("xfeed.hideDebug") : `🛠 ${t("xfeed.showDebug")}`}
         </button>
       </div>
 
@@ -377,14 +384,14 @@ export default function XNewsFeed() {
           display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))", gap:"10px"
         }}>
           {[
-            ["إشارات مجلوبة", debug.signalsFetched],
-            ["مجموعات منشأة", debug.clustersCreated],
-            ["استعلامات منفذة", debug.queriesExecuted],
-            ["أخطاء API", debug.apiErrors],
-            ["إشارات RSS", debug.rssSignals],
-            ["توسيع تلقائي", debug.broadeningTriggered],
-            ["الذاكرة الحالية", debug.memorySize ?? stats?.total],
-            ["إشارات الدورة", debug.cycleSignals],
+            [t("xfeed.debugSignalsFetched"), debug.signalsFetched],
+            [t("xfeed.debugClustersCreated"), debug.clustersCreated],
+            [t("xfeed.debugQueriesExecuted"), debug.queriesExecuted],
+            [t("xfeed.debugApiErrors"), debug.apiErrors],
+            [t("xfeed.debugRssSignals"), debug.rssSignals],
+            [t("xfeed.debugAutoBroadening"), debug.broadeningTriggered],
+            [t("xfeed.debugCurrentMemory"), debug.memorySize ?? stats?.total],
+            [t("xfeed.debugCycleSignals"), debug.cycleSignals],
           ].map(([label, val]) => (
             <div key={label} style={{
               background:"rgba(255,255,255,.02)", borderRadius:"7px",
@@ -396,7 +403,7 @@ export default function XNewsFeed() {
           ))}
           {debug.lastCycle && (
             <div style={{ gridColumn:"1/-1", color:"#334155", fontSize:"10px", paddingTop:"4px" }}>
-              آخر دورة: {debug.lastCycle} · {debug.broadened ? "🔍 تم التوسيع" : ""} {debug.usedRSS ? "📰 RSS مُستخدم" : ""}
+              {t("xfeed.debugLastCycle")}: {debug.lastCycle} · {debug.broadened ? `🔍 ${t("xfeed.debugBroadened")}` : ""} {debug.usedRSS ? `📰 ${t("xfeed.debugRssUsed")}` : ""}
             </div>
           )}
         </div>

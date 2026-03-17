@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 import { translations } from "./translations";
 
 const I18nContext = createContext(null);
+export { I18nContext };
 const STORAGE_KEY = "kar-language";
 
 function getDeepValue(obj, path) {

@@ -1,10 +1,11 @@
 import React from "react";
+import { useI18n } from "../i18n/I18nProvider";
 
-const RANGES = [
-  { id: "30m", label: "Last 30m" },
-  { id: "6h", label: "Last 6h" },
-  { id: "24h", label: "Last 24h" },
-  { id: "3d", label: "Last 3d" }
+const RANGE_KEYS = [
+  { id: "30m", key: "m30" },
+  { id: "6h", key: "h6" },
+  { id: "24h", key: "h24" },
+  { id: "3d", key: "d3" }
 ];
 
 export default function MapPlaybackBar({
@@ -16,22 +17,24 @@ export default function MapPlaybackBar({
   frameCount,
   signalCount
 }) {
+  const { t } = useI18n();
+
   return (
     <div className="glm-playback">
       <div className="glm-playback-ranges">
-        {RANGES.map((item) => (
+        {RANGE_KEYS.map((item) => (
           <button
             key={item.id}
             className={range === item.id ? "glm-chip active" : "glm-chip"}
             onClick={() => setRange(item.id)}
           >
-            {item.label}
+            {t(`map.ranges.${item.key}`)}
           </button>
         ))}
       </div>
       <div className="glm-playback-controls">
         <button className="glm-control" onClick={() => setPlaying(!playing)}>
-          {playing ? "Pause" : "Play"}
+          {playing ? t("map.controls.pause") : t("map.controls.play")}
         </button>
         <div className="glm-progress-wrap">
           <div className="glm-progress-track">
@@ -41,7 +44,7 @@ export default function MapPlaybackBar({
             />
           </div>
           <span className="glm-progress-meta">
-            Frame {frameIndex + 1}/{frameCount} • Signals {signalCount}
+            {t("map.controls.frame")} {frameIndex + 1}/{frameCount} • {t("map.controls.signalCount")} {signalCount}
           </span>
         </div>
       </div>

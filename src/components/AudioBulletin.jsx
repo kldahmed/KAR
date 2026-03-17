@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useI18n } from "../i18n/I18nProvider";
 
 export default function AudioBulletin({ headlines = [] }) {
+  const { t, language } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -45,9 +47,8 @@ export default function AudioBulletin({ headlines = [] }) {
 
     const items = headlines.slice(0, 8);
 
-    // Intro announcement
-    const intro = new SpeechSynthesisUtterance("موجز الأخبار");
-    intro.lang = "ar-AE";
+    const intro = new SpeechSynthesisUtterance(t("audio.intro"));
+    intro.lang = language === "ar" ? "ar-AE" : "en-US";
     intro.volume = isMuted ? 0 : volume;
     intro.rate = 0.95;
     if (voiceRef.current) intro.voice = voiceRef.current;
@@ -57,7 +58,7 @@ export default function AudioBulletin({ headlines = [] }) {
 
     items.forEach((headline, i) => {
       const utt = new SpeechSynthesisUtterance(headline);
-      utt.lang = "ar-AE";
+      utt.lang = language === "ar" ? "ar-AE" : "en-US";
       utt.volume = isMuted ? 0 : volume;
       utt.rate = 0.95;
       if (voiceRef.current) utt.voice = voiceRef.current;
@@ -116,7 +117,7 @@ export default function AudioBulletin({ headlines = [] }) {
             <span
               style={{ fontWeight: 800, fontSize: "13px", color: "#f3d38a" }}
             >
-              الموجز الصوتي
+              {t("audio.title")}
             </span>
             {isPlaying && (
               <span
@@ -184,7 +185,7 @@ export default function AudioBulletin({ headlines = [] }) {
                   fontFamily: "inherit",
                 }}
               >
-                ▶ تشغيل الموجز
+                ▶ {t("audio.play")}
               </button>
             ) : (
               <button
@@ -202,7 +203,7 @@ export default function AudioBulletin({ headlines = [] }) {
                   fontFamily: "inherit",
                 }}
               >
-                ⏹ إيقاف
+                ⏹ {t("audio.stop")}
               </button>
             )}
             <button
@@ -216,7 +217,7 @@ export default function AudioBulletin({ headlines = [] }) {
                 fontSize: "14px",
                 cursor: "pointer",
               }}
-              title={isMuted ? "إلغاء الكتم" : "كتم"}
+              title={isMuted ? t("audio.unmute") : t("audio.mute")}
             >
               {isMuted ? "🔇" : "🔉"}
             </button>
@@ -245,7 +246,7 @@ export default function AudioBulletin({ headlines = [] }) {
           boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
           transition: "background 0.3s",
         }}
-        title="الموجز الصوتي"
+        title={t("audio.title")}
       >
         🎙️
       </button>

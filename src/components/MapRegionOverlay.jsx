@@ -1,5 +1,6 @@
 import React from "react";
 import { Circle, Tooltip } from "react-leaflet";
+import { useI18n } from "../i18n/I18nProvider";
 
 function pressureColor(level) {
   if (level === "high") return "#ef4444";
@@ -8,6 +9,8 @@ function pressureColor(level) {
 }
 
 export default function MapRegionOverlay({ regions, countryNodes }) {
+  const { t } = useI18n();
+
   return (
     <>
       {regions.map((region) => {
@@ -31,7 +34,7 @@ export default function MapRegionOverlay({ regions, countryNodes }) {
             }}
           >
             <Tooltip sticky>
-              {region.name} • {region.signalCount} signals • {region.pressureLevel}
+              {region.name} • {region.signalCount} {t("map.signals")} • {t(`map.pressureLevel.${region.pressureLevel}`)}
             </Tooltip>
           </Circle>
         );

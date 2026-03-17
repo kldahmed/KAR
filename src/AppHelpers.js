@@ -20,17 +20,18 @@ export const URGENCY_MAP = {
   medium: { label: "متوسط", color: "#f39c12" },
   low: { label: "منخفض", color: "#27ae60" }
 };
-export function formatDisplayTime(dateValue) {
+export function formatDisplayTime(dateValue, lang) {
   try {
     const d = new Date(dateValue);
-    if (Number.isNaN(d.getTime())) return "وقت غير متوفر";
-    return new Intl.DateTimeFormat("ar-AE", {
+    if (Number.isNaN(d.getTime())) return "";
+    const locale = lang === "en" ? "en-AE" : "ar-AE";
+    return new Intl.DateTimeFormat(locale, {
       dateStyle: "medium",
       timeStyle: "short",
       timeZone: "Asia/Dubai"
     }).format(d);
   } catch {
-    return "وقت غير متوفر";
+    return "";
   }
 }
 export function isValidYouTubeId(id) {

@@ -1,16 +1,18 @@
 import React, { useMemo } from "react";
+import { useI18n } from "../i18n/I18nProvider";
 
 export default function BreakingNewsTicker({
   headlines = [],
   speed = 28,
-  label = "BREAKING",
   background = "#0f172a",
   accent = "#f3d38a",
   textColor = "#f8fafc"
 }) {
+  const { t, direction } = useI18n();
+
   const safeHeadlines = useMemo(() => {
     if (!Array.isArray(headlines) || headlines.length === 0) {
-      return ["No breaking updates available right now"];
+      return [t("ticker.fallback")];
     }
 
     return headlines
@@ -62,7 +64,7 @@ export default function BreakingNewsTicker({
           }}
         >
           <span className="nr-live-dot" />
-          LIVE
+          {t("ticker.live")}
         </div>
 
         <div

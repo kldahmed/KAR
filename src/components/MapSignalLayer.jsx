@@ -1,15 +1,17 @@
 import React from "react";
 import { CircleMarker, Polyline, Tooltip } from "react-leaflet";
 import MapEventTooltip from "./MapEventTooltip";
+import { useI18n } from "../i18n/I18nProvider";
 
 export default function MapSignalLayer({
   countryNodes,
   linkLayer,
   selectedNodeId,
   onSelectNode,
-  motionSettings,
-  dubaiTimeFormatter
+  motionSettings
 }) {
+  const { t } = useI18n();
+
   return (
     <>
       {linkLayer.map((link) => (
@@ -25,7 +27,7 @@ export default function MapSignalLayer({
           }}
         >
           <Tooltip sticky>
-            {link.source} to {link.target} • {link.linkedEventCount} linked events
+            {t("map.linkTooltip", { source: link.source, target: link.target, count: link.linkedEventCount })}
           </Tooltip>
         </Polyline>
       ))}
@@ -45,7 +47,7 @@ export default function MapSignalLayer({
           eventHandlers={{ click: () => onSelectNode(node.id) }}
         >
           <Tooltip direction="top" offset={[0, -8]} opacity={1}>
-            <MapEventTooltip node={node} dubaiTimeFormatter={dubaiTimeFormatter} />
+            <MapEventTooltip node={node} />
           </Tooltip>
         </CircleMarker>
       ))}
