@@ -5,7 +5,9 @@ import React from "react";
  * Clicking loads the stream in the in-page player (no redirect).
  */
 export default function SportsChannelCard({ channel, isLive, currentProgram, onWatch, active }) {
-  const { nameAr, nameEn, country, flag, logo, canEmbed, isVerifiedWorking, sourceType } = channel;
+  const { nameAr, nameEn, country, flag, logo, canEmbed, isVerifiedWorking, sourceType, playMode, streamUrl, officialUrl } = channel;
+  const isPlayable = playMode === "EMBED" || playMode === "HYBRID";
+  const isExternal = playMode === "EXTERNAL";
 
   const sourceLabel =
     sourceType === "youtube" ? "YouTube" :
@@ -13,12 +15,22 @@ export default function SportsChannelCard({ channel, isLive, currentProgram, onW
     sourceType === "hls" ? "HLS" :
     "Website";
 
+  const handleClick = () => {
+    if (isExternal) {
+      // External channels open in new tab directly
+      const url = streamUrl || officialUrl;
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
+    } else {
+      onWatch(channel);
+    }
+  };
+
   return (
     <div
-      onClick={() => onWatch(channel)}
+      onClick={handleClick}
       role="button"
       tabIndex={0}
-      onKeyDown={e => { if (e.key === "Enter") onWatch(channel); }}
+      onKeyDown={e => { if (e.key === "Enter") handleClick(); }}
       style={{
         background: active
           ? "linear-gradient(135deg, #0f2237, #132a44)"
@@ -106,14 +118,14 @@ export default function SportsChannelCard({ channel, isLive, currentProgram, onW
             <span>{flag} {country}</span>
             <span style={{ color: "#334155" }}>·</span>
             <span style={{
-              color: canEmbed
-                ? (isVerifiedWorking ? "#4ade80" : "#f59e0b")
+              color: isPlayable
+                ? (isVerifiedWorking ? "#4ade80" : "#38bdf8")
                 : "#64748b",
-              fontWeight: canEmbed ? 700 : 400,
+              fontWeight: isPlayable ? 700 : 400,
             }}>
-              {canEmbed
-                ? (isVerifiedWorking ? "✓ تضمين مباشر" : "تضمين عند البث")
-                : "موقع خارجي"
+              {isPlayable
+                ? (isVerifiedWorking ? "✓ يعمل داخل الموقع" : "▶ بث داخل الموقع")
+                : "↗ مصدر خارجي"
               }
             </span>
           </div>
@@ -155,8 +167,8 @@ export default function SportsChannelCard({ channel, isLive, currentProgram, onW
         </div>
       </div>
 
-      {/* Active = playing indicator */}
-      {active && (
+      {/* Active = playing indicator (only for playable channels) */}
+      {active && isPlayable && (
         <div style={{
           marginTop: "10px", textAlign: "center",
           fontSize: "11px", fontWeight: 700, color: "#38bdf8",
@@ -171,6 +183,18 @@ export default function SportsChannelCard({ channel, isLive, currentProgram, onW
             <span style={{ width: "3px", height: "8px", background: "#38bdf8", borderRadius: "2px", animation: "eqBar3 0.8s ease-in-out infinite" }} />
           </span>
           يعرض الآن
+        </div>
+      )}
+
+      {/* External channel action hint */}
+      {isExternal && (
+        <div style={{
+          marginTop: "10px", textAlign: "center",
+          fontSize: "11px", fontWeight: 700, color: "#64748b",
+          background: "rgba(148,163,184,0.06)", borderRadius: "8px", padding: "5px 0",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+        }}>
+          🌐 مشاهدة من المصدر الرسمي ↗
         </div>
       )}
 

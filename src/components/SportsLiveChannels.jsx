@@ -6,6 +6,7 @@ import {
   getFirstEmbeddable,
   sortChannels,
   suggestChannelsForMatch,
+  getChannelsByType,
 } from "../lib/sports/sportsChannelsRegistry";
 
 const COUNTRY_FILTERS = [
@@ -98,8 +99,13 @@ export default function SportsLiveChannels({ activeMatch }) {
   }, [allChannels, countryFilter, liveChannelIds]);
 
   const liveCount = allChannels.filter(ch => liveChannelIds.includes(ch.id)).length;
-  const embeddableCount = allChannels.filter(ch => ch.canEmbed).length;
+  const playableCount = allChannels.filter(ch => ch.playMode === "EMBED" || ch.playMode === "HYBRID").length;
   const verifiedCount = allChannels.filter(ch => ch.canEmbed && ch.isVerifiedWorking).length;
+
+  // Split filtered channels into playable (EMBED/HYBRID) and external-only
+  const { playable: playableChannels, external: externalChannels } = useMemo(() => {
+    return getChannelsByType(filteredChannels);
+  }, [filteredChannels]);
 
   return (
     <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
@@ -132,7 +138,7 @@ export default function SportsLiveChannels({ activeMatch }) {
             📺 البث الرياضي المباشر
           </h2>
           <p style={{ fontSize: "12px", color: "#64748b", margin: 0 }}>
-            شاهد القنوات الرياضية العربية مباشرة داخل المنصة — {embeddableCount} قناة قابلة للتضمين
+            شاهد القنوات الرياضية العربية مباشرة داخل المنصة — {playableCount} قناة قابلة للبث
             {verifiedCount > 0 && <span style={{ color: "#4ade80" }}> ({verifiedCount} مُتحقق)</span>}
           </p>
 
@@ -281,26 +287,102 @@ export default function SportsLiveChannels({ activeMatch }) {
       </div>
 
       {/* ════════════════════════════════════════════════════════════════════
-          CHANNELS GRID — compact cards for quick switching
+          CHANNELS GRID — split into playable (in-site) and external sections
           ════════════════════════════════════════════════════════════════════ */}
-      <div data-channels-grid style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-        gap: "12px",
-      }}>
-        {filteredChannels.map(ch => (
-          <SportsChannelCard
-            key={ch.id}
-            channel={ch}
-            isLive={liveChannelIds.includes(ch.id)}
-            currentProgram={channelStatuses[ch.id]?.currentProgram || ch.currentProgram}
-            onWatch={switchChannel}
-            active={activeChannel?.id === ch.id}
-          />
-        ))}
-      </div>
 
-      {filteredChannels.length === 0 && (
+      {/* ── TYPE A: Playable Inside Site ── */}
+      {playableChannels.length > 0 && (
+        <div style={{ marginBottom: "24px" }}>
+          <div style={{
+            display: "flex", alignItems: "center", gap: "10px",
+            marginBottom: "12px", padding: "0 4px",
+          }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: "6px",
+              background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.2)",
+              borderRadius: "12px", padding: "6px 14px",
+            }}>
+              <span style={{ fontSize: "14px" }}>▶</span>
+              <span style={{ fontSize: "13px", fontWeight: 800, color: "#4ade80" }}>
+                يعمل داخل الموقع
+              </span>
+              <span style={{
+                fontSize: "10px", fontWeight: 700, color: "#22c55e",
+                background: "rgba(74,222,128,0.15)", borderRadius: "8px", padding: "2px 8px",
+              }}>
+                {playableChannels.length}
+              </span>
+            </div>
+            <span style={{ fontSize: "11px", color: "#475569" }}>
+              اضغط للمشاهدة مباشرة داخل الصفحة
+            </span>
+          </div>
+          <div data-channels-grid style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: "12px",
+          }}>
+            {playableChannels.map(ch => (
+              <SportsChannelCard
+                key={ch.id}
+                channel={ch}
+                isLive={liveChannelIds.includes(ch.id)}
+                currentProgram={channelStatuses[ch.id]?.currentProgram || ch.currentProgram}
+                onWatch={switchChannel}
+                active={activeChannel?.id === ch.id}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── TYPE B: Official External Only ── */}
+      {externalChannels.length > 0 && (
+        <div>
+          <div style={{
+            display: "flex", alignItems: "center", gap: "10px",
+            marginBottom: "12px", padding: "0 4px",
+          }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: "6px",
+              background: "rgba(148,163,184,0.06)", border: "1px solid rgba(148,163,184,0.12)",
+              borderRadius: "12px", padding: "6px 14px",
+            }}>
+              <span style={{ fontSize: "14px" }}>🌐</span>
+              <span style={{ fontSize: "13px", fontWeight: 800, color: "#94a3b8" }}>
+                مشاهدة من المصدر الرسمي
+              </span>
+              <span style={{
+                fontSize: "10px", fontWeight: 700, color: "#64748b",
+                background: "rgba(148,163,184,0.1)", borderRadius: "8px", padding: "2px 8px",
+              }}>
+                {externalChannels.length}
+              </span>
+            </div>
+            <span style={{ fontSize: "11px", color: "#475569" }}>
+              متاح عبر الموقع الرسمي للقناة
+            </span>
+          </div>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: "12px",
+          }}>
+            {externalChannels.map(ch => (
+              <SportsChannelCard
+                key={ch.id}
+                channel={ch}
+                isLive={liveChannelIds.includes(ch.id)}
+                currentProgram={channelStatuses[ch.id]?.currentProgram || ch.currentProgram}
+                onWatch={switchChannel}
+                active={activeChannel?.id === ch.id}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {playableChannels.length === 0 && externalChannels.length === 0 && (
         <div style={{ textAlign: "center", color: "#475569", padding: "40px", fontSize: "13px" }}>
           لا توجد قنوات متاحة لهذا التصنيف
         </div>

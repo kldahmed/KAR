@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import {
   PLAYER_STATES,
+  PLAY_MODES,
   getInitialPlayerState,
   shouldAttemptEmbed,
   markChannelVerified,
@@ -10,8 +11,9 @@ import {
  * EMBED_TIMEOUT_MS — How long to wait for an embed to succeed before
  * declaring it unavailable. YouTube "Video unavailable" pages load instantly
  * but never fire an error event, so we use postMessage + timeout detection.
+ * HYBRID channels get a longer timeout to allow YouTube time to initialize.
  */
-const EMBED_TIMEOUT_MS = 4000;
+const EMBED_TIMEOUT_MS = 6000;
 
 /**
  * SportsLivePlayer — Cinematic in-page broadcast player with full state machine.
@@ -151,16 +153,18 @@ export default function SportsLivePlayer({ channel, onClose, isLive, currentProg
     }
   }, [channel?.id]);
 
-  // Retry embed
+  // Retry embed — works for both EMBED and HYBRID channels
   const handleRetry = useCallback(() => {
-    if (!channel || !shouldAttemptEmbed(channel, isLive)) return;
+    if (!channel || !channel.canEmbed || !channel.embedUrl) return;
     setPlayerState(PLAYER_STATES.LOADING);
     setIframeKey(k => k + 1);
-  }, [channel?.id, isLive]);
+  }, [channel?.id]);
 
   if (!channel) return null;
 
-  const { nameAr, nameEn, flag, logo, country, canEmbed, embedUrl, sourceType, streamUrl, officialUrl } = channel;
+  const { nameAr, nameEn, flag, logo, country, canEmbed, embedUrl, sourceType, streamUrl, officialUrl, playMode } = channel;
+  const isHybrid = playMode === "HYBRID";
+  const isExternal = playMode === "EXTERNAL";
 
   // Build the embed URL with YouTube API enablement for postMessage detection
   let finalEmbedUrl = embedUrl;
@@ -182,10 +186,10 @@ export default function SportsLivePlayer({ channel, onClose, isLive, currentProg
 
   // Status bar text
   const statusText =
-    playerState === PLAYER_STATES.PLAYING ? "يعرض الآن داخل الصفحة" :
+    playerState === PLAYER_STATES.PLAYING ? "يعمل داخل الموقع" :
     playerState === PLAYER_STATES.LOADING ? "جاري تحميل البث..." :
-    playerState === PLAYER_STATES.UNAVAILABLE ? "لا يتوفر بث مضمّن مباشر لهذه القناة حاليًا" :
-    "البث الرسمي متاح عبر الموقع الخارجي";
+    playerState === PLAYER_STATES.UNAVAILABLE ? (isHybrid ? "البث غير متاح حاليًا — شاهد من المصدر الرسمي" : "البث غير متاح") :
+    "مشاهدة من المصدر الرسمي";
 
   const statusColor =
     playerState === PLAYER_STATES.PLAYING ? "#4ade80" :
@@ -414,16 +418,19 @@ export default function SportsLivePlayer({ channel, onClose, isLive, currentProg
                 borderRadius: "12px", padding: "10px 20px", textAlign: "center",
                 maxWidth: "400px", lineHeight: 1.7,
               }}>
-                لا يتوفر بث مضمّن مباشر لهذه القناة حاليًا
+                {isHybrid
+                  ? "القناة لا تبث مباشرة حاليًا — شاهد عبر المصدر الرسمي"
+                  : "لا يتوفر بث مضمّن مباشر لهذه القناة حاليًا"
+                }
               </div>
             ) : (
               <div style={{
                 fontSize: "13px", color: "#94a3b8", textAlign: "center",
                 maxWidth: "340px", lineHeight: 1.7,
               }}>
-                لا يتوفر التضمين المباشر لهذه القناة
+                هذه القناة متاحة فقط من المصدر الرسمي
                 <br />
-                شاهد البث الرسمي عبر الأزرار أدناه
+                اضغط للانتقال للموقع الرسمي للقناة
               </div>
             )}
 
@@ -460,7 +467,7 @@ export default function SportsLivePlayer({ channel, onClose, isLive, currentProg
                 </button>
               )}
 
-              {playerState === PLAYER_STATES.UNAVAILABLE && embedAttempted && canEmbed && (
+              {playerState === PLAYER_STATES.UNAVAILABLE && isHybrid && canEmbed && (
                 <button onClick={handleRetry} style={{
                   display: "inline-flex", alignItems: "center", gap: "6px",
                   background: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.2)",

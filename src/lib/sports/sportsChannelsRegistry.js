@@ -37,6 +37,13 @@ export const PLAYER_STATES = {
   NO_STREAM: "no-stream",
 };
 
+// ── Play modes ──
+export const PLAY_MODES = {
+  EMBED: "EMBED",       // Fully embeddable, always works in-page
+  EXTERNAL: "EXTERNAL", // No embed available, open official source
+  HYBRID: "HYBRID",     // Try embed first, auto-fallback to external if it fails
+};
+
 const SPORTS_CHANNELS = [
   // ─── UAE ────────────────────────────────────────────────────────────────────
   {
@@ -56,6 +63,7 @@ const SPORTS_CHANNELS = [
     streamUrl: "https://www.youtube.com/@DubaiSportsChannel/streams",
     officialUrl: "https://www.dubaisports.ae",
     fallbackMode: "external",
+    playMode: "HYBRID",
     priority: 1,
     leagues: ["UAE Pro League", "UAE Cup"],
     currentProgram: null,
@@ -77,6 +85,7 @@ const SPORTS_CHANNELS = [
     streamUrl: "https://www.youtube.com/@AbuDhabiSportsTV/streams",
     officialUrl: "https://www.admedia.ae",
     fallbackMode: "external",
+    playMode: "HYBRID",
     priority: 1,
     leagues: ["UAE Pro League", "Gulf League"],
     currentProgram: null,
@@ -98,6 +107,7 @@ const SPORTS_CHANNELS = [
     streamUrl: "https://www.youtube.com/@SharjahTV/streams",
     officialUrl: "https://www.sharjahtv.ae",
     fallbackMode: "external",
+    playMode: "HYBRID",
     priority: 2,
     leagues: ["UAE Pro League"],
     currentProgram: null,
@@ -121,6 +131,7 @@ const SPORTS_CHANNELS = [
     streamUrl: "https://ssc.sa/live",
     officialUrl: "https://ssc.sa",
     fallbackMode: "external",
+    playMode: "EXTERNAL",
     priority: 1,
     leagues: ["Saudi Pro League", "King Cup"],
     currentProgram: null,
@@ -144,6 +155,7 @@ const SPORTS_CHANNELS = [
     streamUrl: "https://www.bein.com/en/live/",
     officialUrl: "https://www.bein.com",
     fallbackMode: "external",
+    playMode: "EXTERNAL",
     priority: 1,
     leagues: ["Champions League", "Ligue 1", "La Liga", "Serie A", "Qatar Stars League"],
     currentProgram: null,
@@ -165,6 +177,7 @@ const SPORTS_CHANNELS = [
     streamUrl: "https://www.youtube.com/@alkaboratv/streams",
     officialUrl: "https://www.alkass.net",
     fallbackMode: "external",
+    playMode: "HYBRID",
     priority: 2,
     leagues: ["Qatar Stars League", "AFC Champions League"],
     currentProgram: null,
@@ -188,6 +201,7 @@ const SPORTS_CHANNELS = [
     streamUrl: "https://www.youtube.com/@OmanTVLive/streams",
     officialUrl: "https://www.omantv.om",
     fallbackMode: "external",
+    playMode: "HYBRID",
     priority: 3,
     leagues: ["Oman Professional League"],
     currentProgram: null,
@@ -209,6 +223,7 @@ const SPORTS_CHANNELS = [
     streamUrl: "https://www.media.gov.kw/live",
     officialUrl: "https://www.media.gov.kw",
     fallbackMode: "external",
+    playMode: "EXTERNAL",
     priority: 3,
     leagues: ["Kuwait Premier League"],
     currentProgram: null,
@@ -230,6 +245,7 @@ const SPORTS_CHANNELS = [
     streamUrl: "https://www.btv.bh/live",
     officialUrl: "https://www.btv.bh",
     fallbackMode: "external",
+    playMode: "EXTERNAL",
     priority: 3,
     leagues: ["Bahrain Premier League"],
     currentProgram: null,
@@ -251,6 +267,7 @@ const SPORTS_CHANNELS = [
     streamUrl: "https://www.youtube.com/@IraqiMediaNet/streams",
     officialUrl: "https://www.imn.iq",
     fallbackMode: "external",
+    playMode: "HYBRID",
     priority: 3,
     leagues: ["Iraqi Premier League"],
     currentProgram: null,
@@ -272,6 +289,7 @@ const SPORTS_CHANNELS = [
     streamUrl: "https://www.jrtv.jo/live",
     officialUrl: "https://www.jrtv.jo",
     fallbackMode: "external",
+    playMode: "EXTERNAL",
     priority: 3,
     leagues: ["Jordan Pro League"],
     currentProgram: null,
@@ -295,6 +313,7 @@ const SPORTS_CHANNELS = [
     streamUrl: "https://www.youtube.com/@SNRTLIVE/streams",
     officialUrl: "https://www.snrt.ma",
     fallbackMode: "external",
+    playMode: "HYBRID",
     priority: 2,
     leagues: ["Botola Pro", "CAF"],
     currentProgram: null,
@@ -316,6 +335,7 @@ const SPORTS_CHANNELS = [
     streamUrl: "https://watch.ontimesports.com",
     officialUrl: "https://www.ontimesports.com",
     fallbackMode: "external",
+    playMode: "EXTERNAL",
     priority: 2,
     leagues: ["Egyptian Premier League", "CAF Champions League"],
     currentProgram: null,
@@ -337,6 +357,7 @@ const SPORTS_CHANNELS = [
     streamUrl: "https://www.youtube.com/@ENABORATV/streams",
     officialUrl: "https://www.entv.dz",
     fallbackMode: "external",
+    playMode: "HYBRID",
     priority: 3,
     leagues: ["Algerian Ligue 1"],
     currentProgram: null,
@@ -358,6 +379,7 @@ const SPORTS_CHANNELS = [
     streamUrl: "https://www.watania.tn/live",
     officialUrl: "https://www.watania.tn",
     fallbackMode: "external",
+    playMode: "EXTERNAL",
     priority: 3,
     leagues: ["Tunisian Ligue 1", "CAF"],
     currentProgram: null,
@@ -441,23 +463,33 @@ export function validateEmbedUrl(channel) {
 
 /**
  * Determine the initial player state for a channel.
+ * EMBED channels load directly. HYBRID channels attempt embed with timeout fallback.
+ * EXTERNAL channels never attempt embed.
  */
 export function getInitialPlayerState(channel, isLive) {
   if (!channel) return PLAYER_STATES.NO_STREAM;
-  if (!channel.canEmbed || !channel.embedUrl) return PLAYER_STATES.EXTERNAL_ONLY;
+
+  const mode = channel.playMode || "EXTERNAL";
+
+  // EXTERNAL channels never attempt embed
+  if (mode === "EXTERNAL" || !channel.canEmbed || !channel.embedUrl) {
+    return PLAYER_STATES.EXTERNAL_ONLY;
+  }
 
   const validation = validateEmbedUrl(channel);
   if (!validation.valid) return PLAYER_STATES.EXTERNAL_ONLY;
 
-  // YouTube live_stream?channel= — only try embed if channel is reported live
-  if (validation.requiresLiveCheck && channel.sourceType === "youtube") {
-    if (channel.isVerifiedWorking) return PLAYER_STATES.LOADING;
-    // Not verified — still try if API reports live, otherwise external
-    if (isLive) return PLAYER_STATES.LOADING;
-    return PLAYER_STATES.EXTERNAL_ONLY;
+  // EMBED: verified working, load directly
+  if (mode === "EMBED" && channel.isVerifiedWorking) {
+    return PLAYER_STATES.LOADING;
   }
 
-  return PLAYER_STATES.LOADING;
+  // HYBRID: attempt embed, will auto-fallback on timeout
+  if (mode === "HYBRID" || mode === "EMBED") {
+    return PLAYER_STATES.LOADING;
+  }
+
+  return PLAYER_STATES.EXTERNAL_ONLY;
 }
 
 /**
@@ -483,31 +515,36 @@ export function getChannelsByCountry(countryCode) {
 }
 
 /**
- * Return first channel that supports in-page embed AND is verified working.
- * Falls back to first embeddable channel if none verified.
- * Returns null if none are embeddable.
+ * Return first channel suitable for in-page embed.
+ * Priority: verified+live > hybrid+live > verified > hybrid.
+ * Returns null if no embeddable channel exists — caller shows fallback.
  */
 export function getFirstEmbeddable(liveIds = []) {
   const liveSet = new Set(liveIds);
-  // Prefer verified working + live
+  const isPlayable = ch => ch.canEmbed && ch.embedUrl && (ch.playMode === "EMBED" || ch.playMode === "HYBRID");
+
+  // 1. Verified working + live
   const verifiedLive = SPORTS_CHANNELS.find(
-    ch => ch.canEmbed && ch.embedUrl && ch.isVerifiedWorking && liveSet.has(ch.id)
+    ch => isPlayable(ch) && ch.isVerifiedWorking && liveSet.has(ch.id)
   );
   if (verifiedLive) return verifiedLive;
 
-  // Then any live embeddable
-  const anyLive = SPORTS_CHANNELS.find(
-    ch => ch.canEmbed && ch.embedUrl && liveSet.has(ch.id)
+  // 2. HYBRID + live (worth trying — embed will auto-fallback if broken)
+  const hybridLive = SPORTS_CHANNELS.find(
+    ch => isPlayable(ch) && ch.playMode === "HYBRID" && liveSet.has(ch.id)
   );
-  if (anyLive) return anyLive;
+  if (hybridLive) return hybridLive;
 
-  // Then any verified working
+  // 3. Any verified working
   const verified = SPORTS_CHANNELS.find(
-    ch => ch.canEmbed && ch.embedUrl && ch.isVerifiedWorking
+    ch => isPlayable(ch) && ch.isVerifiedWorking
   );
   if (verified) return verified;
 
-  // No auto-select — don't load a potentially broken embed automatically
+  // 4. Any HYBRID channel (will attempt embed)
+  const hybrid = SPORTS_CHANNELS.find(ch => isPlayable(ch) && ch.playMode === "HYBRID");
+  if (hybrid) return hybrid;
+
   return null;
 }
 
@@ -517,22 +554,32 @@ export function suggestChannelsForMatch(league) {
 }
 
 /**
- * Sort channels: verified embeddable+live first, then live-only, then embeddable, then priority.
+ * Sort channels: playable+live first, then live-only, then playable, then external, then priority.
  */
 export function sortChannels(channels, liveIds = []) {
   const liveSet = new Set(liveIds);
+  const modeScore = (ch) => ch.playMode === "EMBED" ? 0 : ch.playMode === "HYBRID" ? 1 : 3;
   return [...channels].sort((a, b) => {
-    const aLive = liveSet.has(a.id) ? 0 : 4;
-    const bLive = liveSet.has(b.id) ? 0 : 4;
-    const aEmbed = a.canEmbed ? 0 : 2;
-    const bEmbed = b.canEmbed ? 0 : 2;
+    const aLive = liveSet.has(a.id) ? 0 : 5;
+    const bLive = liveSet.has(b.id) ? 0 : 5;
+    const aMode = modeScore(a);
+    const bMode = modeScore(b);
     const aVerified = a.isVerifiedWorking ? 0 : 1;
     const bVerified = b.isVerifiedWorking ? 0 : 1;
-    const aScore = aLive + aEmbed + aVerified;
-    const bScore = bLive + bEmbed + bVerified;
+    const aScore = aLive + aMode + aVerified;
+    const bScore = bLive + bMode + bVerified;
     if (aScore !== bScore) return aScore - bScore;
     return (a.priority || 5) - (b.priority || 5);
   });
+}
+
+/**
+ * Get channels split by type: playable (EMBED/HYBRID) and external-only.
+ */
+export function getChannelsByType(channels) {
+  const playable = channels.filter(ch => ch.playMode === "EMBED" || ch.playMode === "HYBRID");
+  const external = channels.filter(ch => ch.playMode === "EXTERNAL" || (!ch.canEmbed && ch.playMode !== "HYBRID"));
+  return { playable, external };
 }
 
 /**
@@ -543,4 +590,4 @@ export function markChannelVerified(channelId, working) {
   if (ch) ch.isVerifiedWorking = working;
 }
 
-export { SPORTS_CHANNELS, MATCH_CHANNEL_MAP };
+export { SPORTS_CHANNELS, MATCH_CHANNEL_MAP, PLAY_MODES };
