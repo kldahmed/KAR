@@ -29,6 +29,7 @@ import { ingestItems } from "./lib/intelligenceStore";
 import { getIntelligenceMetrics } from "./lib/intelligenceEngine";
 import { sortArticlesByPriority } from "./lib/priorityEngine";
 import SignalScenarioCenter from "./components/SignalScenarioCenter";
+import GlobalEventTimeline from "./components/GlobalEventTimeline";
 
 const DEMO_NEWS = [
   {
@@ -62,11 +63,12 @@ const SPORTS_COMPETITIONS = [
 ];
 const TABS = [
   { id: "news",     label: "الأخبار",          icon: "📰" },
+  { id: "events",   label: "الأحداث العالمية", icon: "🌍" },
   { id: "signals",  label: "مركز الربط",       icon: "🔭" },
   { id: "intel",    label: "مركز التحليل",     icon: "🌐" },
   { id: "forecast", label: "الاستشراف",        icon: "🎯" },
   { id: "live",     label: "البث المباشر",     icon: "📺" },
-  { id: "xfeed",    label: "نبض X",            icon: "𝕏" }
+  { id: "xfeed",    label: "رادار 𝕏",          icon: "𝕏" }
 ];
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -570,6 +572,14 @@ const fetchNews = async () => {
             </div>
           </>
         )}
+
+    {tab === "events" && (
+      <div style={{ maxWidth: "1400px", margin: "0 auto", padding: "0 20px 40px" }}>
+        <ErrorBoundary>
+          <GlobalEventTimeline />
+        </ErrorBoundary>
+      </div>
+    )}
 
     {tab === "signals" && (
       <div style={{ maxWidth: "1300px", margin: "0 auto", padding: "0 20px 40px" }}>
