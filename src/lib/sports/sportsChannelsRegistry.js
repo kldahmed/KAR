@@ -590,4 +590,4 @@ export function markChannelVerified(channelId, working) {
   if (ch) ch.isVerifiedWorking = working;
 }
 
-export { SPORTS_CHANNELS, MATCH_CHANNEL_MAP, PLAY_MODES };
+export { SPORTS_CHANNELS, MATCH_CHANNEL_MAP };
