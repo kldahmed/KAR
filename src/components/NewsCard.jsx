@@ -43,7 +43,8 @@ export default function NewsCard({
   const safeTitle = typeof title === "string" ? title : "خبر";
   const safeSummary = typeof summary === "string" ? summary : "";
   const safeSource = typeof source === "string" ? source : "";
-  const safeTime = typeof time === "string" ? time : "";
+  const rawTime = typeof time === "string" ? time : "";
+  const safeTime = rawTime ? (formatDisplayTime(rawTime) || rawTime) : "";
   const badge = getSourceBadge(safeSource);
   const urgencyColor = URGENCY_MAP[urgency]?.color || "#38bdf8";
   const reliability = getReliability(safeSource);
@@ -51,6 +52,7 @@ export default function NewsCard({
   return (
     <div
       onClick={onClick}
+      className="nr-card-enter nr-card-hover"
       style={{
         display: "block",
         background: "#0f172a",
@@ -62,11 +64,9 @@ export default function NewsCard({
         minHeight: "120px",
         cursor: "pointer",
         boxShadow: "0 2px 8px #0002",
-        transition: "transform .15s, box-shadow .15s",
+        transition: "transform .2s, box-shadow .2s",
         position: "relative"
       }}
-      onMouseEnter={e => e.currentTarget.style.transform = "scale(1.03)"}
-      onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
     >
       {image && (
         <img

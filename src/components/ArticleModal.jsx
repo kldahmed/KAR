@@ -1,4 +1,5 @@
 import React from "react";
+import { formatDisplayTime } from "../AppHelpers";
 
 const RELIABILITY = {
   "BBC": { score: "high", color: "#22c55e" },
@@ -47,7 +48,7 @@ export default function ArticleModal({ open, onClose, article }) {
         <div style={{ marginBottom: "12px", color: "#cbd5e1" }}>{summary}</div>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "18px" }}>
           <span style={{ color: "#38bdf8", fontWeight: "700" }}>{source}</span>
-          <span style={{ color: "#f3d38a" }}>{time}</span>
+          <span style={{ color: "#f3d38a" }}>{formatDisplayTime(time) || time}</span>
         </div>
         <span style={{ background: reliability.color, color: "#fff", borderRadius: "6px", padding: "2px 8px", fontSize: "12px", fontWeight: "700", marginLeft: "8px" }}>
           {reliability.score === "high" ? "موثوقية عالية" : "موثوقية متوسطة"}
