@@ -55,16 +55,17 @@ export default function SportsLiveChannels({ activeMatch }) {
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
-  // ── Auto-select first embeddable channel on mount ──
+  // ── Auto-select first verified embeddable channel ──
+  // Waits for liveIds to be fetched so we can make an informed selection
   useEffect(() => {
     if (didAutoSelect.current) return;
-    const first = getFirstEmbeddable();
+    const first = getFirstEmbeddable(liveChannelIds);
     if (first) {
       setActiveChannel(first);
       setPlayerVisible(true);
       didAutoSelect.current = true;
     }
-  }, []);
+  }, [liveChannelIds]);
 
   // ── Switch channel handler — scroll player into view ──
   const switchChannel = useCallback((ch) => {
@@ -98,6 +99,7 @@ export default function SportsLiveChannels({ activeMatch }) {
 
   const liveCount = allChannels.filter(ch => liveChannelIds.includes(ch.id)).length;
   const embeddableCount = allChannels.filter(ch => ch.canEmbed).length;
+  const verifiedCount = allChannels.filter(ch => ch.canEmbed && ch.isVerifiedWorking).length;
 
   return (
     <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
@@ -131,6 +133,7 @@ export default function SportsLiveChannels({ activeMatch }) {
           </h2>
           <p style={{ fontSize: "12px", color: "#64748b", margin: 0 }}>
             شاهد القنوات الرياضية العربية مباشرة داخل المنصة — {embeddableCount} قناة قابلة للتضمين
+            {verifiedCount > 0 && <span style={{ color: "#4ade80" }}> ({verifiedCount} مُتحقق)</span>}
           </p>
 
           <div style={{
@@ -175,6 +178,12 @@ export default function SportsLiveChannels({ activeMatch }) {
               onClose={closePlayer}
               isLive={liveChannelIds.includes(activeChannel.id)}
               currentProgram={channelStatuses[activeChannel.id]?.currentProgram || activeChannel.currentProgram}
+              onSelectAnother={() => {
+                if (playerRef.current) {
+                  const grid = playerRef.current.parentElement?.querySelector('[data-channels-grid]');
+                  if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }}
             />
           </div>
         ) : (
@@ -274,7 +283,7 @@ export default function SportsLiveChannels({ activeMatch }) {
       {/* ════════════════════════════════════════════════════════════════════
           CHANNELS GRID — compact cards for quick switching
           ════════════════════════════════════════════════════════════════════ */}
-      <div style={{
+      <div data-channels-grid style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
         gap: "12px",

@@ -5,7 +5,7 @@ import React from "react";
  * Clicking loads the stream in the in-page player (no redirect).
  */
 export default function SportsChannelCard({ channel, isLive, currentProgram, onWatch, active }) {
-  const { nameAr, nameEn, country, flag, logo, canEmbed, sourceType } = channel;
+  const { nameAr, nameEn, country, flag, logo, canEmbed, isVerifiedWorking, sourceType } = channel;
 
   const sourceLabel =
     sourceType === "youtube" ? "YouTube" :
@@ -106,10 +106,15 @@ export default function SportsChannelCard({ channel, isLive, currentProgram, onW
             <span>{flag} {country}</span>
             <span style={{ color: "#334155" }}>·</span>
             <span style={{
-              color: canEmbed ? "#4ade80" : "#64748b",
+              color: canEmbed
+                ? (isVerifiedWorking ? "#4ade80" : "#f59e0b")
+                : "#64748b",
               fontWeight: canEmbed ? 700 : 400,
             }}>
-              {canEmbed ? "قابل للتضمين" : "موقع خارجي"}
+              {canEmbed
+                ? (isVerifiedWorking ? "✓ تضمين مباشر" : "تضمين عند البث")
+                : "موقع خارجي"
+              }
             </span>
           </div>
 
