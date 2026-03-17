@@ -126,3 +126,26 @@ export function getByRegion(region) {
   const store = readStore();
   return store.filter(i => (i.regions || []).includes(region));
 }
+
+/**
+ * Find items linked to a given item by shared signals or keywords.
+ * Returns up to `max` related items (excluding the original).
+ */
+export function findLinkedEvents(item, max = 4) {
+  if (!item) return [];
+  const store = readStore();
+  const mySignals = new Set(item.derivedSignals || []);
+  const myKeywords = new Set(item.keywords || []);
+
+  const scored = store
+    .filter(i => i.id !== item.id)
+    .map(i => {
+      const sharedSig = (i.derivedSignals || []).filter(s => mySignals.has(s)).length;
+      const sharedKw  = (i.keywords || []).filter(k => myKeywords.has(k)).length;
+      return { item: i, score: sharedSig * 3 + sharedKw };
+    })
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  return scored.slice(0, max).map(({ item }) => item);
+}

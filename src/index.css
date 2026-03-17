@@ -5,13 +5,118 @@ html, body, #root {
   background: #060606;
 }
 
+/* ═══════════════════════════════════════════════════
+   DESIGN SYSTEM — TOKENS + UTILITIES
+═══════════════════════════════════════════════════ */
+
+/* Glass panel */
+.glass-panel {
+  background: linear-gradient(160deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* Premium section frame */
+.section-frame {
+  border: 1px solid rgba(56,189,248,0.1);
+  border-radius: 18px;
+  background: linear-gradient(160deg, #0b0f1a 0%, #0f172a 100%);
+  box-shadow: 0 0 40px rgba(56,189,248,0.03), 0 8px 32px rgba(0,0,0,0.4);
+}
+
+/* Glow border accent */
+.glow-border-blue  { border-color: rgba(56,189,248,0.35) !important; box-shadow: 0 0 24px rgba(56,189,248,0.08) !important; }
+.glow-border-gold  { border-color: rgba(243,211,138,0.35) !important; box-shadow: 0 0 24px rgba(243,211,138,0.08) !important; }
+.glow-border-red   { border-color: rgba(239,68,68,0.4) !important;   box-shadow: 0 0 24px rgba(239,68,68,0.1) !important; }
+.glow-border-green { border-color: rgba(34,197,94,0.35) !important;  box-shadow: 0 0 24px rgba(34,197,94,0.08) !important; }
+
+/* Section title style */
+.section-title {
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  color: #f3d38a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-subtitle {
+  font-size: 11px;
+  color: #334155;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+/* Premium tab pill */
+.tab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 20px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.tab-pill.active {
+  background: linear-gradient(135deg, rgba(243,211,138,0.15), rgba(243,211,138,0.08));
+  border-color: rgba(243,211,138,0.4);
+  color: #f3d38a;
+  box-shadow: 0 0 20px rgba(243,211,138,0.12), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+.tab-pill.inactive {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.07);
+  color: #64748b;
+}
+
+.tab-pill.inactive:hover {
+  border-color: rgba(255,255,255,0.14);
+  color: #94a3b8;
+  background: rgba(255,255,255,0.05);
+}
+
+/* Intel badge */
+.intel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+/* Progress bar */
+.prog-track {
+  height: 4px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.prog-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.9s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
 /* ── Newsroom: Background grid ─────────────────────────────── */
 .nr-bg-grid {
   position: fixed;
   inset: 0;
   background-image:
-    linear-gradient(rgba(56,189,248,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(56,189,248,0.025) 1px, transparent 1px);
+    linear-gradient(rgba(56,189,248,0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56,189,248,0.022) 1px, transparent 1px);
   background-size: 70px 70px;
   pointer-events: none;
   z-index: 0;
@@ -23,11 +128,24 @@ html, body, #root {
   left: -35%;
   width: 35%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(56,189,248,0.012), transparent);
+  background: linear-gradient(90deg, transparent, rgba(56,189,248,0.01), transparent);
   pointer-events: none;
   z-index: 0;
   will-change: transform;
-  animation: nr-beamX 22s linear infinite;
+  animation: nr-beamX 26s linear infinite;
+}
+
+/* Scan line — subtle horizontal sweep */
+.nr-scan-line {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(56,189,248,0.06), rgba(56,189,248,0.14), rgba(56,189,248,0.06), transparent);
+  pointer-events: none;
+  z-index: 1;
+  top: -2px;
+  animation: nr-scanY 12s linear infinite;
 }
 
 /* ── Keyframes ──────────────────────────────────────────────── */
@@ -43,7 +161,7 @@ html, body, #root {
 }
 
 @keyframes nr-glowBreath {
-  0%, 100% { opacity: 0.45; }
+  0%, 100% { opacity: 0.5; }
   50%       { opacity: 1; }
 }
 
@@ -52,9 +170,32 @@ html, body, #root {
   100% { transform: translateX(380%); }
 }
 
+@keyframes nr-scanY {
+  0%   { top: -2px; opacity: 0; }
+  5%   { opacity: 1; }
+  95%  { opacity: 1; }
+  100% { top: 100vh; opacity: 0; }
+}
+
 @keyframes nr-dotBlink {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.2; }
+}
+
+@keyframes nr-gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes nr-barGrow {
+  from { transform: scaleX(0); transform-origin: left; }
+  to   { transform: scaleX(1); }
+}
+
+@keyframes nr-numberCount {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ── Utility classes ────────────────────────────────────────── */
@@ -76,21 +217,45 @@ html, body, #root {
   animation: nr-pulseRing 1.8s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
 }
 
+.nr-card-hover {
+  transition: transform 0.2s cubic-bezier(0.22, 0.61, 0.36, 1), box-shadow 0.2s !important;
+}
+
 .nr-card-hover:hover {
-  box-shadow: 0 0 18px rgba(56,189,248,0.22), 0 4px 16px #0004;
-  transform: translateY(-2px) scale(1.015) !important;
+  box-shadow: 0 0 28px rgba(56,189,248,0.16), 0 8px 24px rgba(0,0,0,0.5) !important;
+  transform: translateY(-3px) !important;
+}
+
+.nr-animate-bar { animation: nr-barGrow 0.8s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+.nr-animate-number { animation: nr-numberCount 0.5s ease both; }
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(90deg, #38bdf8, #f3d38a, #38bdf8);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: nr-gradientShift 4s ease infinite;
 }
 
 /* ── Reduced motion ─────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .nr-bg-beam,
+  .nr-scan-line,
   .nr-live-dot,
   .nr-live-ring,
-  .nr-card-enter {
+  .nr-card-enter,
+  .nr-animate-bar,
+  .nr-animate-number,
+  .gradient-text {
     animation: none !important;
   }
   .nr-card-hover:hover {
     transform: none !important;
     box-shadow: none !important;
+  }
+  .prog-fill {
+    transition: none !important;
   }
 }
