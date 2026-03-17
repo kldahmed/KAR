@@ -32,6 +32,7 @@ import { sortArticlesByPriority } from "./lib/priorityEngine";
 import SignalScenarioCenter from "./components/SignalScenarioCenter";
 import GlobalEventTimeline from "./components/GlobalEventTimeline";
 import StrategicForecastCenter from "./components/StrategicForecastCenter";
+import SportsLiveChannels from "./components/SportsLiveChannels";
 import AgentDashboard from "./components/AgentDashboard";
 import { ingestBatch } from "./lib/agent/ingestionAgent";
 import { useI18n, I18nContext } from "./i18n/I18nProvider";
@@ -61,6 +62,7 @@ const CATEGORIES = [
 ];
 const SPORTS_COMPETITIONS = [
   { id: "all", key: "all", emoji: "🌍" },
+  { id: "live-channels", key: "liveChannels", emoji: "📺" },
   { id: "uae", key: "uae", emoji: "🇦🇪" },
   { id: "premier-league", key: "premierLeague", emoji: "🏴" },
   { id: "laliga", key: "laliga", emoji: "🇪🇸" },
@@ -610,6 +612,15 @@ const fetchNews = async () => {
             )}
 
 
+            {cat === "sports" && sportsCompetition === "live-channels" && (
+              <div style={{ maxWidth: "1400px", margin: "0 auto 28px" }}>
+                <ErrorBoundary>
+                  <SportsLiveChannels />
+                </ErrorBoundary>
+              </div>
+            )}
+
+            {!(cat === "sports" && sportsCompetition === "live-channels") && (
             <div
               style={{
                 display: "grid",
@@ -637,6 +648,7 @@ const fetchNews = async () => {
                 />
               ))}
             </div>
+            )}
           </>
         )}
 

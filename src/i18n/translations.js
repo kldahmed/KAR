@@ -29,6 +29,7 @@ export const translations = {
       },
       competitions: {
         all: "الكل",
+        liveChannels: "البث المباشر",
         uae: "الإماراتي",
         premierLeague: "الإنجليزي",
         laliga: "الإسباني",
@@ -381,6 +382,112 @@ export const translations = {
       urgentCount: "أخبار عاجلة",
       totalCount: "إجمالي الأخبار",
       riskLevel: "مستوى الخطر"
+    },
+    memoryDepth: {
+      title: "عمق الذاكرة التحليلية",
+      totalRecords: "سجلات الذاكرة",
+      highConfidence: "ذات ثقة عالية",
+      recentActive: "نشطة (6 ساعات)",
+      derivedSignals: "إشارات مستنبطة",
+      categoryBreakdown: "توزيع الفئات",
+      monitoredRegions: "المناطق المرصودة",
+      activeSignals: "الإشارات النشطة",
+      signals: {
+        conflict_escalation: "تصعيد نزاعات",
+        economic_pressure: "ضغط اقتصادي",
+        sports_activity: "نشاط رياضي",
+        transfer_market: "سوق انتقالات",
+        sanctions_pressure: "ضغط عقوبات",
+        peace_signal: "إشارات سلام",
+        political_transition: "تحول سياسي",
+        energy_signal: "طاقة / نفط"
+      }
+    },
+    signalDensity: {
+      title: "كثافة الإشارات المرصودة",
+      articlesProcessed: "{count} مقال معالج",
+      signals: {
+        conflict_escalation: "تصعيد النزاعات",
+        economic_pressure: "ضغط اقتصادي",
+        sports_activity: "نشاط رياضي",
+        transfer_market: "سوق الانتقالات",
+        sanctions_pressure: "ضغط العقوبات",
+        peace_signal: "إشارات السلام",
+        political_transition: "تحول سياسي",
+        energy_signal: "طاقة / نفط"
+      }
+    },
+    riskMeter: {
+      high: "مرتفع",
+      mediumHigh: "متوسط-عالي",
+      medium: "متوسط",
+      low: "منخفض",
+      verificationProbability: "احتمالية التحقق",
+      confidence: "ثقة {value}%",
+      signal: "{count} إشارة",
+      source: "{count} مصدر"
+    },
+    forecastConfidence: {
+      probability: "الاحتمالية",
+      confidence: "الثقة",
+      evidenceStrong: "أدلة قوية",
+      evidenceModerate: "أدلة متوسطة",
+      evidenceWeak: "أدلة محدودة",
+      observedSignals: "{count} إشارة مرصودة",
+      linkedEvents: "{count} حدث مرتبط",
+      disclaimer: "⚠ توقع احتمالي — ليس تنبؤاً قاطعاً. القيم مستنبطة حصراً من بيانات فعلية مرصودة."
+    },
+    scenarioCard: {
+      baseScenario: "السيناريو الأساسي",
+      upsideScenario: "السيناريو الإيجابي",
+      downsideScenario: "السيناريو السلبي",
+      analysis: "التحليل:"
+    },
+    scenarioPanel: {
+      title: "تحليل السيناريوهات",
+      subtitle: "Scenario Analysis Panel",
+      disclaimer: "⚠ السيناريوهات احتمالية مستنبطة من إشارات فعلية. لا تمثل تنبؤات قاطعة. الاحتمالية القصوى 70%.",
+      worstScenario: "السيناريو المتشائم",
+      baseScenario: "السيناريو الأساسي",
+      bestScenario: "السيناريو المتفائل",
+      evidenceLabel: "أدلة: {strength}",
+      evidenceSignalSource: "{evidenceCount} إشارة · {sources} مصدر",
+      drivers: "المحركات",
+      evidenceStrong: "قوية",
+      evidenceModerate: "متوسطة",
+      evidenceWeak: "محدودة",
+      worstSummaryHigh: "رُصدت {riskCount} إشارة تصعيد في 48 ساعة من {sources} مصدر. المؤشرات تدعم سيناريو التصعيد جزئياً.",
+      worstSummaryLow: "إشارات التصعيد محدودة. احتمالية منخفضة للسيناريو المتشائم بالبيانات الحالية.",
+      baseSummary: "السيناريو الأكثر احتمالاً بالبيانات الحالية ({total} مقال، {sources} مصدر). استمرار الوضع الراهن مع تقلبات محدودة.",
+      bestSummaryHigh: "رُصدت {calmCount} إشارة استقرار/سلام في 48 ساعة. بيانات تدعم سيناريو التهدئة جزئياً.",
+      bestSummaryLow: "إشارات الاستقرار محدودة حالياً في قاعدة البيانات.",
+      driverConflict: "{count} إشارة توتر/صراع",
+      driverNegative: "{count} مقال ذو لهجة سلبية",
+      driverTransition: "{count} حدث في مرحلة تحول",
+      driverArticles: "{count} مقال معالج",
+      driverSources: "{count} مصدر متنوع",
+      driverTransitionSignal: "{count} إشارة تحول",
+      driverPeace: "{count} إشارة سلام/هدنة",
+      driverPositive: "{count} مقال ذو لهجة إيجابية",
+      driverSourceDiversity: "تنوع مصادر: {count}"
+    },
+    xPostCard: {
+      categories: {
+        uae: "إمارات",
+        economy: "اقتصاد",
+        conflict: "نزاع",
+        geopolitics: "جيوسياسي",
+        politics: "سياسة",
+        sports: "رياضة",
+        regional: "إقليمي",
+        global: "دولي"
+      },
+      impact: "تأثير",
+      urgent: "عاجل",
+      cluster: "مجموعة",
+      whyImportant: "لماذا مهم؟",
+      confidence: "ثقة:",
+      open: "فتح ↗"
     }
   },
   en: {
@@ -413,6 +520,7 @@ export const translations = {
       },
       competitions: {
         all: "All",
+        liveChannels: "Live Channels",
         uae: "UAE League",
         premierLeague: "Premier League",
         laliga: "LaLiga",
@@ -765,6 +873,112 @@ export const translations = {
       urgentCount: "Urgent news",
       totalCount: "Total news",
       riskLevel: "Risk level"
+    },
+    memoryDepth: {
+      title: "Analytical Memory Depth",
+      totalRecords: "Memory Records",
+      highConfidence: "High Confidence",
+      recentActive: "Active (6 hours)",
+      derivedSignals: "Derived Signals",
+      categoryBreakdown: "Category Breakdown",
+      monitoredRegions: "Monitored Regions",
+      activeSignals: "Active Signals",
+      signals: {
+        conflict_escalation: "Conflict Escalation",
+        economic_pressure: "Economic Pressure",
+        sports_activity: "Sports Activity",
+        transfer_market: "Transfer Market",
+        sanctions_pressure: "Sanctions Pressure",
+        peace_signal: "Peace Signals",
+        political_transition: "Political Transition",
+        energy_signal: "Energy / Oil"
+      }
+    },
+    signalDensity: {
+      title: "Observed Signal Density",
+      articlesProcessed: "{count} articles processed",
+      signals: {
+        conflict_escalation: "Conflict Escalation",
+        economic_pressure: "Economic Pressure",
+        sports_activity: "Sports Activity",
+        transfer_market: "Transfer Market",
+        sanctions_pressure: "Sanctions Pressure",
+        peace_signal: "Peace Signals",
+        political_transition: "Political Transition",
+        energy_signal: "Energy / Oil"
+      }
+    },
+    riskMeter: {
+      high: "High",
+      mediumHigh: "Medium-High",
+      medium: "Medium",
+      low: "Low",
+      verificationProbability: "Verification Probability",
+      confidence: "Confidence {value}%",
+      signal: "{count} signal",
+      source: "{count} source"
+    },
+    forecastConfidence: {
+      probability: "Probability",
+      confidence: "Confidence",
+      evidenceStrong: "Strong Evidence",
+      evidenceModerate: "Moderate Evidence",
+      evidenceWeak: "Limited Evidence",
+      observedSignals: "{count} observed signals",
+      linkedEvents: "{count} linked events",
+      disclaimer: "⚠ Probabilistic forecast — not a definitive prediction. Values derived exclusively from observed real data."
+    },
+    scenarioCard: {
+      baseScenario: "Base Scenario",
+      upsideScenario: "Upside Scenario",
+      downsideScenario: "Downside Scenario",
+      analysis: "Analysis:"
+    },
+    scenarioPanel: {
+      title: "Scenario Analysis",
+      subtitle: "Scenario Analysis Panel",
+      disclaimer: "⚠ Scenarios are probabilistic, derived from real signals. They do not represent definitive predictions. Max probability: 70%.",
+      worstScenario: "Worst-Case Scenario",
+      baseScenario: "Base Scenario",
+      bestScenario: "Best-Case Scenario",
+      evidenceLabel: "Evidence: {strength}",
+      evidenceSignalSource: "{evidenceCount} signals · {sources} sources",
+      drivers: "Drivers",
+      evidenceStrong: "Strong",
+      evidenceModerate: "Moderate",
+      evidenceWeak: "Limited",
+      worstSummaryHigh: "{riskCount} escalation signals detected in 48 hours from {sources} sources. Indicators partially support escalation scenario.",
+      worstSummaryLow: "Escalation signals are limited. Low probability for worst-case scenario with current data.",
+      baseSummary: "Most likely scenario with current data ({total} articles, {sources} sources). Status quo continues with limited fluctuations.",
+      bestSummaryHigh: "{calmCount} stability/peace signals detected in 48 hours. Data partially supports de-escalation scenario.",
+      bestSummaryLow: "Stability signals are currently limited in the database.",
+      driverConflict: "{count} conflict/tension signals",
+      driverNegative: "{count} negative-tone articles",
+      driverTransition: "{count} transition-phase events",
+      driverArticles: "{count} articles processed",
+      driverSources: "{count} diverse sources",
+      driverTransitionSignal: "{count} transition signals",
+      driverPeace: "{count} peace/ceasefire signals",
+      driverPositive: "{count} positive-tone articles",
+      driverSourceDiversity: "Source diversity: {count}"
+    },
+    xPostCard: {
+      categories: {
+        uae: "UAE",
+        economy: "Economy",
+        conflict: "Conflict",
+        geopolitics: "Geopolitics",
+        politics: "Politics",
+        sports: "Sports",
+        regional: "Regional",
+        global: "Global"
+      },
+      impact: "Impact",
+      urgent: "Urgent",
+      cluster: "Cluster",
+      whyImportant: "Why important?",
+      confidence: "Confidence:",
+      open: "Open ↗"
     }
   }
 };

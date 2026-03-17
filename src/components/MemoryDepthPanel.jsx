@@ -1,18 +1,20 @@
 import React from "react";
-
-const SIGNALS_LABELS = {
-  conflict_escalation:  "تصعيد نزاعات",
-  economic_pressure:    "ضغط اقتصادي",
-  sports_activity:      "نشاط رياضي",
-  transfer_market:      "سوق انتقالات",
-  sanctions_pressure:   "ضغط عقوبات",
-  peace_signal:         "إشارات سلام",
-  political_transition: "تحول سياسي",
-  energy_signal:        "طاقة / نفط",
-};
+import { useI18n } from "../i18n/I18nProvider";
 
 export default function MemoryDepthPanel({ metrics }) {
   if (!metrics) return null;
+  const { t } = useI18n();
+
+  const SIGNALS_LABELS = {
+    conflict_escalation:  t("memoryDepth.signals.conflict_escalation"),
+    economic_pressure:    t("memoryDepth.signals.economic_pressure"),
+    sports_activity:      t("memoryDepth.signals.sports_activity"),
+    transfer_market:      t("memoryDepth.signals.transfer_market"),
+    sanctions_pressure:   t("memoryDepth.signals.sanctions_pressure"),
+    peace_signal:         t("memoryDepth.signals.peace_signal"),
+    political_transition: t("memoryDepth.signals.political_transition"),
+    energy_signal:        t("memoryDepth.signals.energy_signal"),
+  };
 
   const { total, sources, regions, entities, signals, catCounts = {}, regionList = [], signalList = [], highConf, recent } = metrics;
 
@@ -27,16 +29,16 @@ export default function MemoryDepthPanel({ metrics }) {
       direction: "rtl",
     }}>
       <div style={{ fontWeight: 800, fontSize: "14px", color: "#f3d38a", marginBottom: "16px" }}>
-        📦 عمق الذاكرة التحليلية
+        📦 {t("memoryDepth.title")}
       </div>
 
       {/* Key numbers grid */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "18px" }}>
         {[
-          { label: "سجلات الذاكرة",   value: total,    color: "#38bdf8" },
-          { label: "ذات ثقة عالية",   value: highConf, color: "#22c55e" },
-          { label: "نشطة (6 ساعات)",  value: recent,   color: "#f3d38a" },
-          { label: "إشارات مستنبطة",  value: signals,  color: "#a78bfa" },
+          { label: t("memoryDepth.totalRecords"),   value: total,    color: "#38bdf8" },
+          { label: t("memoryDepth.highConfidence"),   value: highConf, color: "#22c55e" },
+          { label: t("memoryDepth.recentActive"),  value: recent,   color: "#f3d38a" },
+          { label: t("memoryDepth.derivedSignals"),  value: signals,  color: "#a78bfa" },
         ].map(stat => (
           <div key={stat.label} style={{
             background: `${stat.color}0a`,
@@ -54,7 +56,7 @@ export default function MemoryDepthPanel({ metrics }) {
       {Object.keys(catCounts).length > 0 && (
         <div style={{ marginBottom: "16px" }}>
           <div style={{ fontSize: "10px", color: "#334155", letterSpacing: "1px", marginBottom: "8px", textTransform: "uppercase" }}>
-            توزيع الفئات
+            {t("memoryDepth.categoryBreakdown")}
           </div>
           {Object.entries(catCounts)
             .sort((a, b) => b[1] - a[1])
@@ -80,7 +82,7 @@ export default function MemoryDepthPanel({ metrics }) {
       {regionList.length > 0 && (
         <div style={{ marginBottom: "14px" }}>
           <div style={{ fontSize: "10px", color: "#334155", letterSpacing: "1px", marginBottom: "6px", textTransform: "uppercase" }}>
-            المناطق المرصودة
+            {t("memoryDepth.monitoredRegions")}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
             {regionList.map(r => (
@@ -98,7 +100,7 @@ export default function MemoryDepthPanel({ metrics }) {
       {signalList.length > 0 && (
         <div>
           <div style={{ fontSize: "10px", color: "#334155", letterSpacing: "1px", marginBottom: "6px", textTransform: "uppercase" }}>
-            الإشارات النشطة
+            {t("memoryDepth.activeSignals")}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
             {signalList.map(s => (
