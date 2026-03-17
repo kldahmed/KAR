@@ -27,6 +27,8 @@ import SportsIntelligencePanel from "./components/SportsIntelligencePanel";
 import { extractIntelligence } from "./lib/entityExtractor";
 import { ingestItems } from "./lib/intelligenceStore";
 import { getIntelligenceMetrics } from "./lib/intelligenceEngine";
+import { sortArticlesByPriority } from "./lib/priorityEngine";
+import SignalScenarioCenter from "./components/SignalScenarioCenter";
 
 const DEMO_NEWS = [
   {
@@ -59,11 +61,12 @@ const SPORTS_COMPETITIONS = [
   { id: "world", label: "عالمي", emoji: "🌐" }
 ];
 const TABS = [
-  { id: "news",     label: "الأخبار",        icon: "📰" },
-  { id: "intel",    label: "مركز التحليل",   icon: "🌐" },
-  { id: "forecast", label: "الاستشراف",      icon: "🔭" },
-  { id: "live",     label: "البث المباشر",   icon: "📺" },
-  { id: "xfeed",    label: "نبض X",          icon: "𝕏" }
+  { id: "news",     label: "الأخبار",          icon: "📰" },
+  { id: "signals",  label: "مركز الربط",       icon: "🔭" },
+  { id: "intel",    label: "مركز التحليل",     icon: "🌐" },
+  { id: "forecast", label: "الاستشراف",        icon: "🎯" },
+  { id: "live",     label: "البث المباشر",     icon: "📺" },
+  { id: "xfeed",    label: "نبض X",            icon: "𝕏" }
 ];
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -151,7 +154,7 @@ const fetchNews = async () => {
         ? incomingNews.filter((item) => item.category === "sports")
         : incomingNews.filter((item) => item.category !== "sports" || cat === "all");
 
-    setNews(filteredNews);
+    setNews(sortArticlesByPriority(filteredNews));
     setError("");
   } catch {
     setNews([]);
@@ -568,6 +571,14 @@ const fetchNews = async () => {
           </>
         )}
 
+    {tab === "signals" && (
+      <div style={{ maxWidth: "1300px", margin: "0 auto", padding: "0 20px 40px" }}>
+        <ErrorBoundary>
+          <SignalScenarioCenter refreshKey={intelRefreshKey} />
+        </ErrorBoundary>
+      </div>
+    )}
+
     {tab === "intel" && (
   <div
     style={{
@@ -601,6 +612,10 @@ const fetchNews = async () => {
 
     <ErrorBoundary>
       <EnergyShockIndex news={displayedNews} />
+    </ErrorBoundary>
+
+    <ErrorBoundary>
+      <SportsIntelligencePanel refreshKey={intelRefreshKey} />
     </ErrorBoundary>
   </div>
 )}
