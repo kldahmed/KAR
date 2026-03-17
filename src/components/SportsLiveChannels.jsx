@@ -1,8 +1,9 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import SportsChannelCard from "./SportsChannelCard";
 import SportsLivePlayer from "./SportsLivePlayer";
 import {
   getAllChannels,
+  getFirstEmbeddable,
   sortChannels,
   suggestChannelsForMatch,
 } from "../lib/sports/sportsChannelsRegistry";
@@ -21,18 +22,22 @@ const COUNTRY_FILTERS = [
 const REGIONAL_CODES = new Set(["OM", "KW", "BH", "IQ", "JO", "TN"]);
 
 /**
- * SportsLiveChannels — Premium Arabic sports live TV channels hub.
- * Central place for watching Arabic sports coverage.
+ * SportsLiveChannels — Full in-page Arabic sports broadcast center.
+ * Features a cinematic player at the top that auto-plays the first embeddable channel,
+ * with a channel selector grid below for instant switching.
  */
 export default function SportsLiveChannels({ activeMatch }) {
-  const [selectedChannel, setSelectedChannel] = useState(null);
+  const [activeChannel, setActiveChannel] = useState(null);
   const [countryFilter, setCountryFilter] = useState("all");
   const [liveChannelIds, setLiveChannelIds] = useState([]);
   const [channelStatuses, setChannelStatuses] = useState({});
+  const [playerVisible, setPlayerVisible] = useState(true);
+  const playerRef = useRef(null);
+  const didAutoSelect = useRef(false);
 
   const allChannels = useMemo(() => getAllChannels(), []);
 
-  // Fetch live channel statuses from API
+  // ── Fetch live statuses ──
   useEffect(() => {
     let cancelled = false;
     const fetchStatuses = async () => {
@@ -43,23 +48,44 @@ export default function SportsLiveChannels({ activeMatch }) {
         if (cancelled) return;
         if (data.liveIds) setLiveChannelIds(data.liveIds);
         if (data.statuses) setChannelStatuses(data.statuses);
-      } catch {
-        // non-critical
-      }
+      } catch { /* non-critical */ }
     };
-
     fetchStatuses();
     const interval = setInterval(fetchStatuses, 30000);
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
-  // Suggested channels for active match
+  // ── Auto-select first embeddable channel on mount ──
+  useEffect(() => {
+    if (didAutoSelect.current) return;
+    const first = getFirstEmbeddable();
+    if (first) {
+      setActiveChannel(first);
+      setPlayerVisible(true);
+      didAutoSelect.current = true;
+    }
+  }, []);
+
+  // ── Switch channel handler — scroll player into view ──
+  const switchChannel = useCallback((ch) => {
+    setActiveChannel(ch);
+    setPlayerVisible(true);
+    if (playerRef.current) {
+      playerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
+
+  const closePlayer = useCallback(() => {
+    setPlayerVisible(false);
+  }, []);
+
+  // ── Match suggestions ──
   const matchSuggestions = useMemo(() => {
     if (!activeMatch?.league) return [];
     return suggestChannelsForMatch(activeMatch.league);
   }, [activeMatch]);
 
-  // Filter channels
+  // ── Filtered + sorted channels ──
   const filteredChannels = useMemo(() => {
     let channels = allChannels;
     if (countryFilter === "regional") {
@@ -71,235 +97,219 @@ export default function SportsLiveChannels({ activeMatch }) {
   }, [allChannels, countryFilter, liveChannelIds]);
 
   const liveCount = allChannels.filter(ch => liveChannelIds.includes(ch.id)).length;
+  const embeddableCount = allChannels.filter(ch => ch.canEmbed).length;
 
   return (
     <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
-      {/* Section header */}
-      <div
-        style={{
-          textAlign: "center",
-          marginBottom: "32px",
-          padding: "28px 20px",
-          background: "linear-gradient(135deg, rgba(15,23,42,0.9), rgba(30,41,59,0.7))",
-          borderRadius: "20px",
-          border: "1px solid rgba(56,189,248,0.1)",
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        {/* Subtle background grid */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundImage:
-              "radial-gradient(rgba(56,189,248,0.06) 1px, transparent 1px)",
-            backgroundSize: "24px 24px",
-            pointerEvents: "none",
-          }}
-        />
 
+      {/* ════════════════════════════════════════════════════════════════════
+          SECTION HEADER
+          ════════════════════════════════════════════════════════════════════ */}
+      <div style={{
+        textAlign: "center", marginBottom: "24px", padding: "24px 20px",
+        background: "linear-gradient(135deg, rgba(10,15,24,0.95), rgba(20,30,50,0.85))",
+        borderRadius: "20px", border: "1px solid rgba(56,189,248,0.08)",
+        position: "relative", overflow: "hidden",
+      }}>
+        <div style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          backgroundImage: "radial-gradient(rgba(56,189,248,0.04) 1px, transparent 1px)",
+          backgroundSize: "20px 20px",
+        }} />
         <div style={{ position: "relative" }}>
-          <div
-            style={{
-              fontSize: "11px",
-              fontWeight: 800,
-              letterSpacing: "3px",
-              color: "#38bdf8",
-              textTransform: "uppercase",
-              marginBottom: "8px",
-            }}
-          >
-            LIVE SPORTS BROADCAST
+          <div style={{
+            fontSize: "10px", fontWeight: 800, letterSpacing: "4px",
+            color: "#38bdf8", textTransform: "uppercase", marginBottom: "6px",
+          }}>
+            LIVE SPORTS BROADCAST CENTER
           </div>
-          <h2
-            style={{
-              fontSize: "26px",
-              fontWeight: 900,
-              color: "#f1f5f9",
-              margin: "0 0 8px",
-              lineHeight: 1.3,
-            }}
-          >
+          <h2 style={{
+            fontSize: "24px", fontWeight: 900, color: "#f1f5f9",
+            margin: "0 0 6px", lineHeight: 1.3,
+          }}>
             📺 البث الرياضي المباشر
           </h2>
-          <p style={{ fontSize: "13px", color: "#94a3b8", margin: 0, maxWidth: "500px", marginInline: "auto" }}>
-            القنوات الرياضية العربية الرسمية — بث مباشر وتغطية حية
+          <p style={{ fontSize: "12px", color: "#64748b", margin: 0 }}>
+            شاهد القنوات الرياضية العربية مباشرة داخل المنصة — {embeddableCount} قناة قابلة للتضمين
           </p>
 
-          {liveCount > 0 && (
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                marginTop: "14px",
-                background: "rgba(239,68,68,0.12)",
-                border: "1px solid rgba(239,68,68,0.25)",
-                borderRadius: "20px",
-                padding: "6px 16px",
-                fontSize: "12px",
-                fontWeight: 800,
-                color: "#ef4444",
-              }}
-            >
-              <span
-                style={{
-                  width: "8px",
-                  height: "8px",
-                  borderRadius: "50%",
-                  background: "#ef4444",
-                  boxShadow: "0 0 8px #ef4444",
-                  animation: "channelHubLiveDot 1.5s ease-in-out infinite",
-                }}
-              />
-              {liveCount} قناة تبث الآن
-            </div>
-          )}
+          <div style={{
+            display: "flex", justifyContent: "center", gap: "12px",
+            marginTop: "12px", flexWrap: "wrap",
+          }}>
+            {liveCount > 0 && (
+              <span style={{
+                display: "inline-flex", alignItems: "center", gap: "5px",
+                background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)",
+                borderRadius: "20px", padding: "4px 14px",
+                fontSize: "11px", fontWeight: 800, color: "#ef4444",
+              }}>
+                <span style={{
+                  width: "7px", height: "7px", borderRadius: "50%",
+                  background: "#ef4444", boxShadow: "0 0 6px #ef4444",
+                  animation: "hubLiveDot 1.2s ease-in-out infinite",
+                }} />
+                {liveCount} قناة تبث الآن
+              </span>
+            )}
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: "5px",
+              background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.15)",
+              borderRadius: "20px", padding: "4px 14px",
+              fontSize: "11px", fontWeight: 700, color: "#4ade80",
+            }}>
+              ▶ بث مباشر داخل الصفحة
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Match suggestions */}
+      {/* ════════════════════════════════════════════════════════════════════
+          CINEMATIC IN-PAGE PLAYER (always visible when a channel is active)
+          ════════════════════════════════════════════════════════════════════ */}
+      <div ref={playerRef}>
+        {activeChannel && playerVisible ? (
+          <div style={{ marginBottom: "24px" }}>
+            <SportsLivePlayer
+              channel={activeChannel}
+              onClose={closePlayer}
+              isLive={liveChannelIds.includes(activeChannel.id)}
+              currentProgram={channelStatuses[activeChannel.id]?.currentProgram || activeChannel.currentProgram}
+            />
+          </div>
+        ) : (
+          /* ── Default placeholder when no player active ── */
+          <div style={{
+            marginBottom: "24px", borderRadius: "20px", overflow: "hidden",
+            background: "linear-gradient(135deg, #0a0f18, #111827)",
+            border: "1px solid rgba(255,255,255,0.06)",
+            position: "relative",
+          }}>
+            <div style={{
+              position: "relative", width: "100%", paddingTop: "40%", minHeight: "220px",
+            }}>
+              <div style={{
+                position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                gap: "16px",
+                background: "radial-gradient(ellipse at 50% 40%, #1a2636, #0a0f18)",
+              }}>
+                <div style={{
+                  position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.03,
+                  backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.5) 2px, rgba(255,255,255,0.5) 4px)",
+                }} />
+                <div style={{ fontSize: "48px", opacity: 0.3 }}>📺</div>
+                <div style={{ fontSize: "18px", fontWeight: 800, color: "#475569" }}>
+                  اختر قناة للمشاهدة المباشرة
+                </div>
+                <div style={{ fontSize: "12px", color: "#334155", maxWidth: "360px", textAlign: "center", lineHeight: 1.6 }}>
+                  اضغط على أي قناة أدناه لبدء البث مباشرة داخل هذه الصفحة
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          MATCH SUGGESTIONS
+          ════════════════════════════════════════════════════════════════════ */}
       {activeMatch && matchSuggestions.length > 0 && (
-        <div
-          style={{
-            background: "linear-gradient(135deg, #1a2a1a, #0f1f0f)",
-            border: "1px solid rgba(74,222,128,0.2)",
-            borderRadius: "16px",
-            padding: "18px 22px",
-            marginBottom: "24px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
-            <span style={{ fontSize: "16px" }}>⚽</span>
-            <span style={{ fontSize: "14px", fontWeight: 800, color: "#4ade80" }}>
+        <div style={{
+          background: "linear-gradient(135deg, #1a2a1a, #0f1f0f)",
+          border: "1px solid rgba(74,222,128,0.2)",
+          borderRadius: "16px", padding: "16px 20px", marginBottom: "20px",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+            <span style={{ fontSize: "15px" }}>⚽</span>
+            <span style={{ fontSize: "13px", fontWeight: 800, color: "#4ade80" }}>
               القنوات التي قد تبث هذه المباراة
             </span>
           </div>
           {activeMatch.teams && (
-            <div style={{ fontSize: "13px", color: "#cbd5e1", marginBottom: "12px" }}>
+            <div style={{ fontSize: "12px", color: "#cbd5e1", marginBottom: "10px" }}>
               {activeMatch.teams}
-              {activeMatch.league && (
-                <span style={{ color: "#64748b", marginInlineStart: "8px" }}>— {activeMatch.league}</span>
-              )}
+              {activeMatch.league && <span style={{ color: "#64748b", marginInlineStart: "6px" }}>— {activeMatch.league}</span>}
             </div>
           )}
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             {matchSuggestions.map(ch => (
-              <button
-                key={ch.id}
-                onClick={() => setSelectedChannel(ch)}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  background: "rgba(74,222,128,0.1)",
-                  border: "1px solid rgba(74,222,128,0.25)",
-                  borderRadius: "10px",
-                  padding: "8px 14px",
-                  color: "#4ade80",
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                }}
-              >
-                {ch.flag} {ch.name} ▶
+              <button key={ch.id} onClick={() => switchChannel(ch)} style={{
+                display: "inline-flex", alignItems: "center", gap: "5px",
+                background: activeChannel?.id === ch.id ? "rgba(74,222,128,0.2)" : "rgba(74,222,128,0.08)",
+                border: `1px solid ${activeChannel?.id === ch.id ? "rgba(74,222,128,0.5)" : "rgba(74,222,128,0.2)"}`,
+                borderRadius: "10px", padding: "7px 12px",
+                color: "#4ade80", fontSize: "12px", fontWeight: 700, cursor: "pointer",
+              }}>
+                {ch.flag} {ch.nameAr} ▶
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* Country filter */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          gap: "8px",
-          marginBottom: "24px",
-          flexWrap: "wrap",
-          padding: "0 8px",
-        }}
-      >
+      {/* ════════════════════════════════════════════════════════════════════
+          COUNTRY FILTER
+          ════════════════════════════════════════════════════════════════════ */}
+      <div style={{
+        display: "flex", justifyContent: "center", gap: "6px",
+        marginBottom: "20px", flexWrap: "wrap", padding: "0 8px",
+      }}>
         {COUNTRY_FILTERS.map(f => (
-          <button
-            key={f.id}
-            onClick={() => setCountryFilter(f.id)}
-            style={{
-              background: countryFilter === f.id
-                ? "linear-gradient(135deg, #38bdf8, #0ea5e9)"
-                : "rgba(255,255,255,0.04)",
-              color: countryFilter === f.id ? "#0c1220" : "#94a3b8",
-              border: countryFilter === f.id
-                ? "1px solid #38bdf8"
-                : "1px solid rgba(255,255,255,0.08)",
-              borderRadius: "10px",
-              padding: "7px 14px",
-              fontSize: "12px",
-              fontWeight: 700,
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-            }}
-          >
+          <button key={f.id} onClick={() => setCountryFilter(f.id)} style={{
+            background: countryFilter === f.id
+              ? "linear-gradient(135deg, #38bdf8, #0ea5e9)"
+              : "rgba(255,255,255,0.03)",
+            color: countryFilter === f.id ? "#0c1220" : "#94a3b8",
+            border: countryFilter === f.id ? "1px solid #38bdf8" : "1px solid rgba(255,255,255,0.06)",
+            borderRadius: "10px", padding: "6px 12px",
+            fontSize: "12px", fontWeight: 700, cursor: "pointer",
+            transition: "all 0.2s ease",
+          }}>
             {f.emoji} {f.label}
           </button>
         ))}
       </div>
 
-      {/* Player */}
-      {selectedChannel && (
-        <div style={{ marginBottom: "28px" }}>
-          <SportsLivePlayer
-            channel={selectedChannel}
-            onClose={() => setSelectedChannel(null)}
-          />
-        </div>
-      )}
-
-      {/* Channels grid */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-          gap: "16px",
-        }}
-      >
+      {/* ════════════════════════════════════════════════════════════════════
+          CHANNELS GRID — compact cards for quick switching
+          ════════════════════════════════════════════════════════════════════ */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+        gap: "12px",
+      }}>
         {filteredChannels.map(ch => (
           <SportsChannelCard
             key={ch.id}
             channel={ch}
             isLive={liveChannelIds.includes(ch.id)}
-            currentProgram={channelStatuses[ch.id]?.currentProgram}
-            onWatch={setSelectedChannel}
-            active={selectedChannel?.id === ch.id}
+            currentProgram={channelStatuses[ch.id]?.currentProgram || ch.currentProgram}
+            onWatch={switchChannel}
+            active={activeChannel?.id === ch.id}
           />
         ))}
       </div>
 
       {filteredChannels.length === 0 && (
-        <div style={{ textAlign: "center", color: "#64748b", padding: "40px", fontSize: "14px" }}>
+        <div style={{ textAlign: "center", color: "#475569", padding: "40px", fontSize: "13px" }}>
           لا توجد قنوات متاحة لهذا التصنيف
         </div>
       )}
 
-      {/* Footer info */}
-      <div
-        style={{
-          textAlign: "center",
-          marginTop: "32px",
-          padding: "16px",
-          fontSize: "11px",
-          color: "#475569",
-          borderTop: "1px solid rgba(255,255,255,0.04)",
-        }}
-      >
+      {/* ── Footer ── */}
+      <div style={{
+        textAlign: "center", marginTop: "28px", padding: "14px",
+        fontSize: "11px", color: "#334155",
+        borderTop: "1px solid rgba(255,255,255,0.03)",
+      }}>
         جميع البثوث من مصادر رسمية ومعتمدة فقط — لا يتم استخدام أي بث غير مرخص
       </div>
 
       <style>{`
-        @keyframes channelHubLiveDot {
+        @keyframes hubLiveDot {
           0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.3); opacity: 0.5; }
+          50% { transform: scale(1.3); opacity: 0.4; }
         }
       `}</style>
     </div>
