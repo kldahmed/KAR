@@ -1,7 +1,9 @@
 import React from "react";
 import { formatDisplayTime } from "../AppHelpers";
+import { useI18n } from "../i18n/I18nProvider";
 
 export default function StatsPanel({ news, updated }) {
+  const { t } = useI18n();
   const total = news.length;
   const high = news.filter((n) => n.urgency === "high").length;
   const medium = news.filter((n) => n.urgency === "medium").length;
@@ -20,28 +22,28 @@ export default function StatsPanel({ news, updated }) {
       }}
     >
       <div style={{ fontWeight: "bold", fontSize: "1.2rem", marginBottom: "12px" }}>
-        الإحصاءات
+        {t("statsPanel.title")}
       </div>
-      <div style={{ fontSize: "1rem", marginBottom: "8px" }}>المجموع: {total}</div>
+      <div style={{ fontSize: "1rem", marginBottom: "8px" }}>{t("statsPanel.total")}: {total}</div>
       <div
         style={{ color: "#e74c3c", fontWeight: "700", marginBottom: "4px" }}
       >
-        عاجل: {high}
+        {t("statsPanel.urgent")}: {high}
       </div>
       <div
         style={{ color: "#f39c12", fontWeight: "700", marginBottom: "4px" }}
       >
-        متوسط: {medium}
+        {t("statsPanel.medium")}: {medium}
       </div>
       <div
         style={{ color: "#38bdf8", fontWeight: "700", marginBottom: "4px" }}
       >
-        منخفض: {low}
+        {t("statsPanel.low")}: {low}
       </div>
       <div
         style={{ fontSize: "12px", color: "#aaa", marginTop: "8px" }}
       >
-        آخر تحديث: {formatDisplayTime(updated)}
+        {t("statsPanel.lastUpdate")}: {formatDisplayTime(updated)}
       </div>
     </div>
   );

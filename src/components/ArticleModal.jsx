@@ -1,5 +1,6 @@
 import React from "react";
 import { formatDisplayTime } from "../AppHelpers";
+import { useI18n } from "../i18n/I18nProvider";
 
 const RELIABILITY = {
   "BBC": { score: "high", color: "#22c55e" },
@@ -17,6 +18,7 @@ function getReliability(source) {
 }
 
 export default function ArticleModal({ open, onClose, article }) {
+  const { t } = useI18n();
   if (!open || !article) return null;
   const { title, summary, source, time, url } = article;
   const reliability = getReliability(source);
@@ -51,10 +53,10 @@ export default function ArticleModal({ open, onClose, article }) {
           <span style={{ color: "#f3d38a" }}>{formatDisplayTime(time) || time}</span>
         </div>
         <span style={{ background: reliability.color, color: "#fff", borderRadius: "6px", padding: "2px 8px", fontSize: "12px", fontWeight: "700", marginLeft: "8px" }}>
-          {reliability.score === "high" ? "موثوقية عالية" : "موثوقية متوسطة"}
+          {reliability.score === "high" ? t("news.reliabilityHigh") : t("news.reliabilityMedium")}
         </span>
         <a href={url} target="_blank" rel="noopener noreferrer" style={{ background: "#38bdf8", color: "#fff", borderRadius: "8px", padding: "10px 18px", fontWeight: "700", textDecoration: "none", display: "inline-block", marginTop: "8px" }}>
-          قراءة المقال الأصلي
+          {t("articleModal.readOriginal")}
         </a>
       </div>
     </div>

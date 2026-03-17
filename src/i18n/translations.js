@@ -236,7 +236,55 @@ export const translations = {
       signalDensity: "كثافة الإشارات",
       trendEvolution: "تطور الاتجاهات",
       eventGraph: "رسم الأحداث",
-      scenarios: "السيناريوهات"
+      scenarios: "السيناريوهات",
+      subtitle: "مراقبة جيوسياسية تفاعلية، تحليل مصادر المخاطر، والتنقل السلس بين بؤر التوتر",
+      activeConflict: "● نزاع نشط",
+      escalationLabel: "● تصعيد",
+      tension: "● توتر",
+      conflictMap: "خريطة النزاعات التفاعلية",
+      mapInstructions: "اضغط على أي منطقة لمعرفة مصادر المخاطر والتنقل بينها",
+      lastActivity: "آخر نشاط",
+      insufficientData: "لا توجد بيانات كافية",
+      situationBrief: "موجز الوضع",
+      selectedRegionDetails: "تفاصيل المنطقة المختارة",
+      threatLevel: "مستوى التهديد",
+      threatHigh: "عالي",
+      threatMedium: "متوسط",
+      threatLow: "منخفض",
+      pressure: "الضغط",
+      riskSources: "مصادر المخاطر",
+      noSources: "لا توجد مصادر كافية لهذه المنطقة",
+      topDevelopments: "أبرز التطورات",
+      noRegionNews: "لا توجد أخبار مرتبطة بهذه المنطقة حاليًا",
+      regionalPressure: "ضغط الأقاليم",
+      escalationFeed: "تغذية التصعيد",
+      urgentLabel: "عاجل",
+      mediumLabel: "متوسط",
+      lowLabel: "منخفض",
+      riskIndicators: "مؤشرات الخطر",
+      totalNews: "إجمالي الأخبار",
+      urgentStat: "العاجل",
+      mediumStat: "المتوسط",
+      lowStat: "المنخفض",
+      regionMiddleEast: "الشرق الأوسط",
+      regionUkraine: "أوكرانيا",
+      regionRedSea: "البحر الأحمر",
+      regionTaiwan: "مضيق تايوان",
+      regionNorthAmerica: "أمريكا الشمالية",
+      regionAmericasShort: "أمريكا",
+      regionEurope: "أوروبا",
+      briefOverviewDefault: "المشهد العالمي تحت المراقبة مع ضغوط متوسطة وتوزع واضح لمراكز التوتر.",
+      briefOverviewHigh: "المشهد العالمي شديد الحساسية مع ارتفاع واضح في التطورات العاجلة واتساع مؤشرات التصعيد الجيوسياسي.",
+      briefOverviewMedium: "المشهد العالمي متوتر مع تسارع ملحوظ في الأخبار المرتبطة بالنزاعات والتحركات الاستراتيجية.",
+      briefMiddleEast: "يبقى الشرق الأوسط المحرك الأبرز للتوتر الحالي في دورة الأخبار.",
+      briefUkraine: "ما تزال جبهة أوكرانيا مؤثرة في مستوى المخاطر داخل أوروبا والمشهد الأمني الأوسع.",
+      briefRedSea: "أمن الملاحة في البحر الأحمر يؤثر مباشرة في سلاسل التوريد والطاقة.",
+      briefTaiwan: "آسيا والمحيط الهادئ تحت المتابعة بسبب حساسية ملف الصين وتايوان.",
+      briefDiplomacy: "هناك نشاط دبلوماسي متزامن مع التصعيد، ما يشير إلى محاولات احتواء موازية للمخاطر.",
+      conflictMapGlobal: "خريطة النزاعات العالمية",
+      statusActive: "نزاع نشط",
+      statusEscalation: "تصعيد",
+      statusTension: "توتر"
     },
     forecast: {
       title: "مركز الاستشراف الاستراتيجي",
@@ -272,6 +320,67 @@ export const translations = {
       filter: "تصفية",
       all: "الكل",
       sectionError: "تعذر تحميل هذا القسم حالياً"
+    },
+    statsPanel: {
+      title: "الإحصاءات",
+      total: "المجموع",
+      urgent: "عاجل",
+      medium: "متوسط",
+      low: "منخفض",
+      lastUpdate: "آخر تحديث"
+    },
+    escalationTimeline: {
+      title: "تصاعد الأحداث الجيوسياسية"
+    },
+    aiSummary: {
+      title: "موجز الوضع العالمي",
+      noData: "لا توجد بيانات كافية لتوليد ملخص اليوم.",
+      escalationHigh: "تصاعد في الأحداث الجيوسياسية في عدة مناطق.",
+      escalationLow: "لا توجد تصعيدات كبيرة اليوم.",
+      diplomacyActive: "تطورات دبلوماسية جارية.",
+      diplomacyNone: "لا توجد تطورات دبلوماسية بارزة.",
+      summaryPrefix: "ملخص اليوم: النزاعات الرئيسية",
+      noMainConflicts: "لا توجد نزاعات رئيسية"
+    },
+    warRisk: {
+      title: "مستوى خطر الحرب العالمي",
+      estimatedPercent: "النسبة التقديرية"
+    },
+    articleModal: {
+      readOriginal: "قراءة المقال الأصلي"
+    },
+    tensionHeatmap: {
+      title: "خريطة حرارة التوتر",
+      noData: "لا توجد بيانات للتحليل",
+      regions: {
+        middleEast: "الشرق الأوسط",
+        europe: "أوروبا",
+        asia: "آسيا",
+        americas: "الأمريكتان",
+        africa: "أفريقيا"
+      },
+      levels: {
+        high: "مرتفع",
+        medium: "متوسط",
+        low: "منخفض"
+      }
+    },
+    timeline: {
+      title: "المخطط الزمني",
+      noEvents: "لا توجد أحداث لعرضها",
+      lastUpdate: "آخر تحديث",
+      urgency: {
+        high: "عاجل",
+        medium: "متوسط",
+        low: "منخفض"
+      }
+    },
+    hero: {
+      title: "نبض العالم الآن",
+      subtitle: "مراقبة فورية لأهم الأحداث والتحولات العالمية",
+      urgentCount: "أخبار عاجلة",
+      totalCount: "إجمالي الأخبار",
+      riskLevel: "مستوى الخطر"
     }
   },
   en: {
@@ -511,7 +620,55 @@ export const translations = {
       signalDensity: "Signal Density",
       trendEvolution: "Trend Evolution",
       eventGraph: "Event Graph",
-      scenarios: "Scenarios"
+      scenarios: "Scenarios",
+      subtitle: "Interactive geopolitical monitoring, risk source analysis, and seamless navigation between tension hotspots",
+      activeConflict: "● Active Conflict",
+      escalationLabel: "● Escalation",
+      tension: "● Tension",
+      conflictMap: "Interactive Conflict Map",
+      mapInstructions: "Click any region to explore risk sources and navigate between them",
+      lastActivity: "Last activity",
+      insufficientData: "Insufficient data",
+      situationBrief: "Situation Brief",
+      selectedRegionDetails: "Selected Region Details",
+      threatLevel: "Threat Level",
+      threatHigh: "High",
+      threatMedium: "Medium",
+      threatLow: "Low",
+      pressure: "Pressure",
+      riskSources: "Risk Sources",
+      noSources: "Insufficient sources for this region",
+      topDevelopments: "Top Developments",
+      noRegionNews: "No news related to this region currently",
+      regionalPressure: "Regional Pressure",
+      escalationFeed: "Escalation Feed",
+      urgentLabel: "Urgent",
+      mediumLabel: "Medium",
+      lowLabel: "Low",
+      riskIndicators: "Risk Indicators",
+      totalNews: "Total News",
+      urgentStat: "Urgent",
+      mediumStat: "Medium",
+      lowStat: "Low",
+      regionMiddleEast: "Middle East",
+      regionUkraine: "Ukraine",
+      regionRedSea: "Red Sea",
+      regionTaiwan: "Taiwan Strait",
+      regionNorthAmerica: "North America",
+      regionAmericasShort: "Americas",
+      regionEurope: "Europe",
+      briefOverviewDefault: "The global landscape is under monitoring with moderate pressures and clear distribution of tension centers.",
+      briefOverviewHigh: "The global landscape is highly sensitive with a clear rise in urgent developments and expanding geopolitical escalation indicators.",
+      briefOverviewMedium: "The global landscape is tense with a notable acceleration in conflict-related news and strategic movements.",
+      briefMiddleEast: "The Middle East remains the primary driver of current tension in the news cycle.",
+      briefUkraine: "The Ukraine front continues to affect risk levels within Europe and the broader security landscape.",
+      briefRedSea: "Red Sea navigation security is directly impacting supply chains and energy.",
+      briefTaiwan: "The Asia-Pacific is under watch due to the sensitivity of the China-Taiwan issue.",
+      briefDiplomacy: "Diplomatic activity is occurring alongside escalation, indicating parallel containment attempts.",
+      conflictMapGlobal: "Global Conflict Map",
+      statusActive: "Active Conflict",
+      statusEscalation: "Escalation",
+      statusTension: "Tension"
     },
     forecast: {
       title: "Strategic Forecast Center",
@@ -547,6 +704,67 @@ export const translations = {
       filter: "Filter",
       all: "All",
       sectionError: "This section could not be loaded"
+    },
+    statsPanel: {
+      title: "Statistics",
+      total: "Total",
+      urgent: "Urgent",
+      medium: "Medium",
+      low: "Low",
+      lastUpdate: "Last update"
+    },
+    escalationTimeline: {
+      title: "Geopolitical Escalation Timeline"
+    },
+    aiSummary: {
+      title: "Global Situation Brief",
+      noData: "Insufficient data to generate today's summary.",
+      escalationHigh: "Escalation in geopolitical events across multiple regions.",
+      escalationLow: "No major escalations today.",
+      diplomacyActive: "Ongoing diplomatic developments.",
+      diplomacyNone: "No notable diplomatic developments.",
+      summaryPrefix: "Today's Summary: Main Conflicts",
+      noMainConflicts: "No main conflicts"
+    },
+    warRisk: {
+      title: "Global War Risk Level",
+      estimatedPercent: "Estimated percentage"
+    },
+    articleModal: {
+      readOriginal: "Read original article"
+    },
+    tensionHeatmap: {
+      title: "Tension Heatmap",
+      noData: "No data for analysis",
+      regions: {
+        middleEast: "Middle East",
+        europe: "Europe",
+        asia: "Asia",
+        americas: "Americas",
+        africa: "Africa"
+      },
+      levels: {
+        high: "High",
+        medium: "Medium",
+        low: "Low"
+      }
+    },
+    timeline: {
+      title: "Timeline",
+      noEvents: "No events to display",
+      lastUpdate: "Last update",
+      urgency: {
+        high: "Urgent",
+        medium: "Medium",
+        low: "Low"
+      }
+    },
+    hero: {
+      title: "Global Pulse Now",
+      subtitle: "Real-time monitoring of major global events and shifts",
+      urgentCount: "Urgent news",
+      totalCount: "Total news",
+      riskLevel: "Risk level"
     }
   }
 };

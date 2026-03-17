@@ -1,7 +1,9 @@
 import React from "react";
 import { URGENCY_MAP } from "../AppHelpers";
+import { useI18n } from "../i18n/I18nProvider";
 
 export default function EscalationTimelinePanel({ news }) {
+  const { t } = useI18n();
   const events = [...news]
     .filter(n => n.time && n.title)
     .sort((a, b) => new Date(b.time) - new Date(a.time))
@@ -9,7 +11,7 @@ export default function EscalationTimelinePanel({ news }) {
 
   return (
     <div style={{ background: "rgba(34,34,34,0.7)", borderRadius: "16px", padding: "18px", boxShadow: "0 2px 12px #0003", margin: "18px 0", maxWidth: "600px", width: "100%" }}>
-      <div style={{ fontWeight: "bold", fontSize: "1.2rem", marginBottom: "12px" }}>تصاعد الأحداث الجيوسياسية</div>
+      <div style={{ fontWeight: "bold", fontSize: "1.2rem", marginBottom: "12px" }}>{t("escalationTimeline.title")}</div>
       <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
         {events.map((ev, idx) => (
           <li key={idx} style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "14px" }}>
