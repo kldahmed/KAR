@@ -337,20 +337,7 @@ function getFallbackSports(competition = "all") {
   return base.filter((item) => item.competition === competition);
 }
 
-const UAE_STANDINGS = [
-  { pos: 1,  team: "العين",         mp: 22, w: 17, d: 3, l: 2, gf: 55, ga: 18, gd: 37, pts: 54 },
-  { pos: 2,  team: "شباب الأهلي",   mp: 22, w: 15, d: 4, l: 3, gf: 48, ga: 22, gd: 26, pts: 49 },
-  { pos: 3,  team: "الوصل",         mp: 22, w: 13, d: 5, l: 4, gf: 42, ga: 25, gd: 17, pts: 44 },
-  { pos: 4,  team: "الشارقة",       mp: 22, w: 12, d: 4, l: 6, gf: 38, ga: 28, gd: 10, pts: 40 },
-  { pos: 5,  team: "النصر",         mp: 22, w: 11, d: 5, l: 6, gf: 36, ga: 30, gd:  6, pts: 38 },
-  { pos: 6,  team: "الجزيرة",       mp: 22, w: 10, d: 4, l: 8, gf: 33, ga: 32, gd:  1, pts: 34 },
-  { pos: 7,  team: "بني ياس",       mp: 22, w:  8, d: 5, l: 9, gf: 28, ga: 35, gd: -7, pts: 29 },
-  { pos: 8,  team: "الفجيرة",       mp: 22, w:  7, d: 4, l: 11, gf: 25, ga: 38, gd: -13, pts: 25 },
-  { pos: 9,  team: "الظفرة",        mp: 22, w:  6, d: 4, l: 12, gf: 22, ga: 40, gd: -18, pts: 22 },
-  { pos: 10, team: "خورفكان",       mp: 22, w:  5, d: 4, l: 13, gf: 19, ga: 43, gd: -24, pts: 19 },
-  { pos: 11, team: "إتحاد كلباء",   mp: 22, w:  4, d: 3, l: 15, gf: 17, ga: 48, gd: -31, pts: 15 },
-  { pos: 12, team: "الحرة",         mp: 22, w:  2, d: 3, l: 17, gf: 13, ga: 56, gd: -43, pts:  9 }
-];
+const UAE_STANDINGS = [];
 
 export default async function handler(req, res) {
   const now = Date.now();

@@ -100,8 +100,10 @@ export default function App() {
   const intervalRef = useRef(null);
   const [sportsCompetition, setSportsCompetition] = useState("all");
   const [uaeStandings, setUaeStandings] = useState([]);
+  const [uaeStandingsUpdatedAt, setUaeStandingsUpdatedAt] = useState("");
   const [isStandingsLoading, setIsStandingsLoading] = useState(false);
   const standingsFallbackRef = useRef(null);
+  const standingsIntervalRef = useRef(null);
 
   useEffect(() => {
     document.title = "Global Pulse 🌍";
@@ -154,51 +156,45 @@ const fetchNews = async () => {
   };
 }, [cat, tab, sportsCompetition]);
 
-  const UAE_STANDINGS_FALLBACK = [
-    { pos: 1,  team: "العين",         mp: 22, w: 17, d: 3, l: 2,  gf: 55, ga: 18, gd: 37,  pts: 54 },
-    { pos: 2,  team: "شباب الأهلي",   mp: 22, w: 15, d: 4, l: 3,  gf: 48, ga: 22, gd: 26,  pts: 49 },
-    { pos: 3,  team: "الوصل",         mp: 22, w: 13, d: 5, l: 4,  gf: 42, ga: 25, gd: 17,  pts: 44 },
-    { pos: 4,  team: "الشارقة",       mp: 22, w: 12, d: 4, l: 6,  gf: 38, ga: 28, gd: 10,  pts: 40 },
-    { pos: 5,  team: "النصر",         mp: 22, w: 11, d: 5, l: 6,  gf: 36, ga: 30, gd:  6,  pts: 38 },
-    { pos: 6,  team: "الجزيرة",       mp: 22, w: 10, d: 4, l: 8,  gf: 33, ga: 32, gd:  1,  pts: 34 },
-    { pos: 7,  team: "بني ياس",       mp: 22, w:  8, d: 5, l: 9,  gf: 28, ga: 35, gd: -7,  pts: 29 },
-    { pos: 8,  team: "الفجيرة",       mp: 22, w:  7, d: 4, l: 11, gf: 25, ga: 38, gd: -13, pts: 25 },
-    { pos: 9,  team: "الظفرة",        mp: 22, w:  6, d: 4, l: 12, gf: 22, ga: 40, gd: -18, pts: 22 },
-    { pos: 10, team: "خورفكان",       mp: 22, w:  5, d: 4, l: 13, gf: 19, ga: 43, gd: -24, pts: 19 },
-    { pos: 11, team: "إتحاد كلباء",   mp: 22, w:  4, d: 3, l: 15, gf: 17, ga: 48, gd: -31, pts: 15 },
-    { pos: 12, team: "الحرة",         mp: 22, w:  2, d: 3, l: 17, gf: 13, ga: 56, gd: -43, pts:  9 }
-  ];
 
   useEffect(() => {
-    if (cat !== "sports" || sportsCompetition !== "uae") return;
+    if (cat !== "sports" || sportsCompetition !== "uae") {
+      if (standingsIntervalRef.current) clearInterval(standingsIntervalRef.current);
+      return;
+    }
 
-    setIsStandingsLoading(true);
+    const loadStandings = () => {
+      setIsStandingsLoading((prev) => (uaeStandings.length === 0 ? true : prev));
 
-    if (standingsFallbackRef.current) clearTimeout(standingsFallbackRef.current);
-    standingsFallbackRef.current = setTimeout(() => {
-      setUaeStandings((prev) => {
-        if (!prev.length) return UAE_STANDINGS_FALLBACK;
-        return prev;
-      });
-      setIsStandingsLoading(false);
-    }, 3000);
-
-    fetch("/api/sports?competition=uae")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data.standings) && data.standings.length) {
-          setUaeStandings(data.standings);
-          setIsStandingsLoading(false);
-          if (standingsFallbackRef.current) clearTimeout(standingsFallbackRef.current);
-        }
-      })
-      .catch(() => {
-        setUaeStandings(UAE_STANDINGS_FALLBACK);
+      // 3-second hard timeout — if no data yet, stop spinner
+      const timeout = setTimeout(() => {
         setIsStandingsLoading(false);
-        if (standingsFallbackRef.current) clearTimeout(standingsFallbackRef.current);
-      });
+      }, 3000);
+
+      fetch("/api/uae-standings")
+        .then((r) => r.json())
+        .then((data) => {
+          clearTimeout(timeout);
+          if (Array.isArray(data.standings) && data.standings.length) {
+            setUaeStandings(data.standings);
+            setUaeStandingsUpdatedAt(data.updatedAt || "");
+            setIsStandingsLoading(false);
+          }
+        })
+        .catch(() => {
+          clearTimeout(timeout);
+          setIsStandingsLoading(false);
+        });
+    };
+
+    loadStandings();
+
+    // Refresh standings every 60 seconds
+    if (standingsIntervalRef.current) clearInterval(standingsIntervalRef.current);
+    standingsIntervalRef.current = setInterval(loadStandings, 60000);
 
     return () => {
+      if (standingsIntervalRef.current) clearInterval(standingsIntervalRef.current);
       if (standingsFallbackRef.current) clearTimeout(standingsFallbackRef.current);
     };
   }, [cat, sportsCompetition]);
@@ -464,28 +460,35 @@ const fetchNews = async () => {
                         <tbody>
                           {uaeStandings.map((row, i) => (
                             <tr
-                              key={row.pos}
+                              key={row.rank ?? i}
                               style={{
                                 borderTop: "1px solid rgba(255,255,255,0.05)",
                                 background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)",
-                                ...(row.pos <= 3 ? { borderRight: "3px solid #4ade80" } : {}),
-                                ...(row.pos >= uaeStandings.length - 1 ? { borderRight: "3px solid #f87171" } : {})
+                                ...(row.rank <= 3 ? { borderRight: "3px solid #4ade80" } : {}),
+                                ...(row.rank >= uaeStandings.length - 1 ? { borderRight: "3px solid #f87171" } : {})
                               }}
                             >
-                              <td style={{ padding: "10px 12px", textAlign: "center", color: "#94a3b8" }}>{row.pos}</td>
+                              <td style={{ padding: "10px 12px", textAlign: "center", color: "#94a3b8" }}>{row.rank}</td>
                               <td style={{ padding: "10px 12px", fontWeight: 700, whiteSpace: "nowrap" }}>{row.team}</td>
-                              <td style={{ padding: "10px 12px", textAlign: "center" }}>{row.mp}</td>
-                              <td style={{ padding: "10px 12px", textAlign: "center", color: "#4ade80" }}>{row.w}</td>
-                              <td style={{ padding: "10px 12px", textAlign: "center", color: "#fbbf24" }}>{row.d}</td>
-                              <td style={{ padding: "10px 12px", textAlign: "center", color: "#f87171" }}>{row.l}</td>
-                              <td style={{ padding: "10px 12px", textAlign: "center" }}>{row.gf}</td>
-                              <td style={{ padding: "10px 12px", textAlign: "center" }}>{row.ga}</td>
-                              <td style={{ padding: "10px 12px", textAlign: "center", color: row.gd >= 0 ? "#4ade80" : "#f87171" }}>{row.gd > 0 ? `+${row.gd}` : row.gd}</td>
-                              <td style={{ padding: "10px 14px", textAlign: "center", fontWeight: 900, fontSize: "1rem", color: "#f3d38a" }}>{row.pts}</td>
+                              <td style={{ padding: "10px 12px", textAlign: "center" }}>{row.played}</td>
+                              <td style={{ padding: "10px 12px", textAlign: "center", color: "#4ade80" }}>{row.won}</td>
+                              <td style={{ padding: "10px 12px", textAlign: "center", color: "#fbbf24" }}>{row.drawn}</td>
+                              <td style={{ padding: "10px 12px", textAlign: "center", color: "#f87171" }}>{row.lost}</td>
+                              <td style={{ padding: "10px 12px", textAlign: "center" }}>{row.goalsFor}</td>
+                              <td style={{ padding: "10px 12px", textAlign: "center" }}>{row.goalsAgainst}</td>
+                              <td style={{ padding: "10px 12px", textAlign: "center", color: (row.goalDifference ?? 0) >= 0 ? "#4ade80" : "#f87171" }}>
+                                {(row.goalDifference ?? 0) > 0 ? `+${row.goalDifference}` : row.goalDifference}
+                              </td>
+                              <td style={{ padding: "10px 14px", textAlign: "center", fontWeight: 900, fontSize: "1rem", color: "#f3d38a" }}>{row.points}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
+                      {uaeStandingsUpdatedAt && (
+                        <div style={{ textAlign: "center", color: "#64748b", fontSize: "0.75rem", padding: "8px 16px" }}>
+                          آخر تحديث: {uaeStandingsUpdatedAt}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
