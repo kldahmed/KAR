@@ -50,9 +50,9 @@ export default function BreakingNewsTicker({
             display: "inline-flex",
             alignItems: "center",
             gap: "8px",
-            background: "rgba(255,255,255,.04)",
-            border: `1px solid ${accent}44`,
-            color: accent,
+            background: "rgba(239,68,68,0.12)",
+            border: `1px solid rgba(239,68,68,0.4)`,
+            color: "#ef4444",
             borderRadius: "999px",
             padding: "7px 12px",
             fontWeight: 800,
@@ -61,18 +61,8 @@ export default function BreakingNewsTicker({
             textTransform: "uppercase"
           }}
         >
-          <span
-            style={{
-              width: "8px",
-              height: "8px",
-              borderRadius: "50%",
-              background: "#ef4444",
-              boxShadow: "0 0 12px #ef4444",
-              display: "inline-block",
-              animation: "ticker-pulse 1.2s infinite"
-            }}
-          />
-          {label}
+          <span className="nr-live-dot" />
+          LIVE
         </div>
 
         <div

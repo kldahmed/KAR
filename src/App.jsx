@@ -14,6 +14,14 @@ import ThreatRadar from "./components/ThreatRadar";
 import StrategicForecast from "./components/StrategicForecast";
 import EnergyShockIndex from "./components/EnergyShockIndex";
 import XNewsFeed from "./components/XNewsFeed";
+import LiveRegionStrip from "./components/LiveRegionStrip";
+import AudioBulletin from "./components/AudioBulletin";
+import IntelligenceMeter from "./components/IntelligenceMeter";
+import ForecastCenter from "./components/ForecastCenter";
+import MemoryDepthPanel from "./components/MemoryDepthPanel";
+import { extractIntelligence } from "./lib/entityExtractor";
+import { ingestItems } from "./lib/intelligenceStore";
+import { getIntelligenceMetrics } from "./lib/intelligenceEngine";
 
 const DEMO_NEWS = [
   {
@@ -46,10 +54,11 @@ const SPORTS_COMPETITIONS = [
   { id: "world", label: "عالمي", emoji: "🌐" }
 ];
 const TABS = [
-  { id: "news", label: "الأخبار", icon: "📰" },
-  { id: "intel", label: "مركز التحليل", icon: "🌐" },
-  { id: "live", label: "البث المباشر", icon: "📺" },
-  { id: "xfeed", label: "نبض X", icon: "𝕏" }
+  { id: "news",     label: "الأخبار",        icon: "📰" },
+  { id: "intel",    label: "مركز التحليل",   icon: "🌐" },
+  { id: "forecast", label: "الاستشراف",      icon: "🔭" },
+  { id: "live",     label: "البث المباشر",   icon: "📺" },
+  { id: "xfeed",    label: "نبض X",          icon: "𝕏" }
 ];
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -105,6 +114,10 @@ export default function App() {
   const standingsFallbackRef = useRef(null);
   const standingsIntervalRef = useRef(null);
 
+  // Intelligence layer state
+  const [intelRefreshKey, setIntelRefreshKey] = useState(0);
+  const [intelMetrics, setIntelMetrics] = useState(null);
+
   useEffect(() => {
     document.title = "Global Pulse 🌍";
   }, []);
@@ -155,6 +168,17 @@ const fetchNews = async () => {
     if (intervalRef.current) clearInterval(intervalRef.current);
   };
 }, [cat, tab, sportsCompetition]);
+
+  // Intelligence ingestion: process new articles into the memory store
+  useEffect(() => {
+    if (!news.length) return;
+    try {
+      const extracted = news.map(a => extractIntelligence(a));
+      ingestItems(extracted);
+      setIntelMetrics(getIntelligenceMetrics());
+      setIntelRefreshKey(k => k + 1);
+    } catch { /* non-critical */ }
+  }, [news]);
 
 
   useEffect(() => {
@@ -225,9 +249,14 @@ const fetchNews = async () => {
         minHeight: "100vh",
         background: "#11151a",
         color: "#e2e8f0",
-        fontFamily: "system-ui, sans-serif"
+        fontFamily: "system-ui, sans-serif",
+        position: "relative"
       }}
     >
+      {/* Newsroom background layers */}
+      <div className="nr-bg-grid" />
+      <div className="nr-bg-beam" />
+
       <BreakingNewsTicker headlines={tickerHeadlines} />
 
       <header
@@ -295,6 +324,8 @@ const fetchNews = async () => {
           </div>
         </div>
       </header>
+
+      <LiveRegionStrip />
 
       <nav
         style={{
@@ -541,6 +572,16 @@ const fetchNews = async () => {
       gap: "28px"
     }}
   >
+    {/* Intelligence meter + memory depth at top */}
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", flexWrap: "wrap" }}>
+      <ErrorBoundary>
+        <IntelligenceMeter refreshKey={intelRefreshKey} />
+      </ErrorBoundary>
+      <ErrorBoundary>
+        <MemoryDepthPanel metrics={intelMetrics} />
+      </ErrorBoundary>
+    </div>
+
     <ErrorBoundary>
       <GlobalIntelligenceCenter news={displayedNews} />
     </ErrorBoundary>
@@ -558,6 +599,14 @@ const fetchNews = async () => {
     </ErrorBoundary>
   </div>
 )}
+
+    {tab === "forecast" && (
+      <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "0 20px 40px" }}>
+        <ErrorBoundary>
+          <ForecastCenter refreshKey={intelRefreshKey} />
+        </ErrorBoundary>
+      </div>
+    )}
 
         {tab === "live" && (
           <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
@@ -631,6 +680,9 @@ const fetchNews = async () => {
           </ErrorBoundary>
         </div>
       )}
+
+      {/* Floating audio bulletin */}
+      <AudioBulletin headlines={tickerHeadlines} />
     </div>
   );
 }
