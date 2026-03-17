@@ -1,29 +1,74 @@
-const MAX_SPORTS = 60;
-const FETCH_TIMEOUT = 4000;
+const MAX_SPORTS = 100;
+const FETCH_TIMEOUT = 6000;
 const CACHE_TTL = 60 * 1000;
 
+// ─── DIRECT RSS SOURCES ───────────────────────────────────────────────────────
 const SPORTS_SOURCES = [
-  {
-    name: "BBC Sport Football",
-    url: "https://feeds.bbci.co.uk/sport/football/rss.xml",
-    competition: "world"
-  },
-  {
-    name: "Sky Sports Football",
-    url: "https://www.skysports.com/rss/12040",
-    competition: "world"
-  },
-  {
-    name: "ESPN Soccer",
-    url: "https://www.espn.com/espn/rss/soccer/news",
-    competition: "world"
-  },
-  {
-    name: "Goal",
-    url: "https://www.goal.com/feeds/en/news",
-    competition: "world"
-  }
+  // Global
+  { name: "BBC Sport Football",    url: "https://feeds.bbci.co.uk/sport/football/rss.xml",                             competition: "world" },
+  { name: "Sky Sports Football",   url: "https://www.skysports.com/rss/12040",                                         competition: "world" },
+  { name: "ESPN Soccer",           url: "https://www.espn.com/espn/rss/soccer/news",                                   competition: "world" },
+  { name: "Goal.com",              url: "https://www.goal.com/feeds/en/news",                                          competition: "world" },
+  { name: "Football365",           url: "https://www.football365.com/feed",                                            competition: "world" },
+  { name: "FourFourTwo",           url: "https://www.fourfourtwo.com/rss.xml",                                         competition: "world" },
+  { name: "TalkSport Football",    url: "https://talksport.com/football/feed/",                                        competition: "world" },
+  { name: "90min Football",        url: "https://www.90min.com/posts.rss",                                             competition: "world" },
+  { name: "CBS Sports Soccer",     url: "https://www.cbssports.com/rss/headlines/soccer/",                             competition: "world" },
+  { name: "Bleacher Report Soccer",url: "https://bleacherreport.com/articles/feed?tag_id=soccer",                     competition: "world" },
+  { name: "SportBible Football",   url: "https://www.sportbible.com/football/feed/",                                  competition: "world" },
+  { name: "Marca English",         url: "https://www.marca.com/en/rss/football.xml",                                   competition: "laliga" },
+  { name: "AS English",            url: "https://en.as.com/rss/futbol.xml",                                            competition: "laliga" },
+  // Middle East / UAE
+  { name: "The National Sport",    url: "https://www.thenationalnews.com/sport/rss.xml",                               competition: "uae" },
+  { name: "Gulf News Sport",       url: "https://gulfnews.com/rss/sport",                                              competition: "uae" },
+  { name: "Arab News Sport",       url: "https://www.arabnews.com/cat/sport/rss.xml",                                  competition: "uae" },
+  { name: "Khaleej Times Sport",   url: "https://www.khaleejtimes.com/sport/rss.xml",                                  competition: "uae" },
+  { name: "Al Jazeera Sport",      url: "https://www.aljazeera.com/xml/rss/all.xml",                                   competition: "world" },
+  { name: "FilGoal",               url: "https://www.filgoal.com/feed/",                                               competition: "uae" },
+  { name: "Kooora",                url: "https://www.kooora.com/?feed=rss2",                                           competition: "uae" }
 ];
+
+// ─── GOOGLE NEWS RSS QUERIES ─────────────────────────────────────────────────
+// Google News RSS is reliable and covers any query in real-time.
+const GOOGLE_NEWS_QUERIES = [
+  // UAE Pro League — highest priority
+  { query: "UAE Pro League",               lang: "en", competition: "uae" },
+  { query: "ADNOC Pro League",             lang: "en", competition: "uae" },
+  { query: "Sharjah FC football",          lang: "en", competition: "uae" },
+  { query: "Al Ain FC UAE football",       lang: "en", competition: "uae" },
+  { query: "Shabab Al Ahli Dubai FC",      lang: "en", competition: "uae" },
+  { query: "Al Wasl FC UAE",               lang: "en", competition: "uae" },
+  { query: "Al Jazira FC Abu Dhabi",       lang: "en", competition: "uae" },
+  { query: "Al Wahda FC UAE",              lang: "en", competition: "uae" },
+  { query: "UAE football news",            lang: "en", competition: "uae" },
+  { query: "Emirates football league",     lang: "en", competition: "uae" },
+  // Arabic UAE queries
+  { query: "دوري أدنوك للمحترفين",         lang: "ar", competition: "uae" },
+  { query: "الدوري الإماراتي للمحترفين",   lang: "ar", competition: "uae" },
+  { query: "أخبار الشارقة الرياضي",        lang: "ar", competition: "uae" },
+  { query: "أخبار العين الإماراتي",        lang: "ar", competition: "uae" },
+  { query: "شباب الأهلي دبي أخبار",        lang: "ar", competition: "uae" },
+  { query: "أخبار الوصل الإماراتي",        lang: "ar", competition: "uae" },
+  { query: "أخبار الجزيرة الإماراتي",      lang: "ar", competition: "uae" },
+  // Global football
+  { query: "Premier League news today",    lang: "en", competition: "premier-league" },
+  { query: "La Liga news today",           lang: "en", competition: "laliga" },
+  { query: "Champions League news",        lang: "en", competition: "champions-league" },
+  { query: "football transfer news",       lang: "en", competition: "transfers" },
+  { query: "soccer news today",            lang: "en", competition: "world" }
+];
+
+function buildGoogleNewsUrl(query, lang = "en") {
+  const gl   = lang === "ar" ? "AE" : "US";
+  const ceid = lang === "ar" ? "AE:ar" : "US:en";
+  return `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=${lang}&gl=${gl}&ceid=${ceid}`;
+}
+
+// Hard filter — remove obviously non-sports articles
+function isNonSportsContent(title = "", summary = "") {
+  const hay = `${title} ${summary}`.toLowerCase();
+  return /\bwar\b|military strike|geopolit|\bsanction|\btariff\b|oil market|stock market|inflation|\belection\b|diplomacy|bilateral|trade war|\bminister\b|\bparliament\b|\bpresident\b(?!.*cup|.*league|.*football)/.test(hay);
+}
 
 const CATEGORY_CACHE = new Map();
 const TRANSLATION_CACHE = new Map();
@@ -268,25 +313,55 @@ function parseSportsRss(xml, source) {
 async function fetchSportsSources(competition = "all") {
   const results = [];
 
-  await Promise.all(
-    SPORTS_SOURCES.map(async (src) => {
-      try {
-        const res = await fetchWithTimeout(src.url, {
-          headers: { "User-Agent": "Mozilla/5.0" }
-        });
+  // ── Direct RSS sources ────────────────────────────────────────────────────
+  const directPromises = SPORTS_SOURCES.map(async (src) => {
+    try {
+      const res = await fetchWithTimeout(src.url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
+        }
+      });
+      if (!res.ok) return;
+      const xml = await res.text();
+      const parsed = parseSportsRss(xml, src.name).filter((item) =>
+        competitionMatches(item.competition, competition)
+      );
+      results.push(...parsed);
+    } catch {}
+  });
 
-        if (!res.ok) return;
-        const xml = await res.text();
-
-        const parsed = parseSportsRss(xml, src.name).filter((item) =>
-          competitionMatches(item.competition, competition)
+  // ── Google News RSS queries ───────────────────────────────────────────────
+  const relevantQueries =
+    competition === "all"
+      ? GOOGLE_NEWS_QUERIES
+      : GOOGLE_NEWS_QUERIES.filter(
+          (q) => q.competition === competition || q.competition === "world"
         );
 
-        results.push(...parsed);
-      } catch {}
-    })
-  );
+  const googlePromises = relevantQueries.map(async (q) => {
+    try {
+      const url = buildGoogleNewsUrl(q.query, q.lang);
+      const res = await fetchWithTimeout(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+          Accept: "application/rss+xml, application/xml, text/xml, */*"
+        }
+      });
+      if (!res.ok) return;
+      const xml = await res.text();
+      const parsed = parseSportsRss(xml, "Google News").map((item) => ({
+        ...item,
+        // If normalizeCompetition returned "world" but query is UAE-specific, promote
+        competition:
+          item.competition === "world" && q.competition !== "world"
+            ? q.competition
+            : item.competition
+      })).filter((item) => competitionMatches(item.competition, competition));
+      results.push(...parsed);
+    } catch {}
+  });
 
+  await Promise.all([...directPromises, ...googlePromises]);
   return results;
 }
 
@@ -496,6 +571,10 @@ export default async function handler(req, res) {
     sourceState = "fallback";
   }
 
+  // Hard filter: strip obviously non-sports content
+  news = news.filter((item) => !isNonSportsContent(item.title, item.summary));
+
+  // Deduplicate
   const seen = new Set();
   news = news.filter((item) => {
     const key = cleanText((item.url && item.url !== "#" ? item.url : item.title) || "")
@@ -506,19 +585,17 @@ export default async function handler(req, res) {
     return true;
   });
 
-  // --- UAE-specific filtering and boosting ---
+  // --- UAE-specific filtering and boosting (70% UAE / 30% global) ---
   if (competition === "uae") {
-    // Mark items that are genuinely about UAE league / clubs
     news = news.map((item) => ({
       ...item,
       isUaeLeagueNews: isUaeLeagueItem(item.title, item.summary)
     }));
 
-    // Boost score for UAE items, penalise non-UAE ones
     news = news
       .map((item) => ({
         ...item,
-        _score: sportsScore(item, now) + (item.isUaeLeagueNews ? 60 + uaeScore(item) : -50)
+        _score: sportsScore(item, now) + (item.isUaeLeagueNews ? 60 + uaeScore(item) : 0)
       }))
       .sort(
         (a, b) =>
@@ -526,17 +603,23 @@ export default async function handler(req, res) {
           new Date(b.time).getTime() - new Date(a.time).getTime()
       );
 
-    // Keep strictly UAE items first; allow non-UAE only if UAE count < 8
-    const uaeItems = news.filter((i) => i.isUaeLeagueNews);
-    const nonUaeItems = news.filter((i) => !i.isUaeLeagueNews);
+    const uaeItems   = news.filter((i) => i.isUaeLeagueNews);
+    const globalItems = news.filter((i) => !i.isUaeLeagueNews);
 
-    if (uaeItems.length >= 8) {
-      news = uaeItems.slice(0, MAX_SPORTS);
-    } else {
-      // Pad with UAE fallback to reach 8, then allow some non-UAE
-      const fallback = getUaeFallbackNews().slice(0, Math.max(0, 8 - uaeItems.length));
-      news = [...uaeItems, ...fallback, ...nonUaeItems].slice(0, MAX_SPORTS);
-    }
+    // 70/30 split, minimum 20 total
+    const targetTotal  = Math.max(20, Math.min(MAX_SPORTS, news.length + 8));
+    const targetUae    = Math.ceil(targetTotal * 0.7);
+    const targetGlobal = targetTotal - targetUae;
+
+    const uaePadded =
+      uaeItems.length >= targetUae
+        ? uaeItems.slice(0, targetUae)
+        : [
+            ...uaeItems,
+            ...getUaeFallbackNews().slice(0, targetUae - uaeItems.length)
+          ];
+
+    news = [...uaePadded, ...globalItems.slice(0, targetGlobal)];
   } else {
     news = news
       .map((item) => ({
