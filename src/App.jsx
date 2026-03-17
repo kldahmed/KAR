@@ -10,6 +10,7 @@ import AISummaryPanel from "./components/AISummaryPanel";
 import GlobalRiskMeter from "./components/GlobalRiskMeter";
 import LiveChannelsPanel from "./components/LiveChannelsPanel";
 import GlobalIntelligenceCenter from "./components/GlobalIntelligenceCenter";
+import GlobalLiveMap from "./components/GlobalLiveMap";
 import ThreatRadar from "./components/ThreatRadar";
 import StrategicForecast from "./components/StrategicForecast";
 import EnergyShockIndex from "./components/EnergyShockIndex";
@@ -604,6 +605,10 @@ const fetchNews = async () => {
       gap: "28px"
     }}
   >
+    <ErrorBoundary>
+      <GlobalLiveMap />
+    </ErrorBoundary>
+
     {/* Intelligence meter + memory depth at top */}
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", flexWrap: "wrap" }}>
       <ErrorBoundary>
