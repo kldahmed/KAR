@@ -199,12 +199,18 @@ const fetchNews = async () => {
     };
   }, [cat, sportsCompetition]);
 
-  const displayedNews =
-    news.length > 0
+  const displayedNews = (() => {
+    if (cat === "sports" && sportsCompetition === "uae") {
+      // In UAE mode: show only UAE league news, never generic world/PL/LaLiga items
+      const uaeItems = news.filter((n) => n.isUaeLeagueNews || n.competition === "uae");
+      return uaeItems.length > 0 ? uaeItems : news;
+    }
+    return news.length > 0
       ? news
       : cat === "sports"
       ? []
       : DEMO_NEWS;
+  })();
   const tickerHeadlines = displayedNews.slice(0, 10).map((n) => n.title);
 
   const handleCardClick = (article) => {
@@ -505,6 +511,16 @@ const fetchNews = async () => {
                 margin: "0 auto"
               }}
             >
+              {cat === "sports" && sportsCompetition === "uae" && (
+                <div style={{ gridColumn: "1 / -1", marginBottom: "4px" }}>
+                  <div style={{ fontWeight: 800, fontSize: "1.1rem", color: "#f3d38a", marginBottom: "4px" }}>
+                    📰 أخبار دوري أدنوك والأندية
+                  </div>
+                  <div style={{ fontSize: "0.85rem", color: "#64748b" }}>
+                    آخر أخبار الشارقة، العين، شباب الأهلي، والوصل وبقية الأندية
+                  </div>
+                </div>
+              )}
               {displayedNews.map((item, idx) => (
                 <NewsCard
                   key={item.id || idx}

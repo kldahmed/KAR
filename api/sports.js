@@ -337,7 +337,145 @@ function getFallbackSports(competition = "all") {
   return base.filter((item) => item.competition === competition);
 }
 
-const UAE_STANDINGS = [];
+function isUaeLeagueItem(title = "", summary = "") {
+  const hay = `${title} ${summary}`.toLowerCase();
+  return /uae|emirates|adnoc|pro league|دوري أدنوك|الدوري الإماراتي|الإماراتي|شباب الأهلي|shabab al.?ahli|العين\b|al.?ain|الوصل\b|al.?wasl|الجزيرة\b|al.?jazira|الوحدة\b|al.?wahda|النصر\b|al.?nasr|الشارقة\b|sharjah|عجمان\b|ajman|بني ياس|bani.?yas|خورفكان|khorfakkan|كلباء\b|kalba\b|الظفرة\b|al.?dhafra|البطائح|al.?bataeh|دبا\b|dibba\b/.test(
+    hay
+  );
+}
+
+function getUaeFallbackNews() {
+  const now = new Date().toISOString();
+  return [
+    {
+      id: "uae-fb-1",
+      title: "شباب الأهلي يحافظ على صدارة دوري أدنوك للمحترفين",
+      summary: "يواصل شباب الأهلي تصدره للمشهد في الدوري الإماراتي للمحترفين موسم 2025/2026.",
+      source: "دوري أدنوك",
+      time: now,
+      url: "https://www.uaeproleague.ae/en/standings",
+      image: "",
+      category: "sports",
+      competition: "uae",
+      competitionLabel: "الدوري الإماراتي",
+      urgency: "medium",
+      isUaeLeagueNews: true
+    },
+    {
+      id: "uae-fb-2",
+      title: "العين يطارد صدارة الدوري الإماراتي",
+      summary: "يسعى نادي العين إلى تعزيز مركزه في الترتيب والتنافس على لقب دوري أدنوك للمحترفين.",
+      source: "دوري أدنوك",
+      time: now,
+      url: "https://www.uaeproleague.ae/en/standings",
+      image: "",
+      category: "sports",
+      competition: "uae",
+      competitionLabel: "الدوري الإماراتي",
+      urgency: "medium",
+      isUaeLeagueNews: true
+    },
+    {
+      id: "uae-fb-3",
+      title: "الشارقة يتطلع للعودة إلى المنافسة في الدوري الإماراتي",
+      summary: "يواصل نادي الشارقة استعداداته لمواجهات دوري أدنوك للمحترفين 2025/2026.",
+      source: "دوري أدنوك",
+      time: now,
+      url: "https://www.uaeproleague.ae/en/standings",
+      image: "",
+      category: "sports",
+      competition: "uae",
+      competitionLabel: "الدوري الإماراتي",
+      urgency: "medium",
+      isUaeLeagueNews: true
+    },
+    {
+      id: "uae-fb-4",
+      title: "الجزيرة يُعزز موقعه في الترتيب",
+      summary: "نادي الجزيرة يواصل مسيرته في دوري أدنوك للمحترفين ساعياً للتأهل للمراكز الأوروبية.",
+      source: "دوري أدنوك",
+      time: now,
+      url: "https://www.uaeproleague.ae/en/standings",
+      image: "",
+      category: "sports",
+      competition: "uae",
+      competitionLabel: "الدوري الإماراتي",
+      urgency: "low",
+      isUaeLeagueNews: true
+    },
+    {
+      id: "uae-fb-5",
+      title: "الوصل يتحرك في منتصف الترتيب بدوري أدنوك",
+      summary: "يسعى نادي الوصل إلى تحسين نتائجه والارتقاء في جدول ترتيب الدوري الإماراتي.",
+      source: "دوري أدنوك",
+      time: now,
+      url: "https://www.uaeproleague.ae/en/standings",
+      image: "",
+      category: "sports",
+      competition: "uae",
+      competitionLabel: "الدوري الإماراتي",
+      urgency: "low",
+      isUaeLeagueNews: true
+    },
+    {
+      id: "uae-fb-6",
+      title: "الوحدة يستعد لمواجهاته القادمة في دوري أدنوك",
+      summary: "يواصل نادي الوحدة تدريباته استعداداً للجولات القادمة من الدوري الإماراتي للمحترفين.",
+      source: "دوري أدنوك",
+      time: now,
+      url: "https://www.uaeproleague.ae/en/standings",
+      image: "",
+      category: "sports",
+      competition: "uae",
+      competitionLabel: "الدوري الإماراتي",
+      urgency: "low",
+      isUaeLeagueNews: true
+    },
+    {
+      id: "uae-fb-7",
+      title: "خورفكان يسعى لتجاوز منطقة الخطر في الدوري الإماراتي",
+      summary: "يعمل نادي خورفكان على تحسين أدائه لابتعاد عن مناطق الهبوط في دوري أدنوك للمحترفين.",
+      source: "دوري أدنوك",
+      time: now,
+      url: "https://www.uaeproleague.ae/en/standings",
+      image: "",
+      category: "sports",
+      competition: "uae",
+      competitionLabel: "الدوري الإماراتي",
+      urgency: "low",
+      isUaeLeagueNews: true
+    },
+    {
+      id: "uae-fb-8",
+      title: "النصر يبحث عن انتصارات حاسمة في الدوري الإماراتي",
+      summary: "يسعى نادي النصر إلى تحقيق نتائج أفضل والارتقاء في جدول ترتيب دوري أدنوك للمحترفين.",
+      source: "دوري أدنوك",
+      time: now,
+      url: "https://www.uaeproleague.ae/en/standings",
+      image: "",
+      category: "sports",
+      competition: "uae",
+      competitionLabel: "الدوري الإماراتي",
+      urgency: "low",
+      isUaeLeagueNews: true
+    }
+  ];
+}
+
+function uaeScore(item) {
+  const hay = `${item.title} ${item.summary}`.toLowerCase();
+  let bonus = 0;
+  if (/adnoc|دوري أدنوك/.test(hay)) bonus += 20;
+  if (/الدوري الإماراتي|uae pro league/.test(hay)) bonus += 15;
+  if (/شباب الأهلي|shabab al.?ahli/.test(hay)) bonus += 12;
+  if (/العين\b|al.?ain\b/.test(hay)) bonus += 12;
+  if (/الشارقة\b|sharjah/.test(hay)) bonus += 12;
+  if (/الجزيرة\b|al.?jazira/.test(hay)) bonus += 10;
+  if (/الوحدة\b|al.?wahda/.test(hay)) bonus += 10;
+  if (/الوصل\b|al.?wasl/.test(hay)) bonus += 10;
+  if (/النصر\b|al.?nasr/.test(hay)) bonus += 8;
+  return bonus;
+}
 
 export default async function handler(req, res) {
   const now = Date.now();
@@ -368,20 +506,53 @@ export default async function handler(req, res) {
     return true;
   });
 
-  news = news
-    .map((item) => ({
+  // --- UAE-specific filtering and boosting ---
+  if (competition === "uae") {
+    // Mark items that are genuinely about UAE league / clubs
+    news = news.map((item) => ({
       ...item,
-      _score: sportsScore(item, now)
-    }))
-    .sort(
-      (a, b) =>
-        b._score - a._score ||
-        new Date(b.time).getTime() - new Date(a.time).getTime()
-    )
-    .slice(0, MAX_SPORTS);
+      isUaeLeagueNews: isUaeLeagueItem(item.title, item.summary)
+    }));
+
+    // Boost score for UAE items, penalise non-UAE ones
+    news = news
+      .map((item) => ({
+        ...item,
+        _score: sportsScore(item, now) + (item.isUaeLeagueNews ? 60 + uaeScore(item) : -50)
+      }))
+      .sort(
+        (a, b) =>
+          b._score - a._score ||
+          new Date(b.time).getTime() - new Date(a.time).getTime()
+      );
+
+    // Keep strictly UAE items first; allow non-UAE only if UAE count < 8
+    const uaeItems = news.filter((i) => i.isUaeLeagueNews);
+    const nonUaeItems = news.filter((i) => !i.isUaeLeagueNews);
+
+    if (uaeItems.length >= 8) {
+      news = uaeItems.slice(0, MAX_SPORTS);
+    } else {
+      // Pad with UAE fallback to reach 8, then allow some non-UAE
+      const fallback = getUaeFallbackNews().slice(0, Math.max(0, 8 - uaeItems.length));
+      news = [...uaeItems, ...fallback, ...nonUaeItems].slice(0, MAX_SPORTS);
+    }
+  } else {
+    news = news
+      .map((item) => ({
+        ...item,
+        _score: sportsScore(item, now)
+      }))
+      .sort(
+        (a, b) =>
+          b._score - a._score ||
+          new Date(b.time).getTime() - new Date(a.time).getTime()
+      )
+      .slice(0, MAX_SPORTS);
+  }
 
   if (!news.length) {
-    news = getFallbackSports(competition);
+    news = competition === "uae" ? getUaeFallbackNews() : getFallbackSports(competition);
     sourceState = "fallback";
   }
 
