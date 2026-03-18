@@ -51,6 +51,25 @@ export default function NewsCard({
   const urgencyColor = URGENCY_MAP[urgency]?.color || "#38bdf8";
   const reliability = getReliability(safeSource);
 
+  const articleSchema = safeTitle ? {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    "headline": safeTitle,
+    "description": safeSummary || safeTitle,
+    "datePublished": rawTime || new Date().toISOString(),
+    "author": {
+      "@type": "Organization",
+      "name": safeSource || "Global Pulse"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Global Pulse",
+      "url": "https://war-dashboardbykar.vercel.app"
+    },
+    ...(image ? { "image": image } : {}),
+    "mainEntityOfPage": url !== "#" ? url : "https://war-dashboardbykar.vercel.app"
+  } : null;
+
   return (
     <div
       onClick={onClick}
@@ -70,6 +89,12 @@ export default function NewsCard({
         position: "relative"
       }}
     >
+      {articleSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+        />
+      )}
       {image && (
         <img
           src={image}
