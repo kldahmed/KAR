@@ -1,7 +1,7 @@
 /**
  * worldStateEngine.js
  * Core engine: computes the unified "World State" from all intelligence layers.
- * Aggregates: events, patterns, forecasts, entities, signals, regional pressure.
+ * Uses believable weighted scoring — no fake extremes.
  */
 
 import { getIntelligenceMetrics } from "./intelligenceEngine";
@@ -12,57 +12,10 @@ import { generateForecasts } from "./forecastEngine";
 import { analyzePatterns } from "./agent/patternAgent";
 import { computeAgentScore } from "./agent/scoringAgent";
 import { agentMemory } from "./agent/memoryAgent";
-
-// ─── Tension Index ───────────────────────────────────────────
-function computeGlobalTensionIndex() {
-  const events = getGlobalEvents();
-  if (!events.length) return { value: 0, label: "مستقر", labelEn: "Stable", color: "#22c55e" };
-
-  const severitySum = events.reduce((s, e) => s + (e.severity || 0), 0);
-  const avgSeverity = severitySum / events.length;
-  const highSeverityCount = events.filter(e => (e.severity || 0) >= 60).length;
-  const raw = Math.min(100, avgSeverity * 0.5 + highSeverityCount * 4 + Math.min(events.length, 40) * 0.8);
-  const value = Math.round(raw);
-
-  if (value >= 75) return { value, label: "حرج", labelEn: "Critical", color: "#ef4444" };
-  if (value >= 55) return { value, label: "مرتفع", labelEn: "High", color: "#f59e0b" };
-  if (value >= 35) return { value, label: "متوسط", labelEn: "Moderate", color: "#38bdf8" };
-  if (value >= 15) return { value, label: "منخفض", labelEn: "Low", color: "#22c55e" };
-  return { value, label: "مستقر", labelEn: "Stable", color: "#22c55e" };
-}
-
-// ─── Economic Pressure Index ─────────────────────────────────
-function computeEconomicPressureIndex() {
-  const store = getStore();
-  const econ = store.filter(i =>
-    (i.derivedSignals || []).some(s => ["economic_pressure", "sanctions_pressure", "energy_signal"].includes(s))
-  );
-  const econImpactSum = econ.reduce((s, i) => s + (i.economicImpact || 0), 0);
-  const raw = Math.min(100, econ.length * 3 + econImpactSum * 0.6);
-  const value = Math.round(raw);
-
-  if (value >= 70) return { value, label: "ضغط شديد", labelEn: "Severe Pressure", color: "#ef4444" };
-  if (value >= 45) return { value, label: "ضغط مرتفع", labelEn: "High Pressure", color: "#f59e0b" };
-  if (value >= 20) return { value, label: "ضغط معتدل", labelEn: "Moderate", color: "#38bdf8" };
-  return { value, label: "مستقر", labelEn: "Stable", color: "#22c55e" };
-}
-
-// ─── Sports Activity Index ───────────────────────────────────
-function computeSportsActivityIndex() {
-  const store = getStore();
-  const sports = store.filter(i =>
-    (i.derivedSignals || []).some(s => ["sports_activity", "transfer_market"].includes(s)) ||
-    i.category === "sports"
-  );
-  const sportsImpactSum = sports.reduce((s, i) => s + (i.sportsImpact || 0), 0);
-  const raw = Math.min(100, sports.length * 2.5 + sportsImpactSum * 0.5);
-  const value = Math.round(raw);
-
-  if (value >= 70) return { value, label: "نشاط مكثف", labelEn: "Intense Activity", color: "#f59e0b" };
-  if (value >= 40) return { value, label: "نشاط مرتفع", labelEn: "High Activity", color: "#38bdf8" };
-  if (value >= 15) return { value, label: "نشاط عادي", labelEn: "Normal", color: "#22c55e" };
-  return { value, label: "هادئ", labelEn: "Quiet", color: "#64748b" };
-}
+import { computeTension, computeEconomicPressure, computeSportsActivity, computeIntelligenceLevel, computeEventIntensity } from "./world/pressureScoring";
+import { generateEventPulses } from "./world/eventPulseEngine";
+import { detectLinkedDynamics } from "./world/linkedDynamics";
+import { determineAgentState, generateAgentLines } from "./world/agentInterpretation";
 
 // ─── Most Active Region ──────────────────────────────────────
 function findMostActiveRegion() {
@@ -74,16 +27,29 @@ function findMostActiveRegion() {
 }
 
 // ─── Dominant Pattern ────────────────────────────────────────
+const SIGNAL_DISPLAY = {
+  conflict_escalation: { label: "تصعيد نزاع", labelEn: "Conflict Escalation" },
+  economic_pressure: { label: "ضغط اقتصادي", labelEn: "Economic Pressure" },
+  sports_activity: { label: "نشاط رياضي", labelEn: "Sports Activity" },
+  transfer_market: { label: "سوق انتقالات", labelEn: "Transfer Market" },
+  sanctions_pressure: { label: "عقوبات", labelEn: "Sanctions" },
+  peace_signal: { label: "إشارة سلام", labelEn: "Peace Signal" },
+  political_transition: { label: "تحول سياسي", labelEn: "Political Shift" },
+  energy_signal: { label: "طاقة", labelEn: "Energy" },
+};
+
 function findDominantPattern() {
   const patterns = analyzePatterns();
   const rising = patterns.signalTrends?.rising || [];
   if (!rising.length) return { signal: "—", label: "لا أنماط", labelEn: "No patterns", count: 0 };
   const top = rising[0];
+  const key = top.key || top.signal || top;
+  const display = SIGNAL_DISPLAY[key] || {};
   return {
-    signal: top.signal || top,
-    label: top.label || top.signal || top,
-    labelEn: top.signalEn || top.signal || top,
-    count: top.count || 0
+    signal: key,
+    label: display.label || top.label || key,
+    labelEn: display.labelEn || top.signalEn || key,
+    count: top.recentCount || top.count || 0
   };
 }
 
@@ -94,42 +60,21 @@ function findStrongestEvent() {
   return top[0];
 }
 
-// ─── AI Interpretation ───────────────────────────────────────
-function generateWorldInterpretation(tension, economic, sports, activeRegion, dominantPattern, strongestEvent) {
-  const parts = [];
-  const partsEn = [];
+// ─── AI Interpretation (now uses agentInterpretation engine) ─
+function generateWorldInterpretation(tension, economic, sports, activeRegion, dominantPattern, strongestEvent, patterns, forecasts, regionalPressures) {
+  const worldMock = { tension, economic, sports, activeRegion, dominantPattern, strongestEvent, patterns, forecasts, regionalPressures };
+  const agentLines = generateAgentLines(worldMock);
+  const agentState = determineAgentState(tension, economic, patterns, strongestEvent);
 
-  if (tension.value >= 55) {
-    parts.push(`التوتر العالمي في مستوى ${tension.label}`);
-    partsEn.push(`Global tension at ${tension.labelEn} level`);
-  } else {
-    parts.push("الوضع العام مستقر نسبياً");
-    partsEn.push("Overall situation relatively stable");
-  }
-
-  if (economic.value >= 45) {
-    parts.push(`الضغط الاقتصادي ${economic.label}`);
-    partsEn.push(`Economic pressure: ${economic.labelEn}`);
-  }
-
-  if (activeRegion && activeRegion.region !== "—") {
-    parts.push(`المنطقة الأكثر نشاطاً: ${activeRegion.region}`);
-    partsEn.push(`Most active region: ${activeRegion.region}`);
-  }
-
-  if (dominantPattern && dominantPattern.signal !== "—") {
-    parts.push(`النمط السائد: ${dominantPattern.label}`);
-    partsEn.push(`Dominant pattern: ${dominantPattern.labelEn}`);
-  }
-
-  if (strongestEvent) {
-    parts.push(`أقوى حدث: ${strongestEvent.title}`);
-    partsEn.push(`Strongest event: ${strongestEvent.title}`);
-  }
+  // Build summary from top 3 agent lines
+  const topAr = agentLines.slice(0, 3).map(l => l.ar).join(" · ");
+  const topEn = agentLines.slice(0, 3).map(l => l.en).join(" · ");
 
   return {
-    ar: parts.join(" · ") || "جارٍ تحليل الوضع العالمي...",
-    en: partsEn.join(" · ") || "Analyzing global state..."
+    ar: topAr || "جارٍ تحليل الوضع العالمي...",
+    en: topEn || "Analyzing global state...",
+    lines: agentLines,
+    agentState,
   };
 }
 
@@ -229,41 +174,68 @@ export function getWorldState() {
   const now = Date.now();
   if (_cachedState && now - _lastComputeTime < CACHE_TTL) return _cachedState;
 
-  const tension = computeGlobalTensionIndex();
-  const economic = computeEconomicPressureIndex();
-  const sports = computeSportsActivityIndex();
+  const events = getGlobalEvents();
+  const store = getStore();
+
+  // Use believable scoring engine
+  const tension = computeTension(events);
+  const economic = computeEconomicPressure(store);
+  const sports = computeSportsActivity(store);
+  const eventIntensity = computeEventIntensity(events);
   const activeRegion = findMostActiveRegion();
   const dominantPattern = findDominantPattern();
   const strongestEvent = findStrongestEvent();
-  const interpretation = generateWorldInterpretation(tension, economic, sports, activeRegion, dominantPattern, strongestEvent);
   const intelMetrics = getIntelligenceMetrics();
+  const intelligence = computeIntelligenceLevel(intelMetrics);
   const agentScore = computeAgentScore();
+  const patternsSummary = getPatternSummary();
+  const forecastsSummary = getForecastSummary();
+  const regPressures = computeRegionalPressures();
+
+  // Rich interpretation from agent engine
+  const interpretation = generateWorldInterpretation(
+    tension, economic, sports, activeRegion, dominantPattern,
+    strongestEvent, patternsSummary, forecastsSummary, regPressures
+  );
+
+  // Event pulse system
+  const pulseData = generateEventPulses(events, store);
+
+  // Linked dynamics
+  const linkedDynamics = detectLinkedDynamics(store, events);
 
   _cachedState = {
     timestamp: now,
-    // Core indices
+    // Core indices (believable scoring)
     tension,
     economic,
     sports,
+    eventIntensity,
     // Key insights
     activeRegion,
     dominantPattern,
     strongestEvent,
     interpretation,
     // Intelligence metrics
-    intelligence: intelMetrics,
+    intelligence,
+    intelligenceRaw: intelMetrics,
     agentMaturity: agentScore,
+    agentState: interpretation.agentState,
+    agentLines: interpretation.lines || [],
     // Regional
-    regionalPressures: computeRegionalPressures(),
+    regionalPressures: regPressures,
     // Events
     topEvents: getTopWorldEvents(8),
     eventClusters: getWorldEventClusters(),
+    // Pulse & links
+    pulseData,
+    linkedDynamics,
     // Patterns & forecasts
-    patterns: getPatternSummary(),
-    forecasts: getForecastSummary(),
+    patterns: patternsSummary,
+    forecasts: forecastsSummary,
     // Meta
-    totalEvents: getGlobalEvents().length,
-    totalIntelItems: (getStore() || []).length
+    totalEvents: events.length,
+    totalIntelItems: (store || []).length
   };
 
   _lastComputeTime = now;

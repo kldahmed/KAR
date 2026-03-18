@@ -146,7 +146,7 @@ export default function AIWorldInterpreter() {
 
   if (!ws) return null;
 
-  const agentState = ws.agentMaturity;
+  const agentState = ws.agentState || ws.agentMaturity;
   const sevColors = { high: P.red, moderate: P.amber, low: P.green, info: P.blue };
 
   return (
@@ -203,7 +203,7 @@ export default function AIWorldInterpreter() {
               boxShadow: `0 0 6px ${agentState?.color || P.green}`
             }} />
             <span style={{ fontSize: 11, color: P.textDim, fontWeight: 700 }}>
-              {isAr ? (agentState?.label || "نشط") : (agentState?.labelEn || "Active")}
+              {isAr ? (agentState?.ar || agentState?.label || "نشط") : (agentState?.en || agentState?.labelEn || "Active")}
             </span>
             <span style={{ fontSize: 11, color: P.muted }}>
               {agentState?.score || 0}/100

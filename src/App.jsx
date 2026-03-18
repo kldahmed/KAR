@@ -42,13 +42,17 @@ import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { OrbitalMap } from "./components/OrbitalMap";
 import GlobalIntelligenceRadar from "./components/GlobalIntelligenceRadar";
 import AgentPresence from "./components/AgentPresence";
-// World Awareness System — new core components
+// World Awareness System — core components
 import WorldStateHero from "./components/WorldStateHero";
 import AIWorldInterpreter from "./components/AIWorldInterpreter";
 import WorldEventRanking from "./components/WorldEventRanking";
 import RegionalPressureStrip from "./components/RegionalPressureStrip";
 import PatternForecastSummary from "./components/PatternForecastSummary";
 import ExplainabilityPanel from "./components/ExplainabilityPanel";
+import GlobalPressureMap from "./components/GlobalPressureMap";
+import AgentInterpretationPanel from "./components/AgentInterpretationPanel";
+import WorldPressureStrip from "./components/WorldPressureStrip";
+import EventPulseLegend from "./components/EventPulseLegend";
 import { invalidateWorldState } from "./lib/worldStateEngine";
 
 const DEMO_NEWS = [
@@ -310,25 +314,25 @@ const fetchNews = async () => {
       dir={direction}
       style={{
         minHeight: "100vh",
-        background: "#11151a",
+        background: "linear-gradient(180deg, #060a10, #0a0f1c 15%, #070b12)",
         color: "#e2e8f0",
-        fontFamily: "system-ui, sans-serif",
+        fontFamily: "Inter, system-ui, -apple-system, sans-serif",
         position: "relative"
       }}
     >
-      {/* Newsroom background layers */}
+      {/* Atmospheric background layers */}
       <div className="nr-bg-grid" />
       <div className="nr-bg-beam" />
 
       <header
         style={{
-          padding: "14px 40px",
+          padding: "16px 40px",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
-          background: "linear-gradient(180deg, rgba(7,11,17,0.98), rgba(12,18,32,0.95))",
-          backdropFilter: "blur(12px)",
+          borderBottom: "1px solid rgba(243,211,138,0.06)",
+          background: "linear-gradient(180deg, rgba(6,10,16,0.98), rgba(10,15,28,0.96))",
+          backdropFilter: "blur(16px)",
           position: "sticky",
           top: 0,
           zIndex: 100
@@ -345,21 +349,21 @@ const fetchNews = async () => {
               display: "flex",
               alignItems: "center",
               gap: "10px",
-              fontFamily: "Inter, Poppins, Satoshi, system-ui, -apple-system, sans-serif",
-              textShadow: "0 2px 8px rgba(56,189,248,0.2)"
+              fontFamily: "Inter, system-ui, -apple-system, sans-serif",
             }}
           >
             🌐 {t("app.title")}
           </div>
           <div style={{
-            fontSize: "10px",
-            fontWeight: 700,
-            letterSpacing: "2.5px",
-            color: "#64748b",
+            fontSize: "9px",
+            fontWeight: 800,
+            letterSpacing: "3px",
+            color: "#f3d38a",
             textTransform: "uppercase",
-            marginTop: 2
+            marginTop: 3,
+            opacity: 0.7,
           }}>
-            {language === "ar" ? "منصة الوعي العالمي" : "World Awareness Platform"}
+            {language === "ar" ? "منصة الوعي العالمي العربية" : "Arabic World Awareness Platform"}
           </div>
         </div>
 
@@ -394,73 +398,90 @@ const fetchNews = async () => {
 
       <BreakingNewsTicker headlines={tickerHeadlines} />
 
-      {/* ═══ WORLD STATE COMMAND SURFACE ═══ */}
-      {/* World State Hero — the first thing users see */}
-      <div style={{ paddingTop: 20 }}>
+      {/* ═══════════════════════════════════════════════════
+           WORLD STATE COMMAND SURFACE — Narrative Flow
+           1. What is the state of the world right now?
+           2. Where is pressure rising?
+           3. What is the strongest event?
+           4. Why is it important?
+           5. What pattern is emerging?
+           6. What does the agent think?
+           7. What should the user watch next?
+      ═══════════════════════════════════════════════════ */}
+
+      {/* STEP 1 — World State Hero: State of the world right now */}
+      <div style={{ paddingTop: 24 }}>
         <ErrorBoundary>
           <WorldStateHero />
         </ErrorBoundary>
       </div>
 
-      {/* Live Global Intelligence Map — central pillar */}
-      <div style={{ maxWidth: 1400, margin: "18px auto 0", padding: "0 16px" }}>
+      {/* STEP 2 — World Pressure Map: Where is pressure rising? */}
+      <div style={{ marginTop: 28 }}>
         <ErrorBoundary>
-          <GlobalLiveMap />
+          <GlobalPressureMap />
         </ErrorBoundary>
       </div>
 
-      {/* AI World Interpreter — live narrative */}
-      <div style={{ marginTop: 18 }}>
+      {/* STEP 2b — Regional Pressure Strip */}
+      <div style={{ marginTop: 24 }}>
         <ErrorBoundary>
-          <AIWorldInterpreter />
+          <WorldPressureStrip />
         </ErrorBoundary>
       </div>
 
-      {/* Explainability — why it matters */}
-      <div style={{ marginTop: 22 }}>
-        <ErrorBoundary>
-          <ExplainabilityPanel />
-        </ErrorBoundary>
-      </div>
-
-      {/* Top Events Ranked by Impact */}
-      <div style={{ marginTop: 22 }}>
+      {/* STEP 3 — Strongest Events: What matters most */}
+      <div style={{ marginTop: 28 }}>
         <ErrorBoundary>
           <WorldEventRanking />
         </ErrorBoundary>
       </div>
 
-      {/* Regional Pressure Strip */}
-      <div style={{ marginTop: 22 }}>
+      {/* STEP 4 — Explainability: Why it matters */}
+      <div style={{ marginTop: 28 }}>
         <ErrorBoundary>
-          <RegionalPressureStrip />
+          <ExplainabilityPanel />
         </ErrorBoundary>
       </div>
 
-      {/* Pattern & Forecast Summary */}
-      <div style={{ marginTop: 22 }}>
+      {/* STEP 4b — Linked Dynamics: How events connect */}
+      <div style={{ marginTop: 24 }}>
+        <ErrorBoundary>
+          <EventPulseLegend />
+        </ErrorBoundary>
+      </div>
+
+      {/* STEP 5 — Patterns & Forecasts: What may happen next */}
+      <div style={{ marginTop: 28 }}>
         <ErrorBoundary>
           <PatternForecastSummary />
+        </ErrorBoundary>
+      </div>
+
+      {/* STEP 6 — Agent Analysis: Full AI interpretation */}
+      <div style={{ marginTop: 28 }}>
+        <ErrorBoundary>
+          <AgentInterpretationPanel />
         </ErrorBoundary>
       </div>
 
       {/* ═══ DEEPER EXPLORATION LAYER ═══ */}
       <div style={{
         maxWidth: 1400,
-        margin: "32px auto 0",
+        margin: "40px auto 0",
         padding: "0 16px"
       }}>
         <div style={{
           textAlign: "center",
-          marginBottom: 12
+          marginBottom: 16
         }}>
           <div style={{
-            width: 100, height: 1,
-            background: "linear-gradient(90deg, transparent, rgba(243,211,138,0.3), transparent)",
-            margin: "0 auto 14px"
+            width: 140, height: 1,
+            background: "linear-gradient(90deg, transparent, rgba(243,211,138,0.25), transparent)",
+            margin: "0 auto 16px"
           }} />
           <div style={{
-            fontSize: 10, fontWeight: 800, letterSpacing: 3,
+            fontSize: 10, fontWeight: 900, letterSpacing: 4,
             color: "#475569", textTransform: "uppercase"
           }}>
             {language === "ar" ? "استكشاف أعمق" : "DEEPER EXPLORATION"}
@@ -472,8 +493,8 @@ const fetchNews = async () => {
         style={{
           display: "flex",
           justifyContent: "center",
-          gap: "8px",
-          marginBottom: "18px",
+          gap: "6px",
+          marginBottom: "22px",
           flexWrap: "wrap",
           padding: "0 16px"
         }}
@@ -482,18 +503,20 @@ const fetchNews = async () => {
           <button
             key={tabItem.id}
             onClick={() => setTab(tabItem.id)}
+            className={tab === tabItem.id ? "tab-pill active" : "tab-pill inactive"}
             style={{
               background: tab === tabItem.id
-                ? "linear-gradient(135deg, #f3d38a, #c89b3c)"
-                : "rgba(255,255,255,0.03)",
-              color: tab === tabItem.id ? "#0a0a0a" : "#94a3b8",
-              border: tab === tabItem.id ? "none" : "1px solid rgba(255,255,255,0.06)",
-              borderRadius: "10px",
-              padding: "8px 16px",
+                ? "linear-gradient(135deg, rgba(243,211,138,0.12), rgba(243,211,138,0.06))"
+                : "rgba(255,255,255,0.02)",
+              color: tab === tabItem.id ? "#f3d38a" : "#64748b",
+              border: tab === tabItem.id ? "1px solid rgba(243,211,138,0.3)" : "1px solid rgba(255,255,255,0.05)",
+              borderRadius: "12px",
+              padding: "8px 18px",
               fontWeight: "700",
-              fontSize: "0.85rem",
+              fontSize: "0.82rem",
               cursor: "pointer",
-              transition: "all 0.2s ease"
+              transition: "all 0.25s ease",
+              fontFamily: "Inter, system-ui, sans-serif",
             }}
           >
             {tabItem.icon} {tabItem.label}
@@ -570,6 +593,12 @@ const fetchNews = async () => {
         {/* World tab — deep intelligence exploration */}
         {tab === "world" && (
           <div style={{ maxWidth: 1400, margin: "0 auto", display: "grid", gap: 24 }}>
+            <ErrorBoundary>
+              <GlobalLiveMap />
+            </ErrorBoundary>
+            <ErrorBoundary>
+              <AIWorldInterpreter />
+            </ErrorBoundary>
             <ErrorBoundary>
               <GlobalLiveEventsPanel />
             </ErrorBoundary>
