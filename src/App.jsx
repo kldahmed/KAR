@@ -54,6 +54,15 @@ import AgentInterpretationPanel from "./components/AgentInterpretationPanel";
 import WorldPressureStrip from "./components/WorldPressureStrip";
 import EventPulseLegend from "./components/EventPulseLegend";
 import { invalidateWorldState } from "./lib/worldStateEngine";
+// Global Pulse Platform — Phase 1-10 Transformation
+import WorldPulseIndex from "./components/WorldPulseIndex";
+import OrbitalPressureRadar from "./components/OrbitalPressureRadar";
+import AgentCoreInterpreter from "./components/AgentCoreInterpreter";
+import GlobalLinkAnalysis from "./components/GlobalLinkAnalysis";
+import WorldEyeMode from "./components/WorldEyeMode";
+import PredictiveIntelligencePanel from "./components/PredictiveIntelligencePanel";
+import SignalTimeline from "./components/SignalTimeline";
+import CrossDomainCorrelation from "./components/CrossDomainCorrelation";
 
 const DEMO_NEWS = [
   {
@@ -158,6 +167,8 @@ export default function App() {
   // Intelligence layer state
   const [intelRefreshKey, setIntelRefreshKey] = useState(0);
   const [intelMetrics, setIntelMetrics] = useState(null);
+  // World Eye Mode state
+  const [worldEyeOpen, setWorldEyeOpen] = useState(false);
 
   useEffect(() => {
     document.title = `${t("app.title")} 🌍`;
@@ -390,78 +401,99 @@ const fetchNews = async () => {
           </div>
         </div>
 
-        {/* Right: Premium Language Switcher */}
-        <div style={{ flex: 1, display: "flex", justifyContent: "flex-end" }}>
+        {/* Right: Premium Language Switcher + World Eye Button */}
+        <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", gap: 8, alignItems: "center" }}>
+          <button
+            onClick={() => setWorldEyeOpen(true)}
+            style={{
+              background: "linear-gradient(135deg, rgba(56,189,248,0.08), rgba(167,139,250,0.08))",
+              border: "1px solid rgba(56,189,248,0.2)",
+              borderRadius: 10,
+              padding: "6px 14px",
+              color: "#38bdf8",
+              fontWeight: 700,
+              fontSize: "0.78rem",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              transition: "all 0.25s ease",
+              fontFamily: "Inter, system-ui, sans-serif",
+            }}
+            title={language === "ar" ? "عين العالم — وضع المراقبة" : "World Eye — Monitoring Mode"}
+          >
+            👁️ {language === "ar" ? "عين العالم" : "World Eye"}
+          </button>
           <LanguageSwitcher />
         </div>
       </header>
 
       <BreakingNewsTicker headlines={tickerHeadlines} />
 
+      {/* World Eye Mode — Full screen strategic monitoring */}
+      {worldEyeOpen && (
+        <WorldEyeMode onClose={() => setWorldEyeOpen(false)} />
+      )}
+
       {/* ═══════════════════════════════════════════════════
-           WORLD STATE COMMAND SURFACE — Narrative Flow
-           1. What is the state of the world right now?
-           2. Where is pressure rising?
-           3. What is the strongest event?
-           4. Why is it important?
-           5. What pattern is emerging?
-           6. What does the agent think?
-           7. What should the user watch next?
+           GLOBAL PULSE PLATFORM — Intelligence Surface
+           New Narrative Flow:
+           1. World Pulse Index (نبض العالم) — the heart of the system
+           2. Orbital Pressure Radar — where is pressure rising?
+           3. Agent Core Interpreter — concise intelligence lines
+           4. Predictive Intelligence — what the agent forecasts
+           5. Signal Timeline — how events evolve over time
+           6. Cross-Domain Correlation — how sectors connect
+           7. Global Link Analysis — influence chains
+           8. Deeper Exploration (tabs)
       ═══════════════════════════════════════════════════ */}
 
-      {/* STEP 1 — World State Hero: State of the world right now */}
+      {/* STEP 1 — World Pulse Index: نبض العالم */}
       <div style={{ paddingTop: 24 }}>
         <ErrorBoundary>
-          <WorldStateHero />
+          <WorldPulseIndex />
         </ErrorBoundary>
       </div>
 
-      {/* STEP 2 — World Pressure Map: Where is pressure rising? */}
+      {/* STEP 2 — Orbital Pressure Radar: Where is pressure rising? */}
       <div style={{ marginTop: 28 }}>
         <ErrorBoundary>
-          <GlobalPressureMap />
+          <OrbitalPressureRadar />
         </ErrorBoundary>
       </div>
 
-      {/* STEP 2b — Regional Pressure Strip */}
-      <div style={{ marginTop: 24 }}>
-        <ErrorBoundary>
-          <WorldPressureStrip />
-        </ErrorBoundary>
-      </div>
-
-      {/* STEP 3 — Strongest Events: What matters most */}
+      {/* STEP 3 — Agent Core Interpreter: Concise intelligence insights */}
       <div style={{ marginTop: 28 }}>
         <ErrorBoundary>
-          <WorldEventRanking />
+          <AgentCoreInterpreter />
         </ErrorBoundary>
       </div>
 
-      {/* STEP 4 — Explainability: Why it matters */}
+      {/* STEP 4 — Predictive Intelligence: Agent forecasts */}
       <div style={{ marginTop: 28 }}>
         <ErrorBoundary>
-          <ExplainabilityPanel />
+          <PredictiveIntelligencePanel />
         </ErrorBoundary>
       </div>
 
-      {/* STEP 4b — Linked Dynamics: How events connect */}
-      <div style={{ marginTop: 24 }}>
-        <ErrorBoundary>
-          <EventPulseLegend />
-        </ErrorBoundary>
-      </div>
-
-      {/* STEP 5 — Patterns & Forecasts: What may happen next */}
+      {/* STEP 5 — Signal Timeline: How events evolve */}
       <div style={{ marginTop: 28 }}>
         <ErrorBoundary>
-          <PatternForecastSummary />
+          <SignalTimeline />
         </ErrorBoundary>
       </div>
 
-      {/* STEP 6 — Agent Analysis: Full AI interpretation */}
+      {/* STEP 6 — Cross-Domain Correlation: How sectors connect */}
       <div style={{ marginTop: 28 }}>
         <ErrorBoundary>
-          <AgentInterpretationPanel />
+          <CrossDomainCorrelation />
+        </ErrorBoundary>
+      </div>
+
+      {/* STEP 7 — Global Link Analysis: Influence chains */}
+      <div style={{ marginTop: 28 }}>
+        <ErrorBoundary>
+          <GlobalLinkAnalysis />
         </ErrorBoundary>
       </div>
 
@@ -597,13 +629,10 @@ const fetchNews = async () => {
               <GlobalLiveMap />
             </ErrorBoundary>
             <ErrorBoundary>
-              <AIWorldInterpreter />
+              <GlobalIntelligenceRadar />
             </ErrorBoundary>
             <ErrorBoundary>
               <GlobalLiveEventsPanel />
-            </ErrorBoundary>
-            <ErrorBoundary>
-              <GlobalIntelligenceRadar />
             </ErrorBoundary>
             <ErrorBoundary>
               <GlobalEventTimeline />

@@ -395,3 +395,93 @@ html, body, #root {
     border-radius: 16px !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════
+   PHASE 10 — VISUAL EXPERIENCE UPGRADE
+   Premium Intelligence Surface Design System
+═══════════════════════════════════════════════════ */
+
+/* Deeper atmospheric background */
+.nr-bg-grid {
+  background-image:
+    linear-gradient(rgba(56,189,248,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56,189,248,0.015) 1px, transparent 1px) !important;
+  background-size: 80px 80px !important;
+}
+
+/* World Eye overlay transitions */
+.world-eye-enter {
+  animation: worldEyeIn 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes worldEyeIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Signal timeline smooth scroll */
+.signal-timeline-scroll {
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.06) transparent;
+}
+
+/* Pulse bar blocks animation */
+@keyframes pulseBlockGlow {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; filter: brightness(1.2); }
+}
+
+/* Section separator enhanced */
+.section-separator {
+  width: 160px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(243,211,138,0.18), rgba(56,189,248,0.12), transparent);
+  margin: 0 auto;
+}
+
+/* World Eye mode - full screen backdrop */
+.world-eye-backdrop {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Orbital radar glow */
+.orbital-glow {
+  filter: drop-shadow(0 0 20px rgba(56,189,248,0.05));
+}
+
+/* Insight card hover */
+.insight-card:hover {
+  border-color: rgba(56,189,248,0.15) !important;
+  box-shadow: 0 0 20px rgba(56,189,248,0.06) !important;
+}
+
+/* Strategic monitoring center feel */
+.strategic-surface {
+  border: 1px solid rgba(56,189,248,0.04);
+  background: linear-gradient(165deg, #050810 0%, #0a0f1c 40%, #060a14 100%);
+  box-shadow: 0 0 60px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+/* Mobile responsiveness for new components */
+@media (max-width: 768px) {
+  .world-pulse-bar {
+    gap: 2px !important;
+  }
+  .world-pulse-bar > div {
+    width: 10px !important;
+    height: 20px !important;
+  }
+}
+
+/* Print safety */
+@media print {
+  .nr-bg-grid,
+  .nr-bg-beam,
+  .nr-scan-line,
+  .agent-presence-widget,
+  .agent-presence-minimized {
+    display: none !important;
+  }
+}
