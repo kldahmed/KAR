@@ -55,7 +55,7 @@ export default function MapSignalLayer({
       ))}
 
       {/* Global Live Events Layer */}
-      {globalEvents.map((ev) => (
+      {globalEvents.filter(ev => ev.coordinates && ev.coordinates.length >= 2).map((ev) => (
         <CircleMarker
           key={`gle-${ev.id}`}
           center={[ev.coordinates[1], ev.coordinates[0]]}
@@ -80,7 +80,7 @@ export default function MapSignalLayer({
       ))}
 
       {/* Radar Signals Layer */}
-      {radarSignals.map((rs) => {
+      {radarSignals.filter(rs => rs.coordinates && rs.coordinates.length >= 2).map((rs) => {
         const sevColors = {
           "حرج": "#ef4444", "مرتفع": "#f59e0b",
           "متوسط": "#38bdf8", "منخفض": "#64748b"

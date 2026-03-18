@@ -159,14 +159,17 @@ export function scoreRadarSignal(signal) {
       entityImp * 0.10;
   }
 
-  // Confidence boost: assign confidence on signal
-  signal.confidence = Math.round(
-    25 +
-    Math.min(25, signal.sourceCount * 8) +
-    (credibility * 20) +
-    Math.min(20, (signal.linkedEvents?.length || 0) * 10)
-  );
-  signal.confidence = Math.min(95, signal.confidence);
-
   return Math.round(Math.min(97, Math.max(5, score)));
+}
+
+/**
+ * Compute confidence score separately (no side-effects).
+ */
+export function computeConfidence(signal) {
+  const credibility = SOURCE_CREDIBILITY[signal.sourceType] || SOURCE_CREDIBILITY.unknown;
+  const raw = 25 +
+    Math.min(25, (signal.sourceCount || 1) * 8) +
+    (credibility * 20) +
+    Math.min(20, (signal.linkedEvents?.length || 0) * 10);
+  return Math.min(95, Math.round(raw));
 }

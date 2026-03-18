@@ -14,15 +14,18 @@
  *   - market/economic alerts
  */
 
-import { getGlobalEvents, subscribeEvents } from "../globalEventsEngine";
-import { scoreRadarSignal } from "./radarScoring";
-import { classifySignal, classifyRegion } from "./radarClassifier";
+import { getGlobalEvents } from "../globalEventsEngine";
+import { scoreRadarSignal, computeConfidence } from "./radarScoring";
+import { classifySignal } from "./radarClassifier";
+import { getStore as getIntelStore } from "../intelligenceStore";
 
 // ── Constants ──────────────────────────────────────────────────────
 const POLL_INTERVAL = 25_000; // 25s
-const MAX_SIGNALS = 120;
+const MAX_SIGNALS = 150;
 const SIGNAL_TTL = 18 * 60 * 60 * 1000; // 18h
 const DEDUP_WINDOW = 2 * 60 * 60 * 1000; // 2h dedup window
+const MAX_ACTIVITY_LOG = 40;
+const MAX_CLUSTERS = 20;
 
 // ── Coordinate Database (expanded) ─────────────────────────────────
 const COORDS = {
@@ -128,6 +131,8 @@ let _pollTimer = null;
 let _running = false;
 let _lastUpdate = null;
 let _stats = { totalProcessed: 0, activeSignals: 0, lastPollDuration: 0 };
+let _activityLog = []; // Recent signal arrivals
+let _clusters = [];    // Grouped related signals
 
 // ── Entity & Geo Extraction ────────────────────────────────────────
 function extractEntities(text) {
@@ -188,6 +193,8 @@ function inferSubcategory(text, category) {
 }
 
 // ── Trend Direction ────────────────────────────────────────────────
+const _signalHistory = new Map();
+
 function computeTrend(signalId, currentScore) {
   const prev = _signalHistory.get(signalId);
   if (!prev) return "مستقر";
@@ -195,7 +202,6 @@ function computeTrend(signalId, currentScore) {
   if (currentScore < prev - 5) return "متراجع";
   return "مستقر";
 }
-const _signalHistory = new Map();
 
 // ── Raw Signal → Normalized Radar Signal ───────────────────────────
 function normalizeSignal(raw) {
@@ -232,6 +238,28 @@ function normalizeSignal(raw) {
 
   // Score it
   signal.radarScore = scoreRadarSignal(signal);
+  signal.confidence = computeConfidence(signal);
+
+  // Cross-reference with intelligence memory for confidence boost
+  try {
+    const memoryItems = getIntelStore();
+    const recentMemory = memoryItems.filter(m => {
+      try { return Date.now() - new Date(m.timestamp).getTime() < 24 * 3600 * 1000; } catch { return false; }
+    });
+    const entityNames = new Set(signal.linkedEntities);
+    const memoryMatches = recentMemory.filter(m => {
+      const memEntities = [...(m.organizations || []), ...(m.regions || []), ...(m.countries || [])];
+      return memEntities.some(e => entityNames.has(e));
+    });
+    if (memoryMatches.length > 0) {
+      signal.sourceCount += Math.min(3, memoryMatches.length);
+      signal.memoryCorroborated = true;
+      signal.memorySources = memoryMatches.length;
+      // Re-score with boosted source count
+      signal.radarScore = scoreRadarSignal(signal);
+      signal.confidence = Math.min(95, computeConfidence(signal) + memoryMatches.length * 4);
+    }
+  } catch { /* non-critical */ }
 
   // Classify severity
   const classified = classifySignal(signal);
@@ -397,14 +425,82 @@ async function pollCycle() {
   try {
     const rawSignals = await fetchAllSources();
     const normalized = rawSignals.map(normalizeSignal);
+    const prevIds = new Set(_signals.map(s => s.id));
     _signals = deduplicateSignals(_signals, normalized);
     _stats.totalProcessed += rawSignals.length;
     _stats.activeSignals = _signals.length;
     _lastUpdate = new Date().toISOString();
+
+    // Track new arrivals in activity log
+    const newArrivals = _signals.filter(s => !prevIds.has(s.id)).slice(0, 10);
+    for (const s of newArrivals) {
+      _activityLog.unshift({
+        id: s.id,
+        title: s.title,
+        category: s.category,
+        severity: s.severity,
+        radarScore: s.radarScore,
+        region: s.region,
+        timestamp: s.timestamp,
+        alertBadge: s.alertBadge,
+      });
+    }
+    if (_activityLog.length > MAX_ACTIVITY_LOG) {
+      _activityLog = _activityLog.slice(0, MAX_ACTIVITY_LOG);
+    }
+
+    // Build signal clusters
+    _clusters = buildSignalClusters(_signals);
+
     notifyListeners();
   } catch {
     // Continue silently
   }
+}
+
+// ── Signal Clustering ──────────────────────────────────────────────
+function buildSignalClusters(signals) {
+  const clusters = [];
+  const assigned = new Set();
+
+  for (const sig of signals) {
+    if (assigned.has(sig.id)) continue;
+    const cluster = { master: sig, members: [sig], entities: new Set(sig.linkedEntities) };
+    assigned.add(sig.id);
+
+    for (const other of signals) {
+      if (assigned.has(other.id)) continue;
+      if (other.category !== sig.category) continue;
+      const overlap = other.linkedEntities.filter(e => cluster.entities.has(e));
+      if (overlap.length >= 1) {
+        cluster.members.push(other);
+        assigned.add(other.id);
+        overlap.forEach(e => cluster.entities.add(e));
+        if (cluster.members.length >= 8) break;
+      }
+    }
+
+    if (cluster.members.length >= 2) {
+      // Compute cluster score: weighted avg of member scores
+      const totalScore = cluster.members.reduce((s, m) => s + m.radarScore, 0);
+      clusters.push({
+        id: `cluster-${sig.id}`,
+        master: sig,
+        members: cluster.members,
+        memberCount: cluster.members.length,
+        avgScore: Math.round(totalScore / cluster.members.length),
+        maxScore: Math.max(...cluster.members.map(m => m.radarScore)),
+        category: sig.category,
+        region: sig.region,
+        entities: [...cluster.entities],
+        trend: cluster.members.filter(m => m.trendDirection === "صاعد").length > cluster.members.length * 0.4 ? "صاعد" : "مستقر",
+      });
+    }
+
+    if (clusters.length >= MAX_CLUSTERS) break;
+  }
+
+  return clusters.sort((a, b) => b.maxScore - a.maxScore);
 }
 
 function notifyListeners() {
@@ -538,4 +634,53 @@ export function subscribeRadar(listener) {
 
 export function isRadarRunning() {
   return _running;
+}
+
+// ── Activity Log ───────────────────────────────────────────────────
+export function getActivityLog() {
+  return _activityLog;
+}
+
+// ── Signal Clusters ────────────────────────────────────────────────
+export function getSignalClusters() {
+  return _clusters;
+}
+
+// ── Inter-Signal Arcs (connections between linked signals) ─────────
+export function getSignalArcs() {
+  const arcs = [];
+  const seen = new Set();
+  const withCoords = _signals.filter(s => s.coordinates);
+
+  for (let i = 0; i < withCoords.length && arcs.length < 30; i++) {
+    for (let j = i + 1; j < withCoords.length && arcs.length < 30; j++) {
+      const a = withCoords[i], b = withCoords[j];
+      const overlap = a.linkedEntities.filter(e => b.linkedEntities.includes(e));
+      if (overlap.length >= 1 && a.region !== b.region) {
+        const key = [a.id, b.id].sort().join("-");
+        if (seen.has(key)) continue;
+        seen.add(key);
+        arcs.push({
+          id: key,
+          from: a.coordinates,
+          to: b.coordinates,
+          fromTitle: a.title,
+          toTitle: b.title,
+          strength: Math.min(1, overlap.length / 3),
+          entities: overlap,
+          color: a.radarScore >= 70 || b.radarScore >= 70 ? "#ef4444" : "#38bdf8",
+        });
+      }
+    }
+  }
+  return arcs;
+}
+
+// ── Category Distribution ──────────────────────────────────────────
+export function getCategoryDistribution() {
+  const dist = {};
+  for (const sig of _signals) {
+    dist[sig.category] = (dist[sig.category] || 0) + 1;
+  }
+  return dist;
 }

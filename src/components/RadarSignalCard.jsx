@@ -174,7 +174,7 @@ export default function RadarSignalCard({ signal, compact = false, onExpand }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "0.78rem" }}>
             <ExplainRow
               label={language === "ar" ? "المنطقة" : "Region"}
-              value={`${signal.region} — ${signal.country || ""}`}
+              value={signal.country ? `${signal.region} — ${signal.country}` : signal.region}
             />
             <ExplainRow
               label={language === "ar" ? "عدد المصادر" : "Sources"}

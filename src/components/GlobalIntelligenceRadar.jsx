@@ -11,6 +11,10 @@ import {
   getRadarStats,
   subscribeRadar,
   getRadarSignalsByCategory,
+  getActivityLog,
+  getSignalClusters,
+  getSignalArcs,
+  getCategoryDistribution,
 } from "../lib/radar/globalRadarEngine";
 import { severityColor, pressureColor, alertBadgeConfig } from "../lib/radar/radarClassifier";
 import RadarSignalCard from "./RadarSignalCard";
@@ -34,8 +38,12 @@ export default function GlobalIntelligenceRadar() {
   const [signals, setSignals] = useState([]);
   const [stats, setStats] = useState({});
   const [regions, setRegions] = useState([]);
+  const [activityLog, setActivityLog] = useState([]);
+  const [clusters, setClusters] = useState([]);
+  const [catDist, setCatDist] = useState({});
   const [selectedCat, setSelectedCat] = useState("all");
   const [scanAngle, setScanAngle] = useState(0);
+  const [viewMode, setViewMode] = useState("signals"); // signals | clusters
   const scanRef = useRef(null);
 
   // Start the radar engine
@@ -46,15 +54,19 @@ export default function GlobalIntelligenceRadar() {
       setSignals(getRadarSignals());
       setStats(getRadarStats());
       setRegions(getRegionSummary());
+      setActivityLog(getActivityLog());
+      setClusters(getSignalClusters());
+      setCatDist(getCategoryDistribution());
     });
 
     // Also fetch from API as backup / initial load
     fetch("/api/global-radar")
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data?.signals?.length && signals.length === 0) {
-          setSignals(data.signals);
-          if (data.stats) setStats(data.stats);
+        if (data?.signals?.length) {
+          setSignals(prev => prev.length ? prev : data.signals);
+          if (data.stats) setStats(prev => prev.totalActive ? prev : data.stats);
+          if (data.regions) setRegions(prev => prev.length ? prev : data.regions);
         }
       })
       .catch(() => {});
@@ -101,6 +113,16 @@ export default function GlobalIntelligenceRadar() {
     } catch { return "—"; }
   }, [language]);
 
+  // Total category counts for distribution bar
+  const catDistEntries = useMemo(() => {
+    const total = Object.values(catDist).reduce((s, v) => s + v, 0) || 1;
+    return RADAR_CATEGORIES.filter(c => c.id !== "all").map(cat => ({
+      ...cat,
+      count: catDist[cat.id] || 0,
+      pct: Math.round(((catDist[cat.id] || 0) / total) * 100),
+    })).filter(c => c.count > 0);
+  }, [catDist]);
+
   return (
     <div style={{ maxWidth: "1400px", margin: "0 auto", padding: "0 12px" }}>
       {/* ═══ Radar Scan CSS ═══ */}
@@ -120,6 +142,14 @@ export default function GlobalIntelligenceRadar() {
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes gridScan {
+          from { transform: translateY(-100%); }
+          to { transform: translateY(100%); }
+        }
+        @keyframes activitySlideIn {
+          from { opacity: 0; transform: translateX(24px); }
+          to { opacity: 1; transform: translateX(0); }
         }
         .radar-card-enter {
           animation: fadeInUp 0.3s ease both;
@@ -144,6 +174,9 @@ export default function GlobalIntelligenceRadar() {
           background: #27303a;
           border-radius: 4px;
         }
+        .radar-activity-item {
+          animation: activitySlideIn 0.4s ease both;
+        }
         @media (max-width: 768px) {
           .radar-hero-grid {
             grid-template-columns: 1fr 1fr !important;
@@ -151,145 +184,291 @@ export default function GlobalIntelligenceRadar() {
           .radar-main-grid {
             grid-template-columns: 1fr !important;
           }
+          .radar-command-grid {
+            grid-template-columns: 1fr !important;
+          }
         }
       `}</style>
 
       {/* ═══════════════════════════════════════════════════════
-          A. RADAR HERO BLOCK
+          A. RADAR COMMAND CENTER HERO
           ═══════════════════════════════════════════════════════ */}
       <div style={{
-        background: "linear-gradient(135deg, #0a0e14, #0f1520, #0a0e14)",
-        border: "1px solid rgba(56,189,248,0.12)",
-        borderRadius: "18px",
-        padding: "24px",
+        background: "linear-gradient(135deg, #060a0f, #0a1018, #0c1220, #0a0e14)",
+        border: "1px solid rgba(56,189,248,0.1)",
+        borderRadius: "20px",
+        padding: "0",
         marginBottom: 20,
         position: "relative",
         overflow: "hidden",
-        animation: "radarGlow 4s infinite",
+        animation: "radarGlow 5s infinite",
       }}>
-        {/* Radar sweep overlay */}
+        {/* Grid overlay */}
         <div style={{
-          position: "absolute", top: -60, right: -60,
-          width: 200, height: 200, opacity: 0.06,
-          borderRadius: "50%",
-          border: "1px solid rgba(56,189,248,0.3)",
-          background: `conic-gradient(from ${scanAngle}deg, transparent 0deg, rgba(56,189,248,0.15) 30deg, transparent 60deg)`,
+          position: "absolute", inset: 0,
+          backgroundImage: `
+            linear-gradient(rgba(56,189,248,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(56,189,248,0.03) 1px, transparent 1px)
+          `,
+          backgroundSize: "40px 40px",
+          pointerEvents: "none",
         }} />
+        {/* Scanning overlay line */}
         <div style={{
-          position: "absolute", top: -30, right: -30,
-          width: 140, height: 140, opacity: 0.04,
-          borderRadius: "50%",
-          border: "1px solid rgba(56,189,248,0.2)",
+          position: "absolute", left: 0, right: 0, height: "1px",
+          background: "linear-gradient(90deg, transparent, rgba(56,189,248,0.2), transparent)",
+          top: `${(scanAngle / 360) * 100}%`,
+          transition: "top 0.05s linear",
+          pointerEvents: "none",
         }} />
 
-        {/* Title row */}
+        {/* Command center top bar */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          marginBottom: 20, flexWrap: "wrap", gap: 10,
+          padding: "16px 24px",
+          borderBottom: "1px solid rgba(56,189,248,0.06)",
+          flexWrap: "wrap", gap: 10,
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span style={{ fontSize: "26px" }}>📡</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{
+              width: 42, height: 42, borderRadius: "12px",
+              background: "rgba(56,189,248,0.08)",
+              border: "1px solid rgba(56,189,248,0.2)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "22px",
+            }}>📡</div>
             <div>
               <h2 style={{
-                margin: 0, fontSize: "1.3rem", fontWeight: 900,
+                margin: 0, fontSize: "1.35rem", fontWeight: 900,
                 color: "#e8edf2",
                 fontFamily: "Inter, Poppins, system-ui, sans-serif",
+                letterSpacing: "-0.3px",
               }}>
                 {language === "ar" ? "الرادار الاستخباراتي العالمي" : "Global Intelligence Radar"}
               </h2>
-              <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: 2 }}>
-                {language === "ar" ? "نظام رصد وإنذار مبكر في الوقت الحقيقي" : "Real-time monitoring & early warning system"}
+              <div style={{ fontSize: "0.72rem", color: "#4b5563", marginTop: 2, letterSpacing: "0.5px" }}>
+                {language === "ar" ? "نظام رصد وإنذار مبكر • بيانات حية متعددة المصادر" : "Early warning system • Multi-source live data"}
               </div>
             </div>
           </div>
 
-          {/* LIVE indicator */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: "8px",
-            padding: "6px 14px", borderRadius: "10px",
-            background: "rgba(239,68,68,0.1)",
-            border: "1px solid rgba(239,68,68,0.3)",
-          }}>
-            <span style={{
-              width: 8, height: 8, borderRadius: "50%",
-              background: "#ef4444",
-              animation: "radarPulse 1.2s infinite",
-              boxShadow: "0 0 6px rgba(239,68,68,0.5)",
-            }} />
-            <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "#ef4444", letterSpacing: "1px" }}>
-              LIVE
-            </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {/* Signals count badge */}
+            <div style={{
+              padding: "5px 14px", borderRadius: "10px",
+              background: "rgba(56,189,248,0.08)",
+              border: "1px solid rgba(56,189,248,0.15)",
+              fontSize: "0.75rem", fontWeight: 700, color: "#38bdf8",
+            }}>
+              {stats.totalActive || 0} {language === "ar" ? "إشارة" : "signals"}
+            </div>
+            {/* LIVE indicator */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: "8px",
+              padding: "6px 14px", borderRadius: "10px",
+              background: "rgba(239,68,68,0.08)",
+              border: "1px solid rgba(239,68,68,0.25)",
+            }}>
+              <span style={{
+                width: 8, height: 8, borderRadius: "50%",
+                background: "#ef4444",
+                animation: "radarPulse 1.2s infinite",
+                boxShadow: "0 0 8px rgba(239,68,68,0.5)",
+              }} />
+              <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#ef4444", letterSpacing: "1.5px" }}>
+                LIVE
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Hero stat cards */}
-        <div className="radar-hero-grid" style={{
-          display: "grid", gridTemplateColumns: "repeat(4, 1fr)",
-          gap: "12px",
+        {/* Command center main area: Radar Visual + Stats */}
+        <div className="radar-command-grid" style={{
+          display: "grid",
+          gridTemplateColumns: "300px 1fr",
+          gap: 0,
         }}>
-          {/* Global activity */}
-          <HeroStat
-            label={language === "ar" ? "مستوى النشاط العالمي" : "Global Activity Level"}
-            value={stats.globalActivityLevel || "—"}
-            color={activityColor}
-            icon="🌍"
-          />
-          {/* Most dangerous region */}
-          <HeroStat
-            label={language === "ar" ? "أخطر منطقة حاليًا" : "Hottest Region"}
-            value={stats.topRegion || "—"}
-            color="#ef4444"
-            icon="🔥"
-            sub={stats.topRegionPressure}
-          />
-          {/* Top signal */}
-          <HeroStat
-            label={language === "ar" ? "أعلى إشارة" : "Top Signal"}
-            value={stats.topSignal ? String(stats.topSignal).slice(0, 50) : "—"}
-            color="#f3d38a"
-            icon="📶"
-            sub={stats.topSignalScore ? `${stats.topSignalScore}/100` : ""}
-            small
-          />
-          {/* Last update */}
-          <HeroStat
-            label={language === "ar" ? "آخر تحديث" : "Last Update"}
-            value={stats.lastUpdate ? formatTime(stats.lastUpdate) : "—"}
-            color="#38bdf8"
-            icon="🕐"
-            sub={`${stats.totalActive || 0} ${language === "ar" ? "إشارة نشطة" : "active signals"}`}
-          />
+          {/* Radar visualization */}
+          <div style={{
+            padding: "20px",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            borderRight: "1px solid rgba(56,189,248,0.05)",
+          }}>
+            <RadarVisualization signals={signals} scanAngle={scanAngle} />
+          </div>
+
+          {/* Stats + Activity */}
+          <div style={{ padding: "20px 24px" }}>
+            {/* Hero stat cards */}
+            <div className="radar-hero-grid" style={{
+              display: "grid", gridTemplateColumns: "repeat(4, 1fr)",
+              gap: "10px", marginBottom: 16,
+            }}>
+              <HeroStat
+                label={language === "ar" ? "مستوى النشاط العالمي" : "Global Activity Level"}
+                value={stats.globalActivityLevel || "—"}
+                color={activityColor}
+                icon="🌍"
+              />
+              <HeroStat
+                label={language === "ar" ? "أخطر منطقة حاليًا" : "Hottest Region"}
+                value={stats.topRegion || "—"}
+                color="#ef4444"
+                icon="🔥"
+                sub={stats.topRegionPressure}
+              />
+              <HeroStat
+                label={language === "ar" ? "أعلى إشارة" : "Top Signal"}
+                value={stats.topSignal ? String(stats.topSignal).slice(0, 50) : "—"}
+                color="#f3d38a"
+                icon="📶"
+                sub={stats.topSignalScore ? `${stats.topSignalScore}/100` : ""}
+                small
+              />
+              <HeroStat
+                label={language === "ar" ? "آخر تحديث" : "Last Update"}
+                value={stats.lastUpdate ? formatTime(stats.lastUpdate) : "—"}
+                color="#38bdf8"
+                icon="🕐"
+                sub={`${stats.critical || 0} ${language === "ar" ? "حرجة" : "critical"} · ${stats.high || 0} ${language === "ar" ? "مرتفعة" : "high"}`}
+              />
+            </div>
+
+            {/* Category distribution bar */}
+            {catDistEntries.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: "0.68rem", color: "#4b5563", marginBottom: 5, fontWeight: 600 }}>
+                  {language === "ar" ? "توزيع الإشارات حسب الفئة" : "Signal Distribution by Category"}
+                </div>
+                <div style={{
+                  display: "flex", height: 6, borderRadius: 3, overflow: "hidden",
+                  background: "rgba(255,255,255,0.04)",
+                }}>
+                  {catDistEntries.map(c => {
+                    const catColors = {
+                      "صراع / تصعيد": "#ef4444", "دبلوماسية": "#38bdf8",
+                      "اقتصاد / أسواق": "#eab308", "طاقة / نفط / شحن": "#f97316",
+                      "رياضة": "#22c55e", "انتقالات": "#a78bfa",
+                      "أحداث عالمية": "#818cf8", "إشارات ناشئة": "#64748b",
+                    };
+                    return (
+                      <div key={c.id} style={{
+                        width: `${c.pct}%`, minWidth: c.pct > 0 ? "2px" : 0,
+                        background: catColors[c.id] || "#64748b",
+                        transition: "width 0.5s ease",
+                      }} title={`${c.icon} ${language === "ar" ? c.ar : c.en}: ${c.count}`} />
+                    );
+                  })}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: 5 }}>
+                  {catDistEntries.slice(0, 5).map(c => {
+                    const catColors = {
+                      "صراع / تصعيد": "#ef4444", "دبلوماسية": "#38bdf8",
+                      "اقتصاد / أسواق": "#eab308", "طاقة / نفط / شحن": "#f97316",
+                      "رياضة": "#22c55e", "انتقالات": "#a78bfa",
+                      "أحداث عالمية": "#818cf8", "إشارات ناشئة": "#64748b",
+                    };
+                    return (
+                      <span key={c.id} style={{ fontSize: "0.62rem", color: catColors[c.id] || "#6b7280" }}>
+                        {c.icon} {c.count}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Real-time activity stream */}
+            <div>
+              <div style={{ fontSize: "0.7rem", color: "#4b5563", marginBottom: 6, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#38bdf8", animation: "radarPulse 2s infinite" }} />
+                {language === "ar" ? "بث النشاط المباشر" : "Live Activity Stream"}
+              </div>
+              <div style={{
+                maxHeight: 100, overflowY: "auto", overflowX: "hidden",
+                scrollbarWidth: "thin", scrollbarColor: "#1e293b transparent",
+              }}>
+                {activityLog.length === 0 ? (
+                  <div style={{ fontSize: "0.72rem", color: "#374151", textAlign: "center", padding: 12 }}>
+                    {language === "ar" ? "جاري المسح..." : "Scanning..."}
+                  </div>
+                ) : activityLog.slice(0, 8).map((item, i) => (
+                  <div key={item.id + i} className="radar-activity-item" style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,0.02)",
+                    animationDelay: `${i * 0.06}s`,
+                  }}>
+                    <span style={{
+                      width: 5, height: 5, borderRadius: "50%", flexShrink: 0,
+                      background: severityColor(item.severity),
+                    }} />
+                    <span style={{
+                      fontSize: "0.7rem", color: "#9ca3af", flex: 1, minWidth: 0,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
+                      {item.title}
+                    </span>
+                    <span style={{ fontSize: "0.62rem", color: "#374151", flexShrink: 0 }}>
+                      {item.radarScore}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════
-          C. REGIONAL RADAR STRIP
+          B. REGIONAL RADAR STRIP
           ═══════════════════════════════════════════════════════ */}
       <RadarRegionStrip regions={regions} />
 
       {/* ═══════════════════════════════════════════════════════
-          CATEGORY FILTER
+          CATEGORY FILTER + VIEW MODE TOGGLE
           ═══════════════════════════════════════════════════════ */}
-      <div className="radar-scroll" style={{
-        display: "flex", gap: "8px", marginBottom: 20,
-        overflowX: "auto", paddingBottom: 4,
+      <div style={{
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        marginBottom: 16, flexWrap: "wrap", gap: 8,
       }}>
-        {RADAR_CATEGORIES.map(cat => (
-          <button
-            key={cat.id}
-            className="radar-cat-btn"
-            onClick={() => setSelectedCat(cat.id)}
-            style={{
-              background: selectedCat === cat.id
-                ? "linear-gradient(135deg, #38bdf8, #2563eb)"
-                : "#11151a",
-              color: selectedCat === cat.id ? "#fff" : "#38bdf8",
-              borderColor: selectedCat === cat.id ? "#38bdf8" : "rgba(56,189,248,0.2)",
-            }}
-          >
-            {cat.icon} {language === "ar" ? cat.ar : cat.en}
-          </button>
-        ))}
+        <div className="radar-scroll" style={{
+          display: "flex", gap: "6px", overflowX: "auto", paddingBottom: 4, flex: 1,
+        }}>
+          {RADAR_CATEGORIES.map(cat => (
+            <button
+              key={cat.id}
+              className="radar-cat-btn"
+              onClick={() => setSelectedCat(cat.id)}
+              style={{
+                background: selectedCat === cat.id
+                  ? "linear-gradient(135deg, #38bdf8, #2563eb)"
+                  : "#0c1017",
+                color: selectedCat === cat.id ? "#fff" : "#38bdf8",
+                borderColor: selectedCat === cat.id ? "#38bdf8" : "rgba(56,189,248,0.15)",
+              }}
+            >
+              {cat.icon} {language === "ar" ? cat.ar : cat.en}
+            </button>
+          ))}
+        </div>
+        {/* View mode toggle */}
+        <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+          {[
+            { key: "signals", ar: "إشارات", en: "Signals", icon: "📶" },
+            { key: "clusters", ar: "تجمعات", en: "Clusters", icon: "🔗" },
+          ].map(vm => (
+            <button key={vm.key} onClick={() => setViewMode(vm.key)} style={{
+              background: viewMode === vm.key ? "rgba(56,189,248,0.15)" : "rgba(255,255,255,0.02)",
+              border: `1px solid ${viewMode === vm.key ? "rgba(56,189,248,0.3)" : "rgba(255,255,255,0.05)"}`,
+              borderRadius: 8, padding: "6px 12px", cursor: "pointer",
+              fontSize: "0.75rem", fontWeight: 700,
+              color: viewMode === vm.key ? "#38bdf8" : "#6b7280",
+              transition: "all 0.2s",
+            }}>
+              {vm.icon} {language === "ar" ? vm.ar : vm.en}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════
@@ -301,41 +480,60 @@ export default function GlobalIntelligenceRadar() {
         gap: "20px",
         alignItems: "start",
       }}>
-        {/* ─── LEFT: Top Radar Feed ─── */}
+        {/* ─── LEFT: Top Radar Feed OR Clusters ─── */}
         <div>
-          <SectionHeader
-            icon="📶"
-            title={language === "ar" ? "أقوى الإشارات الحية" : "Strongest Live Signals"}
-            count={displayedSignals.length}
-            language={language}
-          />
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {topSignals.length === 0 && (
-              <div style={{
-                textAlign: "center", padding: "40px 20px",
-                color: "#4b5563", fontSize: "0.85rem",
-              }}>
-                {language === "ar" ? "جاري مسح الإشارات..." : "Scanning for signals..."}
+          {viewMode === "signals" ? (
+            <>
+              <SectionHeader
+                icon="📶"
+                title={language === "ar" ? "أقوى الإشارات الحية" : "Strongest Live Signals"}
+                count={displayedSignals.length}
+                language={language}
+              />
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {topSignals.length === 0 && (
+                  <div style={{
+                    textAlign: "center", padding: "40px 20px",
+                    color: "#4b5563", fontSize: "0.85rem",
+                  }}>
+                    {language === "ar" ? "جاري مسح الإشارات..." : "Scanning for signals..."}
+                  </div>
+                )}
+                {topSignals.map((sig, i) => (
+                  <div key={sig.id} className="radar-card-enter" style={{ animationDelay: `${i * 0.04}s` }}>
+                    <RadarSignalCard signal={sig} />
+                  </div>
+                ))}
               </div>
-            )}
-            {topSignals.map((sig, i) => (
-              <div key={sig.id} className="radar-card-enter" style={{ animationDelay: `${i * 0.05}s` }}>
-                <RadarSignalCard signal={sig} />
+            </>
+          ) : (
+            <>
+              <SectionHeader
+                icon="🔗"
+                title={language === "ar" ? "تجمعات الإشارات المترابطة" : "Linked Signal Clusters"}
+                count={clusters.length}
+                language={language}
+              />
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                {clusters.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "40px 20px", color: "#4b5563", fontSize: "0.85rem" }}>
+                    {language === "ar" ? "لا توجد تجمعات كافية حاليًا" : "Not enough clusters yet"}
+                  </div>
+                ) : clusters.map((cluster, i) => (
+                  <ClusterCard key={cluster.id} cluster={cluster} language={language} index={i} />
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </div>
 
-        {/* ─── RIGHT: Alerts + Emerging ─── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          {/* Radar Visual Mini */}
-          <RadarMiniVisual signals={signals} scanAngle={scanAngle} />
-
+        {/* ─── RIGHT: Radar Visual + Alerts + Emerging ─── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           {/* D. Critical Alerts */}
           <div style={{
-            background: "linear-gradient(135deg, #0f1319, #131820)",
-            border: "1px solid rgba(239,68,68,0.15)",
-            borderRadius: "14px",
+            background: "linear-gradient(135deg, #0c0e14, #10141a)",
+            border: "1px solid rgba(239,68,68,0.12)",
+            borderRadius: "16px",
             padding: "16px",
           }}>
             <SectionHeader
@@ -350,9 +548,9 @@ export default function GlobalIntelligenceRadar() {
 
           {/* E. Emerging Radar */}
           <div style={{
-            background: "linear-gradient(135deg, #0f1319, #131820)",
-            border: "1px solid rgba(129,140,248,0.15)",
-            borderRadius: "14px",
+            background: "linear-gradient(135deg, #0c0e14, #10141a)",
+            border: "1px solid rgba(129,140,248,0.12)",
+            borderRadius: "16px",
             padding: "16px",
           }}>
             <SectionHeader
@@ -395,6 +593,16 @@ export default function GlobalIntelligenceRadar() {
                 label={language === "ar" ? "مرتفعة" : "High"}
                 value={stats.high || 0}
                 color="#f59e0b"
+              />
+              <StatRow
+                label={language === "ar" ? "تجمعات" : "Clusters"}
+                value={clusters.length}
+                color="#818cf8"
+              />
+              <StatRow
+                label={language === "ar" ? "ذاكرة مؤكدة" : "Memory Confirmed"}
+                value={signals.filter(s => s.memoryCorroborated).length}
+                color="#22c55e"
               />
               <StatRow
                 label={language === "ar" ? "وقت المسح" : "Scan Time"}
