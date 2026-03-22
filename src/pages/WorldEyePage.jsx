@@ -17,6 +17,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { getWorldState, subscribeWorldState } from "../lib/worldStateEngine";
 import { formatDisplayTime } from "../AppHelpers";
 import { pageShell, panelStyle } from "./shared/pagePrimitives";
+import EyeViewer from "../components/EyeViewer";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -294,38 +295,35 @@ export default function WorldEyePage({ language = "ar", feedStatus, activeAlert,
 
   return (
     <div style={pageShell}>
-      {/* ── hero ─────────────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-          <span style={{ fontSize: 28 }}>👁️</span>
-          <div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", color: "#67e8f9", textTransform: "uppercase" }}>
-                {L.hero}
-              </span>
-            </div>
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: "#f8fafc", margin: 0, lineHeight: 1.3 }}>
-              {L.heroDesc}
-            </h1>
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center", marginTop: 12 }}>
-          <span style={{
-            padding: "5px 14px",
-            borderRadius: 999,
-            background: `${riskColor(riskLevel)}18`,
-            border: `1px solid ${riskColor(riskLevel)}40`,
-            color: riskColor(riskLevel),
-            fontSize: 13,
-            fontWeight: 800,
-          }}>
-            {L.risk}: {translateRisk(riskLevel, isAr)}
-          </span>
-          <span style={{ color: "#475569", fontSize: 12 }}>
-            {L.updated}: {new Date(lastUpdated).toLocaleTimeString(isAr ? "ar-SA" : "en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Dubai" })}
-          </span>
-        </div>
-      </div>
+      {/* ── Eye Viewer ─────────────────────────────────────────────────────── */}
+      <section style={{ marginBottom: 28 }}>
+        <EyeViewer worldState={worldState} language={language} />
+      </section>
+
+      {/* ── Risk Status Strip ──────────────────────────────────────────────── */}
+      <section style={{ ...panelStyle, padding: "12px 14px", marginBottom: 28, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <span style={{
+          padding: "5px 14px",
+          borderRadius: 999,
+          background: `${riskColor(riskLevel)}18`,
+          border: `1px solid ${riskColor(riskLevel)}40`,
+          color: riskColor(riskLevel),
+          fontSize: 13,
+          fontWeight: 800,
+        }}>
+          {L.risk}: {translateRisk(riskLevel, isAr)}
+        </span>
+        <span style={{ color: "#475569", fontSize: 12 }}>
+          {L.updated}: {new Date(lastUpdated).toLocaleTimeString(isAr ? "ar-SA" : "en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Dubai" })}
+        </span>
+        <span style={{ color: "#94a3b8", fontSize: 12 }}>
+          {isAr ? "نقاط بيانات نشطة" : "Active data points"}: {useMemo(() => {
+            const hotspots = safeArray(worldState?.strategicSummary?.regionsWithHighestTension || []);
+            const events = safeArray(worldState?.strategicSummary?.topGlobalEvents || []);
+            return hotspots.length + events.length;
+          }, [worldState])}
+        </span>
+      </section>
 
       {/* ── 1. Executive Summary ─────────────────────────────────────────── */}
       <Section title={L.summary} accent="#67e8f9">
