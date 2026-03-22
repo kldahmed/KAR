@@ -23,6 +23,7 @@ const CATEGORY_OPTIONS = [
   FILTER_ALL,
   "conflict",
   "political",
+  "cyber",
   "economy",
   "logistics",
   "aviation",
@@ -31,7 +32,7 @@ const CATEGORY_OPTIONS = [
   "news",
 ];
 const SEVERITY_OPTIONS = [FILTER_ALL, "critical", "high", "medium", "low"];
-const TIME_WINDOW_OPTIONS = ["24h", "72h", "7d", "all"];
+const TIME_WINDOW_OPTIONS = ["1h", "6h", "24h"];
 
 const WORLD_GEOJSON_URL =
   "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson";
@@ -50,6 +51,8 @@ function getCountryId(feature) {
 
 function normalizeCategory(value) {
   const raw = String(value || "news").toLowerCase();
+  if (raw === "cyber" || raw === "cybersecurity") return "cyber";
+  if (raw === "economic") return "economy";
   if (raw === "air") return "aviation";
   if (raw === "aviation") return "aviation";
   if (raw === "shipping" || raw === "sea" || raw === "naval") return "maritime";
@@ -73,10 +76,9 @@ function severityFromScore(score, urgency) {
 }
 
 function getTimeWindowMs(windowKey) {
-  if (windowKey === "24h") return 24 * 60 * 60 * 1000;
-  if (windowKey === "72h") return 72 * 60 * 60 * 1000;
-  if (windowKey === "7d") return 7 * 24 * 60 * 60 * 1000;
-  return null;
+  if (windowKey === "1h") return 60 * 60 * 1000;
+  if (windowKey === "6h") return 6 * 60 * 60 * 1000;
+  return 24 * 60 * 60 * 1000;
 }
 
 export default function GlobalLiveMap() {
@@ -95,11 +97,12 @@ export default function GlobalLiveMap() {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [useGlobe, setUseGlobe] = useState(false);
   const [isLowPower, setIsLowPower] = useState(false);
+  const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [filters, setFilters] = useState({
     category: FILTER_ALL,
     severity: FILTER_ALL,
     region: FILTER_ALL,
-    timeWindow: "72h",
+    timeWindow: "24h",
     query: "",
   });
   const [layerToggles, setLayerToggles] = useState({
@@ -107,6 +110,7 @@ export default function GlobalLiveMap() {
     links: true,
     liveSignals: true,
     hotspots: true,
+    heat: false,
     regions: true,
   });
   const [selectedSignal, setSelectedSignal] = useState(null);
@@ -307,6 +311,24 @@ export default function GlobalLiveMap() {
   }, []);
 
   useEffect(() => {
+    const media = window.matchMedia("(max-width: 980px)");
+    const listener = () => setIsCompactViewport(media.matches);
+    listener();
+    media.addEventListener("change", listener);
+    return () => media.removeEventListener("change", listener);
+  }, []);
+
+  useEffect(() => {
+    if (!isCompactViewport) return;
+    setLayerToggles((prev) => ({
+      ...prev,
+      links: false,
+      heat: false,
+      regions: !isLowPower,
+    }));
+  }, [isCompactViewport, isLowPower]);
+
+  useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const listener = () => setPrefersReducedMotion(media.matches);
     listener();
@@ -418,6 +440,7 @@ export default function GlobalLiveMap() {
           id: String(rawId),
           title: rawTitle || (language === "ar" ? "إشارة بدون عنوان" : "Untitled signal"),
           summary: signal?.summary || signal?.description || "",
+          description: signal?.description || signal?.summary || "",
           category,
           severity,
           importanceScore,
@@ -425,6 +448,12 @@ export default function GlobalLiveMap() {
           source: signal?.source || "system",
           country: signal?.country || "",
           region,
+          relatedEntities: Array.isArray(signal?.entities)
+            ? signal.entities
+            : Array.isArray(signal?.relatedEntities)
+            ? signal.relatedEntities
+            : [],
+          urgency: String(signal?.urgency || severity),
           lat,
           lng,
           timestamp,
@@ -450,6 +479,7 @@ export default function GlobalLiveMap() {
       if (filters.region !== FILTER_ALL && String(signal.region) !== filters.region) return false;
 
       if (windowMs && signal.timestampMs && now - signal.timestampMs > windowMs) return false;
+      if (windowMs && !signal.timestampMs) return false;
 
       if (query) {
         const haystack = [signal.title, signal.summary, signal.category, signal.source, signal.region, signal.country]
@@ -513,37 +543,40 @@ export default function GlobalLiveMap() {
   }, [filteredSignalPoints]);
 
   const relationshipLines = useMemo(() => {
-    if (hotspots.length < 2) return [];
-    const byCategory = new Map();
-    hotspots.forEach((spot) => {
-      const key = normalizeCategory(spot.topCategory);
-      if (!byCategory.has(key)) byCategory.set(key, []);
-      byCategory.get(key).push(spot);
-    });
-
     const lines = [];
-    byCategory.forEach((spots, category) => {
-      const sorted = spots.slice().sort((a, b) => b.count - a.count).slice(0, 4);
-      for (let i = 0; i < sorted.length; i += 1) {
-        for (let j = i + 1; j < sorted.length; j += 1) {
-          const a = sorted[i];
-          const b = sorted[j];
-          lines.push({
-            id: `${category}:${a.id}:${b.id}`,
-            from: [a.lat, a.lng],
-            to: [b.lat, b.lng],
-            category,
-            count: Math.min(a.count, b.count),
-            strength: Math.min(1, (a.count + b.count) / 16),
-            color: category === "conflict" ? "#f87171" : category === "economy" ? "#fbbf24" : "#7dd3fc",
-            label: `${category} corridor`,
-          });
-        }
-      }
-    });
+    const pairGuard = new Set();
+    const points = filteredSignalPoints.slice(0, 180);
 
-    return lines.slice(0, 32);
-  }, [hotspots]);
+    for (let i = 0; i < points.length; i += 1) {
+      const a = points[i];
+      for (let j = i + 1; j < points.length; j += 1) {
+        const b = points[j];
+        const sameRegion = a.region && b.region && String(a.region) === String(b.region);
+        const entitiesA = new Set((a.relatedEntities || []).map((v) => String(v).toLowerCase()));
+        const sharedEntities = (b.relatedEntities || []).filter((entity) => entitiesA.has(String(entity).toLowerCase()));
+        if (!sameRegion && sharedEntities.length === 0) continue;
+
+        const pairKey = `${a.id}:${b.id}`;
+        if (pairGuard.has(pairKey)) continue;
+        pairGuard.add(pairKey);
+
+        const strength = Math.min(1, (sharedEntities.length * 0.55) + (sameRegion ? 0.35 : 0.15));
+        lines.push({
+          id: `rel-${pairKey}`,
+          from: [a.lat, a.lng],
+          to: [b.lat, b.lng],
+          count: sharedEntities.length,
+          strength,
+          color: sameRegion ? "#60a5fa" : "#a78bfa",
+          label: sameRegion
+            ? (language === "ar" ? "صلة إقليمية" : "Shared region")
+            : (language === "ar" ? "كيانات مشتركة" : "Shared entities"),
+        });
+      }
+    }
+
+    return lines.sort((a, b) => b.strength - a.strength).slice(0, isCompactViewport ? 16 : 48);
+  }, [filteredSignalPoints, isCompactViewport, language]);
 
   const signalStats = useMemo(() => {
     return {
@@ -678,7 +711,7 @@ export default function GlobalLiveMap() {
       category: FILTER_ALL,
       severity: FILTER_ALL,
       region: FILTER_ALL,
-      timeWindow: "72h",
+      timeWindow: "24h",
       query: "",
     });
     setLayerToggles({
@@ -686,6 +719,7 @@ export default function GlobalLiveMap() {
       links: true,
       liveSignals: true,
       hotspots: true,
+      heat: false,
       regions: true,
     });
     setSelectedSignal(null);
@@ -782,6 +816,9 @@ export default function GlobalLiveMap() {
           </button>
           <button type="button" className={layerToggles.hotspots ? "glm-toggle active" : "glm-toggle"} onClick={() => toggleLayer("hotspots")}>
             {language === "ar" ? "بؤر ساخنة" : "Hotspots"}
+          </button>
+          <button type="button" className={layerToggles.heat ? "glm-toggle active" : "glm-toggle"} onClick={() => toggleLayer("heat")}>
+            {language === "ar" ? "طبقة الضغط" : "Heat pressure"}
           </button>
           <button type="button" className={layerToggles.regions ? "glm-toggle active" : "glm-toggle"} onClick={() => toggleLayer("regions")}>
             {language === "ar" ? "طبقة المناطق" : "Region overlay"}
@@ -942,10 +979,11 @@ export default function GlobalLiveMap() {
               signalPoints={filteredSignalPoints}
               hotspots={hotspots}
               relationshipLines={relationshipLines}
-              showRelationshipLines={layerToggles.links}
+              showRelationshipLines={layerToggles.links && !isCompactViewport}
               showBaseLinks={layerToggles.baseLinks}
               showLiveSignals={layerToggles.liveSignals}
-              showHotspots={layerToggles.hotspots}
+              showHotspots={layerToggles.hotspots && !isCompactViewport}
+              showHeatLayer={layerToggles.heat && !isCompactViewport}
               onSelectSignal={(signal) => {
                 setSelectedSignal(signal);
                 setSelectedHotspot(null);
@@ -959,6 +997,53 @@ export default function GlobalLiveMap() {
             />
           </MapContainer>
           )
+        ) : null}
+
+        {(selectedSignal || selectedHotspot) && !useGlobe ? (
+          <aside className="glm-detail-panel" dir={direction}>
+            {selectedSignal ? (
+              <>
+                <div className="glm-detail-header">
+                  <strong>{selectedSignal.title}</strong>
+                  <button type="button" onClick={() => setSelectedSignal(null)}>×</button>
+                </div>
+                <p>{selectedSignal.description || selectedSignal.summary || (language === "ar" ? "لا يوجد وصف متاح" : "No description available")}</p>
+                <div className="glm-detail-grid">
+                  <span>{language === "ar" ? "المصدر" : "Source"}: {selectedSignal.source || "-"}</span>
+                  <span>{language === "ar" ? "الفئة" : "Category"}: {selectedSignal.category}</span>
+                  <span>{language === "ar" ? "الدرجة" : "Importance"}: {selectedSignal.importanceScore}</span>
+                  <span>{language === "ar" ? "الوقت" : "Timestamp"}: {formatDateTime(selectedSignal.timestamp)}</span>
+                  <span>{language === "ar" ? "الموقع" : "Location"}: {selectedSignal.country || selectedSignal.region || "Global"}</span>
+                </div>
+                <div className="glm-detail-entities">
+                  <div>{language === "ar" ? "كيانات مرتبطة" : "Related entities"}</div>
+                  <ul>
+                    {(selectedSignal.relatedEntities || []).slice(0, 6).map((entity) => (
+                      <li key={entity}>{entity}</li>
+                    ))}
+                  </ul>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="glm-detail-header">
+                  <strong>{language === "ar" ? "تفاصيل البؤرة" : "Hotspot detail"}</strong>
+                  <button type="button" onClick={() => setSelectedHotspot(null)}>×</button>
+                </div>
+                <p>
+                  {language === "ar"
+                    ? `تركيز نشاط مرتفع (${selectedHotspot.count}) في ${selectedHotspot.region}`
+                    : `High activity concentration (${selectedHotspot.count}) in ${selectedHotspot.region}`}
+                </p>
+                <div className="glm-detail-grid">
+                  <span>{language === "ar" ? "عدد الإشارات" : "Signals"}: {selectedHotspot.count}</span>
+                  <span>{language === "ar" ? "الفئة الأعلى" : "Top category"}: {selectedHotspot.topCategory}</span>
+                  <span>{language === "ar" ? "متوسط الأهمية" : "Avg importance"}: {Math.round(selectedHotspot.avgScore || 0)}</span>
+                  <span>{language === "ar" ? "الإحداثيات" : "Coordinates"}: {selectedHotspot.lat}, {selectedHotspot.lng}</span>
+                </div>
+              </>
+            )}
+          </aside>
         ) : null}
       </div>
 

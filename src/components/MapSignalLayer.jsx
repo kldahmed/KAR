@@ -1,16 +1,18 @@
 import React from "react";
-import { CircleMarker, Polyline, Tooltip } from "react-leaflet";
+import { Circle, CircleMarker, Polyline, Tooltip, useMap } from "react-leaflet";
 import MapEventTooltip from "./MapEventTooltip";
 import { useI18n } from "../i18n/I18nProvider";
 
 const CATEGORY_STYLE = {
   conflict: { color: "#ef4444", ring: "#f87171" },
-  political: { color: "#818cf8", ring: "#a5b4fc" },
-  economy: { color: "#f59e0b", ring: "#fbbf24" },
-  logistics: { color: "#22d3ee", ring: "#67e8f9" },
-  aviation: { color: "#38bdf8", ring: "#7dd3fc" },
-  maritime: { color: "#14b8a6", ring: "#2dd4bf" },
-  sports: { color: "#a855f7", ring: "#c084fc" },
+  political: { color: "#f97316", ring: "#fb923c" },
+  economy: { color: "#3b82f6", ring: "#60a5fa" },
+  economic: { color: "#3b82f6", ring: "#60a5fa" },
+  cyber: { color: "#8b5cf6", ring: "#a78bfa" },
+  logistics: { color: "#22c55e", ring: "#4ade80" },
+  aviation: { color: "#3b82f6", ring: "#60a5fa" },
+  maritime: { color: "#22c55e", ring: "#4ade80" },
+  sports: { color: "#8b5cf6", ring: "#a78bfa" },
   news: { color: "#38bdf8", ring: "#7dd3fc" },
 };
 
@@ -23,6 +25,149 @@ function isValidLatLngPair(pair) {
   const lat = Number(pair[0]);
   const lng = Number(pair[1]);
   return Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+}
+
+function urgencyPulseClass(urgency) {
+  const key = String(urgency || "medium").toLowerCase();
+  if (key === "critical") return "glm-pulse-critical";
+  if (key === "high") return "glm-pulse-high";
+  if (key === "low") return "glm-pulse-low";
+  return "glm-pulse-medium";
+}
+
+function getClusterWindow(zoomLevel) {
+  if (zoomLevel <= 2) return 9;
+  if (zoomLevel <= 3) return 6;
+  if (zoomLevel <= 4) return 3.5;
+  return 2;
+}
+
+function ClusteredSignals({
+  signalPoints,
+  selectedSignalId,
+  onSelectSignal,
+  styleForCategory,
+  severityToScale,
+  t,
+  direction,
+}) {
+  const map = useMap();
+  const [zoomLevel, setZoomLevel] = React.useState(() => map.getZoom());
+
+  React.useEffect(() => {
+    const onZoomEnd = () => setZoomLevel(map.getZoom());
+    map.on("zoomend", onZoomEnd);
+    return () => map.off("zoomend", onZoomEnd);
+  }, [map]);
+
+  const clustered = React.useMemo(() => {
+    const size = getClusterWindow(zoomLevel);
+    const buckets = new Map();
+
+    signalPoints.forEach((signal) => {
+      const latKey = Math.round(signal.lat / size) * size;
+      const lngKey = Math.round(signal.lng / size) * size;
+      const key = `${latKey}:${lngKey}`;
+      if (!buckets.has(key)) {
+        buckets.set(key, {
+          id: key,
+          lat: 0,
+          lng: 0,
+          count: 0,
+          topCategory: "news",
+          topScore: 0,
+          events: [],
+        });
+      }
+      const bucket = buckets.get(key);
+      bucket.count += 1;
+      bucket.lat += signal.lat;
+      bucket.lng += signal.lng;
+      bucket.events.push(signal);
+      if ((signal.importanceScore || 0) >= bucket.topScore) {
+        bucket.topScore = signal.importanceScore || 0;
+        bucket.topCategory = signal.category || "news";
+      }
+    });
+
+    return Array.from(buckets.values()).map((cluster) => ({
+      ...cluster,
+      lat: cluster.lat / Math.max(1, cluster.count),
+      lng: cluster.lng / Math.max(1, cluster.count),
+      expanded: zoomLevel >= 5 || cluster.count < 3,
+    }));
+  }, [signalPoints, zoomLevel]);
+
+  return (
+    <>
+      {clustered.map((cluster) => {
+        if (!cluster.expanded) {
+          const style = styleForCategory(cluster.topCategory);
+          const clusterRadius = Math.min(24, 8 + cluster.count * 1.35);
+          return (
+            <CircleMarker
+              key={`cluster-${cluster.id}`}
+              center={[cluster.lat, cluster.lng]}
+              radius={clusterRadius}
+              pathOptions={{
+                color: style.ring,
+                fillColor: style.color,
+                fillOpacity: 0.34,
+                weight: 2,
+                className: "glm-cluster-marker",
+              }}
+              eventHandlers={{
+                click: () => {
+                  map.flyTo([cluster.lat, cluster.lng], Math.min(6, zoomLevel + 2), { duration: 0.5 });
+                },
+              }}
+            >
+              <Tooltip sticky direction="top" offset={[0, -8]}>
+                <div style={{ fontSize: 11, padding: "4px 6px", direction }}>
+                  <div style={{ fontWeight: 800 }}>{cluster.count} {t("map.signals")}</div>
+                  <div style={{ color: "#94a3b8", fontSize: 10 }}>{t("map.pressure")}: {cluster.topCategory}</div>
+                </div>
+              </Tooltip>
+            </CircleMarker>
+          );
+        }
+
+        return cluster.events.map((signal) => {
+          const style = styleForCategory(signal.category);
+          const scale = severityToScale(signal.severity);
+          const radius = Math.max(4, Math.round((signal.importanceScore || 40) / 16) * scale);
+          return (
+            <CircleMarker
+              key={`sig-${signal.id}`}
+              center={[signal.lat, signal.lng]}
+              radius={selectedSignalId === signal.id ? radius + 2 : radius}
+              pathOptions={{
+                color: style.ring,
+                fillColor: style.color,
+                fillOpacity: 0.55,
+                weight: selectedSignalId === signal.id ? 2.2 : 1.2,
+                className: `glm-signal-point ${urgencyPulseClass(signal.urgency)}`,
+              }}
+              eventHandlers={{ click: () => onSelectSignal?.(signal) }}
+            >
+              <Tooltip direction="top" offset={[0, -8]} opacity={1}>
+                <div style={{ padding: "4px 6px", fontSize: 11, maxWidth: 260, direction }}>
+                  <div style={{ fontWeight: 800, marginBottom: 2 }}>{signal.title}</div>
+                  <div style={{ color: "#94a3b8", fontSize: 10 }}>
+                    {signal.category} · {signal.country || signal.region || "Global"}
+                  </div>
+                  <div style={{ color: "#94a3b8", fontSize: 10 }}>
+                    {t("map.pressure")}: {signal.importanceScore || 0}
+                  </div>
+                  <div style={{ color: "#64748b", fontSize: 10, marginTop: 2 }}>{signal.timestamp || signal.time || ""}</div>
+                </div>
+              </Tooltip>
+            </CircleMarker>
+          );
+        });
+      })}
+    </>
+  );
 }
 
 export default function MapSignalLayer({
@@ -41,12 +186,13 @@ export default function MapSignalLayer({
   showBaseLinks = true,
   showLiveSignals = true,
   showHotspots = true,
+  showHeatLayer = false,
   onSelectSignal,
   onSelectHotspot,
   selectedSignalId,
   selectedHotspotId,
 }) {
-  const { t } = useI18n();
+  const { t, direction } = useI18n();
 
   const safeLinks = Array.isArray(linkLayer)
     ? linkLayer.filter((link) => isValidLatLngPair(link?.sourceCoordinates) && isValidLatLngPair(link?.targetCoordinates))
@@ -169,39 +315,31 @@ export default function MapSignalLayer({
         </CircleMarker>
       ))}
 
-      {showLiveSignals ? safeSignalPoints.map((signal) => {
-        const style = styleForCategory(signal.category);
-        const scale = severityToScale(signal.severity);
-        const radius = Math.max(4, Math.round((signal.importanceScore || 40) / 16) * scale);
-        const isCritical = signal.severity === "critical" || Number(signal.importanceScore || 0) >= 82;
-        return (
-          <CircleMarker
-            key={`sig-${signal.id}`}
-            center={[signal.lat, signal.lng]}
-            radius={selectedSignalId === signal.id ? radius + 2 : radius}
-            pathOptions={{
-              color: style.ring,
-              fillColor: style.color,
-              fillOpacity: isCritical ? 0.72 : 0.48,
-              weight: selectedSignalId === signal.id ? 2.2 : isCritical ? 1.8 : 1.2,
-              className: isCritical ? "glm-signal-critical" : "glm-signal-point"
-            }}
-            eventHandlers={{ click: () => onSelectSignal?.(signal) }}
-          >
-            <Tooltip direction="top" offset={[0, -8]} opacity={1}>
-              <div style={{ padding: "4px 6px", fontSize: 11, maxWidth: 260, direction: "rtl" }}>
-                <div style={{ fontWeight: 800, marginBottom: 3 }}>{signal.title}</div>
-                <div style={{ color: "#94a3b8", fontSize: 10 }}>
-                  {signal.category} · {signal.region || signal.country || "Global"} · {signal.importanceScore || 0}
-                </div>
-                <div style={{ color: "#64748b", fontSize: 10, marginTop: 2 }}>
-                  {signal.timestamp || signal.time || ""}
-                </div>
-              </div>
-            </Tooltip>
-          </CircleMarker>
-        );
-      }) : null}
+      {showHeatLayer ? safeHotspots.map((hotspot) => (
+        <Circle
+          key={`heat-${hotspot.id}`}
+          center={[hotspot.lat, hotspot.lng]}
+          radius={Math.max(45000, Math.min(180000, (hotspot.count || 1) * 18000))}
+          pathOptions={{
+            color: hotspot.color || "#f3d38a",
+            fillColor: hotspot.color || "#f3d38a",
+            fillOpacity: 0.06,
+            weight: 0,
+          }}
+        />
+      )) : null}
+
+      {showLiveSignals ? (
+        <ClusteredSignals
+          signalPoints={safeSignalPoints}
+          selectedSignalId={selectedSignalId}
+          onSelectSignal={onSelectSignal}
+          styleForCategory={styleForCategory}
+          severityToScale={severityToScale}
+          t={t}
+          direction={direction}
+        />
+      ) : null}
 
       {showHotspots ? safeHotspots.map((hotspot) => (
         <CircleMarker

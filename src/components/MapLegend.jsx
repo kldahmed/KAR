@@ -3,11 +3,10 @@ import { useI18n } from "../i18n/I18nProvider";
 
 const CATEGORY_ITEMS = [
   { labelAr: "صراع", labelEn: "Conflict", color: "#ef4444" },
-  { labelAr: "سياسي", labelEn: "Political", color: "#818cf8" },
-  { labelAr: "اقتصادي", labelEn: "Economic", color: "#f59e0b" },
-  { labelAr: "لوجستي", labelEn: "Logistics", color: "#22d3ee" },
-  { labelAr: "طيران", labelEn: "Aviation", color: "#38bdf8" },
-  { labelAr: "بحري", labelEn: "Maritime", color: "#14b8a6" }
+  { labelAr: "سياسي", labelEn: "Political", color: "#f97316" },
+  { labelAr: "اقتصادي", labelEn: "Economic", color: "#3b82f6" },
+  { labelAr: "سيبراني", labelEn: "Cyber", color: "#8b5cf6" },
+  { labelAr: "لوجستي", labelEn: "Logistics", color: "#22c55e" }
 ];
 
 const SEVERITY_ITEMS = [
@@ -54,8 +53,10 @@ export default function MapLegend({ stats, signalStats, layerToggles }) {
       </div>
 
       <div className="glm-legend-footnote">
+        <span>{onLabel("◎ = مجموعة/عنقود أحداث قريب", "◎ = Nearby event cluster")}</span>
         <span>{layerToggles?.hotspots ? "●" : "○"} Hotspots</span>
         <span>{layerToggles?.links ? "●" : "○"} Relationship lines</span>
+        <span>{layerToggles?.heat ? "●" : "○"} Heat pressure</span>
         <span>{layerToggles?.regions ? "●" : "○"} Region overlay</span>
       </div>
     </div>
