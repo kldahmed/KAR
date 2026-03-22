@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { SECTION_ROUTES } from "../lib/simpleRouter";
+import SourceLogoStrip from "../components/SourceLogoStrip";
 import {
   FeaturedShortcutCard,
   OverviewMetric,
@@ -108,6 +109,57 @@ export default function OverviewPage({
 
   return (
     <div style={pageShell}>
+      <section className="overview-visual-stage" style={{ ...panelStyle, padding: 0, marginBottom: 18, overflow: "hidden" }}>
+        <div className="overview-visual-stage__poster" style={{ backgroundImage: "url('/media/ops-motion-poster.svg')" }}>
+          <div className="overview-visual-stage__overlay" />
+          <div className="overview-visual-stage__content">
+            <div className="overview-visual-stage__badge">
+              {language === "ar" ? "تصميم بصري حي" : "Live visual surface"}
+            </div>
+            <h2 className="overview-visual-stage__title">
+              {language === "ar" ? "واجهة تشغيل أكثر جرأة ووضوحًا" : "A bolder operational interface"}
+            </h2>
+            <p className="overview-visual-stage__text">
+              {language === "ar"
+                ? "أضفنا طبقات صور وشعارات وحركة ديناميكية لتجربة أكثر إثارة، مع الحفاظ على التركيز على القرار السريع."
+                : "Added layered visuals, branding, and dynamic motion for a more exciting experience while keeping fast decision focus."}
+            </p>
+          </div>
+        </div>
+
+        <div className="overview-visual-stage__grid">
+          <div className="overview-visual-stage__card">
+            <img src="/media/world-grid.svg" alt={language === "ar" ? "شبكة عالمية" : "Global grid"} loading="lazy" />
+          </div>
+          <div className="overview-visual-stage__card overview-visual-stage__card--wave">
+            <img src="/media/signal-wave.svg" alt={language === "ar" ? "موجة إشارات" : "Signal wave"} loading="lazy" />
+          </div>
+        </div>
+      </section>
+
+      <section className="overview-motion-deck" style={{ ...panelStyle, padding: "14px", marginBottom: 18 }}>
+        <div className="overview-motion-deck__grid">
+          <div className="overview-motion-deck__media overview-motion-deck__media--primary">
+            <img src="/media/ops-motion-poster.svg" alt={language === "ar" ? "لوحة تشغيل ديناميكية" : "Dynamic operation poster"} loading="lazy" />
+            <div className="overview-motion-deck__media-glow" />
+          </div>
+          <div className="overview-motion-deck__media overview-motion-deck__media--secondary">
+            <img src="/media/signal-wave.svg" alt={language === "ar" ? "شريط إشارات" : "Signal strip"} loading="lazy" />
+            <div className="overview-motion-deck__caption">
+              {language === "ar" ? "طبقة حركة مستمرة" : "Continuous motion layer"}
+            </div>
+          </div>
+          <div className="overview-motion-deck__media overview-motion-deck__media--secondary">
+            <img src="/media/world-grid.svg" alt={language === "ar" ? "شبكة عالمية" : "Global mesh"} loading="lazy" />
+            <div className="overview-motion-deck__caption">
+              {language === "ar" ? "مسارات عالمية متعددة" : "Multi-route world mesh"}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <SourceLogoStrip language={language} news={displayedNews} />
+
       <section className="overview-cinematic-hero" style={{ ...panelStyle, padding: "28px 28px 26px", marginBottom: 18, overflow: "hidden", position: "relative", background: "radial-gradient(circle at top left, rgba(103,232,249,0.14), transparent 30%), radial-gradient(circle at 88% 18%, rgba(244,201,123,0.13), transparent 22%), linear-gradient(135deg, rgba(10,18,30,0.96), rgba(7,13,21,0.9))" }}>
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(125deg, transparent 0%, rgba(255,255,255,0.03) 42%, transparent 58%)", pointerEvents: "none" }} />
         <div className="overview-cinematic-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.35fr) minmax(320px, 0.9fr)", gap: 18, alignItems: "stretch", position: "relative" }}>

@@ -308,9 +308,23 @@ export default function App() {
     }
   };
 
+  const routeThemeClass = {
+    "/": "theme-overview",
+    "/world-state": "theme-world-state",
+    "/news": "theme-news",
+    "/radar": "theme-radar",
+    "/events": "theme-events",
+    "/analysis-center": "theme-analysis",
+    "/link-center": "theme-links",
+    "/forecast": "theme-forecast",
+    "/agent": "theme-agent",
+    "/live": "theme-live",
+    "/intelligence-console": "theme-console",
+  }[currentPath] || "theme-overview";
+
   return (
     <div
-      className={activeAlert ? "app-shell alert-active" : "app-shell"}
+      className={`app-shell ${activeAlert ? "alert-active" : ""} ${routeThemeClass}`.trim()}
       dir={direction}
       style={{
         position: "relative"
@@ -322,7 +336,9 @@ export default function App() {
       <header className="app-header">
         <div className="app-header__brand">
           <div className="app-header__title">
-            <span className="app-header__title-mark">🌐</span>
+            <span className="app-header__title-mark" aria-hidden="true">
+              <img className="app-header__logo" src="/media/brand-mark.svg" alt="KAR" loading="eager" />
+            </span>
             <span>{t("app.title")}</span>
           </div>
           <div className="app-header__subtitle">

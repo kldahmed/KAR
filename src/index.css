@@ -139,6 +139,20 @@ textarea {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 14px 30px rgba(0, 0, 0, 0.24);
 }
 
+.app-header__logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 12px;
+  filter: drop-shadow(0 0 14px rgba(103, 232, 249, 0.24));
+  animation: appLogoFloat 5.6s ease-in-out infinite;
+}
+
+@keyframes appLogoFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-1px) scale(1.04); }
+}
+
 .app-header__subtitle {
   display: inline-flex;
   align-items: center;
@@ -328,6 +342,281 @@ textarea {
   border: 1px solid rgba(255,255,255,0.12);
   background: rgba(255,255,255,0.04);
   color: #d8e2ee;
+}
+
+.overview-visual-stage {
+  border-radius: 24px !important;
+  overflow: hidden;
+}
+
+.overview-visual-stage__poster {
+  position: relative;
+  min-height: 240px;
+  background-size: cover;
+  background-position: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.overview-visual-stage__overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 14% 20%, rgba(103, 232, 249, 0.2), transparent 36%),
+    radial-gradient(circle at 88% 22%, rgba(244, 201, 123, 0.2), transparent 34%),
+    linear-gradient(120deg, rgba(2, 6, 23, 0.32), rgba(2, 6, 23, 0.76));
+}
+
+.overview-visual-stage__content {
+  position: relative;
+  z-index: 1;
+  padding: 28px;
+  max-width: 760px;
+}
+
+.overview-visual-stage__badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(244, 201, 123, 0.36);
+  background: rgba(244, 201, 123, 0.14);
+  color: #f8d79b;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  margin-bottom: 14px;
+}
+
+.overview-visual-stage__title {
+  margin: 0 0 10px;
+  color: #f8fbff;
+  font-size: clamp(1.4rem, 2.4vw, 2.2rem);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.overview-visual-stage__text {
+  margin: 0;
+  color: #d5deea;
+  max-width: 62ch;
+  font-size: 0.95rem;
+  line-height: 1.8;
+}
+
+.overview-visual-stage__grid {
+  display: grid;
+  grid-template-columns: 1.08fr 0.92fr;
+  gap: 0;
+}
+
+.overview-visual-stage__card {
+  position: relative;
+  min-height: 180px;
+  overflow: hidden;
+  border-inline-end: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(8, 13, 22, 0.95);
+}
+
+.overview-visual-stage__card:last-child {
+  border-inline-end: none;
+}
+
+.overview-visual-stage__card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0.95;
+}
+
+.overview-visual-stage__card--wave img {
+  animation: wavePan 14s linear infinite alternate;
+  transform-origin: center;
+}
+
+.overview-motion-deck {
+  border-radius: 20px !important;
+}
+
+.overview-motion-deck__grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 10px;
+}
+
+.overview-motion-deck__media {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(8, 13, 22, 0.92);
+  min-height: 150px;
+}
+
+.overview-motion-deck__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.overview-motion-deck__media--primary {
+  grid-row: span 2;
+  min-height: 316px;
+}
+
+.overview-motion-deck__media--primary img {
+  animation: deckPosterPan 16s ease-in-out infinite alternate;
+}
+
+.overview-motion-deck__media--secondary img {
+  animation: deckSecondaryPulse 11s linear infinite alternate;
+}
+
+.overview-motion-deck__media-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 22% 24%, rgba(103, 232, 249, 0.18), transparent 35%), radial-gradient(circle at 84% 70%, rgba(244, 201, 123, 0.17), transparent 38%);
+  pointer-events: none;
+}
+
+.overview-motion-deck__caption {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(2, 6, 23, 0.62);
+  color: #dbe6f3;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 7px 9px;
+  backdrop-filter: blur(4px);
+}
+
+.source-logo-strip {
+  margin-bottom: 18px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  padding: 12px;
+  background: linear-gradient(140deg, rgba(9,15,26,0.9), rgba(7,12,20,0.98));
+  overflow: hidden;
+}
+
+.source-logo-strip__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.source-logo-strip__header h3 {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #f8d79b;
+}
+
+.source-logo-strip__header p {
+  margin: 0;
+  font-size: 12px;
+  color: #95a4ba;
+}
+
+.source-logo-strip__track {
+  display: flex;
+  gap: 10px;
+  width: max-content;
+  animation: sourceTicker 38s linear infinite;
+}
+
+.source-logo-strip__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 170px;
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  background: rgba(255,255,255,0.03);
+  border-radius: 999px;
+  padding: 6px 10px;
+}
+
+.source-logo-strip__badge {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(103, 232, 249, 0.3), rgba(244, 201, 123, 0.24));
+  color: #f8fbff;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  border: 1px solid rgba(255,255,255,0.14);
+}
+
+.source-logo-strip__name {
+  color: #d4deea;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@keyframes sourceTicker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes deckPosterPan {
+  0% { transform: scale(1.02) translateY(0); }
+  100% { transform: scale(1.08) translateY(-1.5%); }
+}
+
+@keyframes deckSecondaryPulse {
+  0% { transform: scale(1.02); }
+  100% { transform: scale(1.06); }
+}
+
+/* Per-route visual identity */
+.app-shell.theme-overview .app-header {
+  border-bottom-color: rgba(244, 201, 123, 0.12);
+}
+
+.app-shell.theme-world-state .app-header {
+  border-bottom-color: rgba(103, 232, 249, 0.2);
+  background: linear-gradient(180deg, rgba(5, 12, 20, 0.94), rgba(9, 19, 31, 0.82));
+}
+
+.app-shell.theme-news .app-header {
+  border-bottom-color: rgba(251, 113, 133, 0.16);
+  background: linear-gradient(180deg, rgba(16, 10, 16, 0.92), rgba(14, 14, 28, 0.82));
+}
+
+.app-shell.theme-radar .app-header,
+.app-shell.theme-live .app-header {
+  border-bottom-color: rgba(52, 211, 153, 0.18);
+  background: linear-gradient(180deg, rgba(7, 18, 18, 0.93), rgba(8, 20, 21, 0.82));
+}
+
+.app-shell.theme-analysis .app-header,
+.app-shell.theme-forecast .app-header,
+.app-shell.theme-agent .app-header,
+.app-shell.theme-console .app-header,
+.app-shell.theme-links .app-header,
+.app-shell.theme-events .app-header {
+  border-bottom-color: rgba(167, 139, 250, 0.18);
+  background: linear-gradient(180deg, rgba(11, 10, 20, 0.93), rgba(12, 16, 31, 0.82));
+}
+
+@keyframes wavePan {
+  0% { transform: scale(1.03) translateX(-1.2%); }
+  100% { transform: scale(1.06) translateX(1.2%); }
 }
 
 /* Glass panel */
@@ -943,6 +1232,24 @@ textarea {
 }
 
 @media (max-width: 1100px) {
+  .overview-motion-deck__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-motion-deck__media--primary {
+    grid-row: auto;
+    min-height: 220px;
+  }
+
+  .overview-visual-stage__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-visual-stage__card {
+    border-inline-end: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
   .overview-cinematic-grid,
   .overview-hero-story-grid {
     grid-template-columns: minmax(0, 1fr) !important;
@@ -974,6 +1281,31 @@ textarea {
 }
 
 @media (max-width: 640px) {
+  .overview-motion-deck {
+    padding: 10px !important;
+  }
+
+  .source-logo-strip__item {
+    min-width: 146px;
+  }
+
+  .source-logo-strip__track {
+    animation-duration: 28s;
+  }
+
+  .overview-visual-stage__poster {
+    min-height: 200px;
+  }
+
+  .overview-visual-stage__content {
+    padding: 20px 16px;
+  }
+
+  .overview-visual-stage__badge {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+  }
+
   .overview-cinematic-hero {
     padding: 20px 18px 18px !important;
   }
