@@ -297,7 +297,7 @@ export default function WorldEyePage({ language = "ar", feedStatus, activeAlert,
     <div style={pageShell}>
       {/* ── Eye Viewer ─────────────────────────────────────────────────────── */}
       <section style={{ marginBottom: 28 }}>
-        <EyeViewer worldState={worldState} language={language} />
+        <EyeViewer worldState={worldState} feedStatus={feedStatus} language={language} mode="advanced" />
       </section>
 
       {/* ── Risk Status Strip ──────────────────────────────────────────────── */}

@@ -1,485 +1,577 @@
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
-/**
- * GlobeVisualization — Enterprise-grade interactive 3D intelligence globe
- * Rendering Engine: Canvas 2D + custom 3D mathematics (zero external 3D libraries)
- * Data Mapping: worldStateEngine + feedStatus → geospatial layer with confidence scoring
- * Features: Real-time event mapping, relationship lines, forecast halos, dual-mode visualization
- */
-export default function GlobeVisualization({
-  worldState,
-  feedStatus,
-  language = "ar",
-  mode = "simplified",
-  hoveredEntity = null,
-}) {
-  const canvasRef = useRef(null);
-  const [rotation, setRotation] = useState({ lat: 0.3, lon: 0.5 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const animationRef = useRef(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+const ENDPOINTS = [
+  "/api/news",
+  "/api/global-events",
+  "/api/x-feed",
+  "/api/radar",
+  "/api/intelnews",
+  "/api/agent-state",
+];
 
-  // ─── GEOGRAPHIC COORDINATE DATABASE ────────────────────────────────────
-  const REGION_COORDS = useMemo(
-    () => ({
-      "Middle East": [25, 45],
-      "Ukraine": [49, 31],
-      "Taiwan": [23.7, 120.9],
-      "South China Sea": [12, 115],
-      "Russia": [61, 105],
-      "Iran": [32, 54],
-      "North Korea": [40, 127],
-      "Gaza": [31.9, 34.4],
-      "Syria": [34.8, 38.8],
-      "Yemen": [15.4, 48.5],
-      "India": [20, 78],
-      "Pakistan": [30, 69],
-      "Afghanistan": [34, 67],
-      "Europe": [50, 15],
-      "USA": [40, -95],
-      "China": [35, 105],
-      "Japan": [36, 138],
-      "Korea": [37, 127],
-      "Southeast Asia": [15, 105],
-    }),
-    []
-  );
+const REGION_COORDS = {
+  "middle east": [25, 45],
+  "gulf": [25, 52],
+  "uae": [24.45, 54.38],
+  "dubai": [25.2, 55.27],
+  "abu dhabi": [24.45, 54.38],
+  "saudi": [24.0, 45.0],
+  "iran": [32.0, 54.0],
+  "iraq": [33.0, 44.0],
+  "syria": [34.8, 38.8],
+  "lebanon": [33.9, 35.8],
+  "israel": [31.4, 35.1],
+  "gaza": [31.5, 34.45],
+  "yemen": [15.5, 48.5],
+  "red sea": [21.0, 43.0],
+  "hormuz": [26.6, 56.6],
+  "ukraine": [49.0, 31.2],
+  "russia": [55.7, 37.6],
+  "europe": [50.0, 15.0],
+  "china": [35.0, 105.0],
+  "taiwan": [23.7, 120.9],
+  "south china sea": [12.0, 115.0],
+  "japan": [36.0, 138.0],
+  "korea": [37.5, 127.0],
+  "india": [20.0, 78.0],
+  "pakistan": [30.0, 69.0],
+  "afghanistan": [34.0, 67.0],
+  "usa": [40.0, -95.0],
+  "united states": [40.0, -95.0],
+  "north america": [47.0, -100.0],
+  "south america": [-15.0, -58.0],
+  "africa": [0.0, 20.0],
+  "asia": [30.0, 100.0],
+  "global": [18.0, 20.0],
+};
 
-  // ─── INTELLIGENT DATA MAPPING LAYER ────────────────────────────────────  
-  /**
-   * Maps worldStateEngine + feedStatus into 5-layer geospatial visualization:
-   * Layer 1: Breaking Events (red) - top urgency
-   * Layer 2: Tension Zones (orange) - stability risk
-   * Layer 3: Forecast Zones (subtle gold halos) - 72h outlook
-   * Layer 4: Relationships (dashed lines) - causal/entity linking
-   * Layer 5: Signal Confidence (halo intensity) - prediction confidence
-   */
-  const getDataLayers = () => {
-    const layers = {
-      breakingEvents: [],    // Red: urgent + high confidence
-      tensionZones: [],      // Orange: regions with sustained risk
-      forecastZones: [],     // Gold halos: 72h outlook targets
-      connections: [],       // Purple dashed lines: relationships
-      signals: [],           // Internal confidence scores
-    };
+function normalizeText(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+}
 
-    // Layer 1: Breaking Events (top priority from strategicSummary)
-    const topEvents = worldState?.strategicSummary?.topGlobalEvents || [];
-    topEvents.slice(0, mode === "simplified" ? 5 : 10).forEach((event, idx) => {
-      const region = event.region || event.country || "Global";
-      const coords = REGION_COORDS[region];
-      if (coords) {
-        layers.breakingEvents.push({
-          id: `event-${idx}`,
-          lat: coords[0],
-          lon: coords[1],
-          intensity: 0.85 + idx * 0.05,
-          confidence: Number(event.confidence || 0.8).toFixed(2),
-          label: event.title,
-          type: "breaking",
-          urgency: event.urgency || "high",
-          description: event.summary || "",
-        });
-      }
-    });
+function inferRiskLevel(record) {
+  const joined = normalizeText(`${record.title || ""} ${record.summary || ""} ${record.category || ""} ${record.urgency || ""}`);
+  if (record.urgency === "high" || /breaking|urgent|attack|strike|missile|drone|explosion|war|conflict|critical/.test(joined)) {
+    return "high";
+  }
+  if (record.urgency === "medium" || /tension|escalat|sanction|military|alert|risk|emerging/.test(joined)) {
+    return "medium";
+  }
+  return "low";
+}
 
-    // Layer 2: Tension Zones (from strategicSummary hotspots)
-    const hotspots = worldState?.strategicSummary?.regionsWithHighestTension || [];
-    hotspots.slice(0, mode === "simplified" ? 4 : 8).forEach((region, idx) => {
-      const coords = REGION_COORDS[region];
-      if (coords) {
-        layers.tensionZones.push({
-          id: `tension-${idx}`,
-          lat: coords[0],
-          lon: coords[1],
-          intensity: 0.6 + idx * 0.05,
-          confidence: (worldState?.strategicGlobalRisk?.confidence || 0.75).toFixed(2),
-          label: region,
-          type: "tension",
-          riskLevel: worldState?.strategicGlobalRisk?.level || "MODERATE",
-        });
-      }
-    });
+function riskToMarker(riskLevel) {
+  if (riskLevel === "high") return { kind: "breaking", color: "#f43f5e" };
+  if (riskLevel === "medium") return { kind: "tension", color: "#fb923c" };
+  return { kind: "monitored", color: "#facc15" };
+}
 
-    // Layer 3: Forecast Zones (advanced only, from 72h outlook)
-    if (mode === "advanced") {
-      const forecast = worldState?.strategicSummary?.likelyNext72Hours || "";
-      const forecastKey = worldState?.strategicSummary?.forecastKey || "monitoring";
-      if (forecast || forecastKey !== "monitoring") {
-        Object.keys(REGION_COORDS)
-          .slice(0, 5)
-          .forEach((region, idx) => {
-            if (forecast.toLowerCase().includes(region.toLowerCase())) {
-              const coords = REGION_COORDS[region];
-              layers.forecastZones.push({
-                id: `forecast-${idx}`,
-                lat: coords[0],
-                lon: coords[1],
-                intensity: 0.4,
-                label: region,
-                confidence: 0.6,
-                type: "forecast",
-              });
-            }
-          });
-      }
-    }
+function eventKey(item) {
+  const titleKey = normalizeText(item.title).split(" ").slice(0, 10).join(" ");
+  const regionKey = normalizeText(item.region || "global");
+  const hourBucket = Math.floor(new Date(item.timestamp || Date.now()).getTime() / (60 * 60 * 1000));
+  return `${titleKey}|${regionKey}|${hourBucket}`;
+}
 
-    // Layer 4: Relationships/Causal Links (advanced only)
-    if (mode === "advanced") {
-      const causalLinks = worldState?.strategicCausalLinks || [];
-      causalLinks.slice(0, 4).forEach((link, idx) => {
-        if (link.source && link.target) {
-          const sourceCoords = REGION_COORDS[link.source];
-          const targetCoords = REGION_COORDS[link.target];
-          if (sourceCoords && targetCoords) {
-            layers.connections.push({
-              id: `conn-${idx}`,
-              source: { lat: sourceCoords[0], lon: sourceCoords[1], label: link.source },
-              target: { lat: targetCoords[0], lon: targetCoords[1], label: link.target },
-              strength: Number(link.strength || 0.7),
-              type: link.type || "causal",
-              explanation: link.explanation || "",
-            });
-          }
-        }
-      });
-    }
+function inferCoords(record) {
+  if (Number.isFinite(record?.lat) && Number.isFinite(record?.lon)) {
+    return [record.lat, record.lon];
+  }
+  if (Number.isFinite(record?.lat) && Number.isFinite(record?.lng)) {
+    return [record.lat, record.lng];
+  }
+  if (Array.isArray(record?.centerCoordinates) && record.centerCoordinates.length >= 2) {
+    return [Number(record.centerCoordinates[0]), Number(record.centerCoordinates[1])];
+  }
+  if (Array.isArray(record?.coords) && record.coords.length >= 2) {
+    // global-events stores coords as [lon, lat]
+    return [Number(record.coords[1]), Number(record.coords[0])];
+  }
 
-    return layers;
+  const region = normalizeText(record?.region || record?.country || record?.location || "");
+  if (region && REGION_COORDS[region]) return REGION_COORDS[region];
+
+  const hay = normalizeText(`${record?.title || ""} ${record?.summary || ""} ${record?.text || ""} ${record?.region || ""}`);
+  for (const [key, coords] of Object.entries(REGION_COORDS)) {
+    if (hay.includes(key)) return coords;
+  }
+  return null;
+}
+
+function normalizeRecord(record, fallbackSource) {
+  const title = String(record?.title || record?.headline || record?.text || record?.callsign || "").trim();
+  if (!title) return null;
+
+  const summary = String(record?.summary || record?.description || record?.explanation || record?.text || "").trim();
+  const regionRaw = Array.isArray(record?.region) ? record.region[0] : record?.region;
+  const region = String(regionRaw || record?.country || record?.location || "Global").trim();
+  const source = String(record?.source || record?.sourceType || record?.authorName || fallbackSource || "unknown").trim();
+  const timestamp = new Date(record?.timestamp || record?.time || record?.latestUpdate || record?.createdAt || Date.now()).toISOString();
+  const coords = inferCoords({ ...record, summary, region });
+  if (!coords) return null;
+
+  const riskLevel = inferRiskLevel({ ...record, title, summary });
+  const marker = riskToMarker(riskLevel);
+
+  return {
+    id: String(record?.id || `${fallbackSource}-${title.slice(0, 24)}-${timestamp}`),
+    key: "",
+    title,
+    summary,
+    region,
+    source,
+    timestamp,
+    riskLevel,
+    markerKind: marker.kind,
+    color: marker.color,
+    lat: Number(coords[0]),
+    lon: Number(coords[1]),
+    confidence: Number(record?.confidence || 0.7),
   };
+}
 
-  const dataLayers = useMemo(() => getDataLayers(), [worldState, mode, REGION_COORDS]);
-
-  // ─── 3D MATHEMATICS ──────────────────────────────────────────────────────
-  /**
-   * Convert geographic coordinates to 3D cartesian on unit sphere
-   * X: East-West (longitude), Y: Up-Down (latitude), Z: depth (front-back)
-   */
-  const latLonTo3D = (lat, lon, radius = 1) => {
-    const latRad = (lat * Math.PI) / 180;
-    const lonRad = (lon * Math.PI) / 180;
-    return {
-      x: radius * Math.cos(latRad) * Math.cos(lonRad),
-      y: radius * Math.sin(latRad),
-      z: radius * Math.cos(latRad) * Math.sin(lonRad),
-    };
-  };
-
-  /**
-   * Apply rotations (latitude + longitude) to 3D point
-   * Latitude rotation: around X axis with constraint [-π/2, π/2]
-   * Longitude rotation: around Y axis (unbounded)
-   */
-  const rotatePoint = (point, latRot, lonRot) => {
-    let { x, y, z } = point;
-
-    // Rotate around Y axis (longitude)
-    const cosLon = Math.cos(lonRot);
-    const sinLon = Math.sin(lonRot);
-    const xTemp = x * cosLon - z * sinLon;
-    const zTemp = x * sinLon + z * cosLon;
-    x = xTemp;
-    z = zTemp;
-
-    // Rotate around X axis (latitude)
-    const cosLat = Math.cos(latRot);
-    const sinLat = Math.sin(latRot);
-    const yTemp = y * cosLat - z * sinLat;
-    const zTemp2 = y * sinLat + z * cosLat;
-    y = yTemp;
-    z = zTemp2;
-
-    return { x, y, z };
-  };
-
-  /**
-   * Draw with 5-layer rendering pipeline for visual clarity + data density
-   */
-  const render = (canvas) => {
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const globeRadius = Math.min(centerX, centerY) * 0.4;
-
-    // LAYER 0: Background gradient (premium dark gradient)
-    const bgGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, globeRadius + 80);
-    bgGrad.addColorStop(0, "rgba(30, 41, 59, 0.8)");
-    bgGrad.addColorStop(0.5, "rgba(15, 23, 42, 0.95)");
-    bgGrad.addColorStop(1, "rgba(2, 6, 23, 1)");
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // LAYER 1: Wireframe globe (subtle grid)
-    ctx.strokeStyle = "rgba(100, 180, 220, 0.08)";
-    ctx.lineWidth = 0.5;
-
-    // Latitude lines (horizontal)
-    for (let lat = -60; lat <= 60; lat += 30) {
-      ctx.beginPath();
-      let isFirst = true;
-      for (let lon = -180; lon <= 180; lon += 15) {
-        const p3d = rotatePoint(latLonTo3D(lat, lon, 1), rotation.lat, rotation.lon);
-        if (p3d.z > -0.3) {
-          const sx = centerX + p3d.x * globeRadius;
-          const sy = centerY - p3d.y * globeRadius;
-          if (isFirst) {
-            ctx.moveTo(sx, sy);
-            isFirst = false;
-          } else {
-            ctx.lineTo(sx, sy);
-          }
-        }
-      }
-      ctx.stroke();
-    }
-
-    // Longitude lines (vertical)
-    for (let lon = -180; lon <= 180; lon += 30) {
-      ctx.beginPath();
-      let isFirst = true;
-      for (let lat = -90; lat <= 90; lat += 15) {
-        const p3d = rotatePoint(latLonTo3D(lat, lon, 1), rotation.lat, rotation.lon);
-        if (p3d.z > -0.3) {
-          const sx = centerX + p3d.x * globeRadius;
-          const sy = centerY - p3d.y * globeRadius;
-          if (isFirst) {
-            ctx.moveTo(sx, sy);
-            isFirst = false;
-          } else {
-            ctx.lineTo(sx, sy);
-          }
-        }
-      }
-      ctx.stroke();
-    }
-
-    // LAYER 2: Relationship lines (advanced mode only, dashed, gradient)
-    if (mode === "advanced" && dataLayers.connections.length > 0) {
-      dataLayers.connections.forEach((conn) => {
-        const src3d = rotatePoint(latLonTo3D(conn.source.lat, conn.source.lon, 1), rotation.lat, rotation.lon);
-        const tgt3d = rotatePoint(latLonTo3D(conn.target.lat, conn.target.lon, 1), rotation.lat, rotation.lon);
-
-        if (src3d.z > -0.4 && tgt3d.z > -0.4) {
-          const sx = centerX + src3d.x * globeRadius;
-          const sy = centerY - src3d.y * globeRadius;
-          const tx = centerX + tgt3d.x * globeRadius;
-          const ty = centerY - tgt3d.y * globeRadius;
-
-          // Gradient line
-          const lineGrad = ctx.createLinearGradient(sx, sy, tx, ty);
-          const strength = Number(conn.strength || 0.7);
-          lineGrad.addColorStop(0, `rgba(168, 85, 247, ${0.3 * strength})`);
-          lineGrad.addColorStop(1, `rgba(249, 115, 22, ${0.3 * strength})`);
-          ctx.strokeStyle = lineGrad;
-          ctx.lineWidth = 1 + strength * 1.5;
-          ctx.setLineDash([5, 4]);
-
-          ctx.beginPath();
-          ctx.moveTo(sx, sy);
-          ctx.lineTo(tx, ty);
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
-      });
-    }
-
-    // LAYER 3: Forecast zones (advanced mode, subtle gold halos)
-    if (mode === "advanced") {
-      dataLayers.forecastZones.forEach((zone) => {
-        const p3d = rotatePoint(latLonTo3D(zone.lat, zone.lon, 1), rotation.lat, rotation.lon);
-        if (p3d.z > -0.4) {
-          const sx = centerX + p3d.x * globeRadius;
-          const sy = centerY - p3d.y * globeRadius;
-
-          const forecastGlow = ctx.createRadialGradient(sx, sy, 0, sx, sy, 45);
-          forecastGlow.addColorStop(0, "rgba(217, 119, 6, 0.15)");
-          forecastGlow.addColorStop(0.5, "rgba(217, 119, 6, 0.05)");
-          forecastGlow.addColorStop(1, "rgba(217, 119, 6, 0)");
-          ctx.fillStyle = forecastGlow;
-          ctx.beginPath();
-          ctx.arc(sx, sy, 45, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      });
-    }
-
-    // LAYER 4: Tension Zones (orange blips + glows)
-    dataLayers.tensionZones.forEach((zone) => {
-      const p3d = rotatePoint(latLonTo3D(zone.lat, zone.lon, 1), rotation.lat, rotation.lon);
-      if (p3d.z > -0.4) {
-        const sx = centerX + p3d.x * globeRadius;
-        const sy = centerY - p3d.y * globeRadius;
-        const intensity = Number(zone.intensity || 0.7);
-
-        // Tension halo (orange gradient)
-        const haloGrad = ctx.createRadialGradient(sx, sy, 0, sx, sy, 32);
-        haloGrad.addColorStop(0, `rgba(251, 146, 60, ${0.25 * intensity})`);
-        haloGrad.addColorStop(0.6, `rgba(251, 146, 60, ${0.08 * intensity})`);
-        haloGrad.addColorStop(1, "rgba(251, 146, 60, 0)");
-        ctx.fillStyle = haloGrad;
-        ctx.beginPath();
-        ctx.arc(sx, sy, 32, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Core marker (orange)
-        ctx.fillStyle = "rgba(251, 146, 60, 0.9)";
-        ctx.beginPath();
-        ctx.arc(sx, sy, 5, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Subtle border
-        ctx.strokeStyle = "rgba(251, 146, 60, 0.4)";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.arc(sx, sy, 5.5, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+async function fetchJson(endpoint) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 9000);
+  try {
+    const response = await fetch(endpoint, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
     });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
-    // LAYER 5: Breaking Events (red markers + confidence halos)
-    dataLayers.breakingEvents.forEach((event) => {
-      const p3d = rotatePoint(latLonTo3D(event.lat, event.lon, 1), rotation.lat, rotation.lon);
-      if (p3d.z > -0.4) {
-        const sx = centerX + p3d.x * globeRadius;
-        const sy = centerY - p3d.y * globeRadius;
-        const intensity = Number(event.intensity || 0.9);
-        const confidence = Number(event.confidence || 0.8);
+function flattenEndpointPayload(endpoint, payload) {
+  if (!payload || typeof payload !== "object") return [];
 
-        // Confidence-scaled halo (red, sized by confidence + intensity)
-        const haloRadius = 22 + confidence * 18;
-        const haloGrad = ctx.createRadialGradient(sx, sy, 2, sx, sy, haloRadius);
-        haloGrad.addColorStop(0, `rgba(244, 63, 94, ${0.35 * intensity})`);
-        haloGrad.addColorStop(0.5, `rgba(244, 63, 94, ${0.15 * intensity})`);
-        haloGrad.addColorStop(1, "rgba(244, 63, 94, 0)");
-        ctx.fillStyle = haloGrad;
-        ctx.beginPath();
-        ctx.arc(sx, sy, haloRadius, 0, Math.PI * 2);
-        ctx.fill();
+  if (endpoint === "/api/news" || endpoint === "/api/intelnews") {
+    return (Array.isArray(payload.news) ? payload.news : []).map((row) => normalizeRecord(row, endpoint));
+  }
 
-        // Core pulse (red)
-        ctx.fillStyle = `rgba(244, 63, 94, ${0.85 + intensity * 0.15})`;
-        ctx.beginPath();
-        ctx.arc(sx, sy, 6, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Confidence ring (inner, subtle)
-        ctx.strokeStyle = `rgba(244, 63, 94, ${0.6 * confidence})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(sx, sy, 9 + confidence * 4, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-    });
-
-    // LAYER 6: Globe outline shine (premium effect)
-    const shineGrad = ctx.createRadialGradient(
-      centerX - globeRadius * 0.3,
-      centerY - globeRadius * 0.3,
-      0,
-      centerX,
-      centerY,
-      globeRadius * 1.2
+  if (endpoint === "/api/global-events") {
+    return (Array.isArray(payload.events) ? payload.events : []).map((row) =>
+      normalizeRecord(
+        {
+          ...row,
+          source: Array.isArray(row.sources) && row.sources.length ? row.sources[0] : "global-events",
+          urgency: row.eventType === "breaking_news" ? "high" : "medium",
+        },
+        "global-events"
+      )
     );
-    shineGrad.addColorStop(0, "rgba(255, 255, 255, 0.08)");
-    shineGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
-    ctx.fillStyle = shineGrad;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, globeRadius, 0, Math.PI * 2);
-    ctx.fill();
+  }
+
+  if (endpoint === "/api/x-feed") {
+    const rows = Array.isArray(payload.posts)
+      ? payload.posts
+      : Array.isArray(payload.signals)
+      ? payload.signals
+      : [];
+    return rows.map((row) => normalizeRecord(row, "x-feed"));
+  }
+
+  if (endpoint === "/api/radar") {
+    return (Array.isArray(payload.aircraft) ? payload.aircraft : []).map((row) =>
+      normalizeRecord(
+        {
+          ...row,
+          title: `Air Track ${row.callsign || "Unknown"}`,
+          summary: `Altitude ${Math.round(Number(row.altitude || 0))} ft`,
+          source: "radar",
+          urgency: "low",
+          region: Number(row.lng || row.lon || 0) >= 42 ? "Middle East" : "Europe",
+          lat: Number(row.lat),
+          lon: Number(row.lng || row.lon),
+        },
+        "radar"
+      )
+    );
+  }
+
+  if (endpoint === "/api/agent-state") {
+    const memoryItems = payload?.memory?.items;
+    const rows = Array.isArray(memoryItems) ? memoryItems.slice(-80) : [];
+    return rows.map((row, idx) =>
+      normalizeRecord(
+        {
+          id: row.id || `agent-${idx}`,
+          title: row.title || row.text || "Agent Signal",
+          summary: row.summary || row.text || "",
+          source: row.source || "agent-state",
+          urgency: row.urgency || "low",
+          region: Array.isArray(row.region) && row.region.length ? row.region[0] : row.region,
+          timestamp: row.timestamp,
+          confidence: row.confidence,
+        },
+        "agent-state"
+      )
+    );
+  }
+
+  return [];
+}
+
+function dedupeEvents(items) {
+  const bestByKey = new Map();
+  items.filter(Boolean).forEach((item) => {
+    const key = eventKey(item);
+    const prev = bestByKey.get(key);
+    const rank = item.riskLevel === "high" ? 3 : item.riskLevel === "medium" ? 2 : 1;
+    const prevRank = prev ? (prev.riskLevel === "high" ? 3 : prev.riskLevel === "medium" ? 2 : 1) : 0;
+    if (!prev) {
+      bestByKey.set(key, { ...item, key, sources: [item.source] });
+      return;
+    }
+
+    const latest = new Date(item.timestamp).getTime() > new Date(prev.timestamp).getTime() ? item.timestamp : prev.timestamp;
+    const picked = rank > prevRank ? item : prev;
+    bestByKey.set(key, {
+      ...picked,
+      key,
+      timestamp: latest,
+      sources: [...new Set([...(prev.sources || [prev.source]), item.source])],
+      source: [...new Set([...(prev.sources || [prev.source]), item.source])].slice(0, 2).join(" + "),
+    });
+  });
+
+  return [...bestByKey.values()].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+}
+
+function latLonTo3D(lat, lon, radius = 1) {
+  const latRad = (lat * Math.PI) / 180;
+  const lonRad = (lon * Math.PI) / 180;
+  return {
+    x: radius * Math.cos(latRad) * Math.cos(lonRad),
+    y: radius * Math.sin(latRad),
+    z: radius * Math.cos(latRad) * Math.sin(lonRad),
   };
+}
 
-  // ─── EVENT HANDLERS ────────────────────────────────────────────────────
+function rotatePoint(point, latRot, lonRot) {
+  let { x, y, z } = point;
+  const cosLon = Math.cos(lonRot);
+  const sinLon = Math.sin(lonRot);
+  const xTemp = x * cosLon - z * sinLon;
+  const zTemp = x * sinLon + z * cosLon;
+  x = xTemp;
+  z = zTemp;
 
-  const handleMouseDown = (e) => {
-    setIsDragging(true);
-    setDragStart({ x: e.clientX, y: e.clientY });
-  };
+  const cosLat = Math.cos(latRot);
+  const sinLat = Math.sin(latRot);
+  const yTemp = y * cosLat - z * sinLat;
+  const zTemp2 = y * sinLat + z * cosLat;
+  y = yTemp;
+  z = zTemp2;
+  return { x, y, z };
+}
 
-  const handleMouseMove = (e) => {
-    setMousePos({ x: e.clientX, y: e.clientY });
-    if (!isDragging) return;
+export default function GlobeVisualization({ worldState, feedStatus, language = "ar", mode = "advanced" }) {
+  const canvasRef = useRef(null);
+  const clickableRef = useRef([]);
+  const animationRef = useRef(null);
+  const refreshTimerRef = useRef(null);
+  const rotationRef = useRef({ lat: 0.25, lon: 0.4 });
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const markersRef = useRef([]);
+  const seenIdsRef = useRef(new Set());
+  const pulseMapRef = useRef(new Map());
 
-    const dx = e.clientX - dragStart.x;
-    const dy = e.clientY - dragStart.y;
+  const [isDragging, setIsDragging] = useState(false);
+  const [events, setEvents] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [lastRefresh, setLastRefresh] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-    setRotation((prev) => {
-      const newLon = prev.lon + dx * 0.005;
-      const newLat = Math.max(
-        -Math.PI / 2,
-        Math.min(Math.PI / 2, prev.lat + dy * 0.005)
+  const maxMarkers = mode === "simplified" ? 60 : 140;
+
+  const agentCoreEvents = useMemo(() => {
+    const out = [];
+    const strategicEvents = Array.isArray(worldState?.strategicSummary?.topGlobalEvents)
+      ? worldState.strategicSummary.topGlobalEvents
+      : [];
+
+    strategicEvents.slice(0, 20).forEach((row, idx) => {
+      const normalized = normalizeRecord(
+        {
+          id: `core-${idx}`,
+          title: row.title,
+          summary: row.summary,
+          region: row.region || row.country,
+          source: "agent-core",
+          urgency: row.urgency,
+          confidence: row.confidence,
+          timestamp: row.time,
+        },
+        "agent-core"
       );
-      return { lat: newLat, lon: newLon };
+      if (normalized) out.push(normalized);
     });
 
-    setDragStart({ x: e.clientX, y: e.clientY });
-  };
+    return out;
+  }, [worldState]);
 
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
+  useEffect(() => {
+    markersRef.current = events;
+  }, [events]);
 
-  const handleTouchStart = (e) => {
-    if (e.touches.length !== 1) return;
-    setIsDragging(true);
-    setDragStart({ x: e.touches[0].clientX, y: e.touches[0].clientY });
-  };
+  useEffect(() => {
+    const now = Date.now();
+    const currentIds = new Set(events.map((event) => event.id));
 
-  const handleTouchMove = (e) => {
-    if (!isDragging || e.touches.length !== 1) return;
-
-    const dx = e.touches[0].clientX - dragStart.x;
-    const dy = e.touches[0].clientY - dragStart.y;
-
-    setRotation((prev) => {
-      const newLon = prev.lon + dx * 0.004;
-      const newLat = Math.max(
-        -Math.PI / 2,
-        Math.min(Math.PI / 2, prev.lat + dy * 0.004)
-      );
-      return { lat: newLat, lon: newLon };
+    events.forEach((event) => {
+      if (!seenIdsRef.current.has(event.id)) {
+        seenIdsRef.current.add(event.id);
+        pulseMapRef.current.set(event.id, now);
+      }
     });
 
-    setDragStart({ x: e.touches[0].clientX, y: e.touches[0].clientY });
-  };
+    for (const eventId of seenIdsRef.current) {
+      if (!currentIds.has(eventId)) {
+        seenIdsRef.current.delete(eventId);
+      }
+    }
 
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-  };
+    for (const [id, startAt] of pulseMapRef.current.entries()) {
+      if (now - startAt > 12000 || !currentIds.has(id)) {
+        pulseMapRef.current.delete(id);
+      }
+    }
+  }, [events]);
 
-  // ─── CANVAS LIFECYCLE & RENDERING ──────────────────────────────────────
+  useEffect(() => {
+    let alive = true;
+
+    const loadAll = async () => {
+      setLoading(true);
+      const results = await Promise.allSettled(ENDPOINTS.map((endpoint) => fetchJson(endpoint).then((payload) => ({ endpoint, payload }))));
+      if (!alive) return;
+
+      const flattened = [];
+      results.forEach((result) => {
+        if (result.status !== "fulfilled" || !result.value?.payload) return;
+        const normalized = flattenEndpointPayload(result.value.endpoint, result.value.payload);
+        flattened.push(...normalized);
+      });
+
+      const merged = dedupeEvents([...flattened, ...agentCoreEvents]).slice(0, maxMarkers);
+      setEvents(merged);
+      setLastRefresh(Date.now());
+      setLoading(false);
+
+      const nextMs = 30000 + Math.floor(Math.random() * 30000);
+      refreshTimerRef.current = setTimeout(loadAll, nextMs);
+    };
+
+    loadAll();
+
+    return () => {
+      alive = false;
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    };
+  }, [agentCoreEvents, maxMarkers]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Responsive canvas sizing
-    const rect = canvas.parentElement?.getBoundingClientRect() || {
-      width: 500,
-      height: 500,
-    };
-    canvas.width = rect.width;
-    canvas.height = rect.height;
-
-    // Animation frame loop
-    const animate = () => {
-      render(canvas);
-      animationRef.current = requestAnimationFrame(animate);
+    const resize = () => {
+      const rect = canvas.parentElement?.getBoundingClientRect() || { width: 500, height: 500 };
+      canvas.width = rect.width;
+      canvas.height = rect.height;
     };
 
-    animate();
+    resize();
+    window.addEventListener("resize", resize);
+
+    const draw = () => {
+      const ctx = canvas.getContext("2d");
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const globeRadius = Math.min(centerX, centerY) * 0.4;
+      const rotation = rotationRef.current;
+      const now = Date.now();
+
+      const bgGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, globeRadius + 90);
+      bgGrad.addColorStop(0, "rgba(30, 41, 59, 0.85)");
+      bgGrad.addColorStop(0.55, "rgba(15, 23, 42, 0.95)");
+      bgGrad.addColorStop(1, "rgba(2, 6, 23, 1)");
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = "rgba(100, 180, 220, 0.08)";
+      ctx.lineWidth = 0.7;
+      for (let lat = -60; lat <= 60; lat += 30) {
+        ctx.beginPath();
+        let first = true;
+        for (let lon = -180; lon <= 180; lon += 12) {
+          const p = rotatePoint(latLonTo3D(lat, lon, 1), rotation.lat, rotation.lon);
+          if (p.z > -0.35) {
+            const sx = centerX + p.x * globeRadius;
+            const sy = centerY - p.y * globeRadius;
+            if (first) {
+              ctx.moveTo(sx, sy);
+              first = false;
+            } else {
+              ctx.lineTo(sx, sy);
+            }
+          }
+        }
+        ctx.stroke();
+      }
+      for (let lon = -180; lon <= 180; lon += 30) {
+        ctx.beginPath();
+        let first = true;
+        for (let lat = -90; lat <= 90; lat += 12) {
+          const p = rotatePoint(latLonTo3D(lat, lon, 1), rotation.lat, rotation.lon);
+          if (p.z > -0.35) {
+            const sx = centerX + p.x * globeRadius;
+            const sy = centerY - p.y * globeRadius;
+            if (first) {
+              ctx.moveTo(sx, sy);
+              first = false;
+            } else {
+              ctx.lineTo(sx, sy);
+            }
+          }
+        }
+        ctx.stroke();
+      }
+
+      const clickable = [];
+      const rows = markersRef.current;
+      for (let i = 0; i < rows.length; i += 1) {
+        const marker = rows[i];
+        const p = rotatePoint(latLonTo3D(marker.lat, marker.lon, 1), rotation.lat, rotation.lon);
+        if (p.z <= -0.42) continue;
+        const sx = centerX + p.x * globeRadius;
+        const sy = centerY - p.y * globeRadius;
+        const zBoost = Math.max(0.25, (p.z + 1) / 2);
+        const baseRadius = marker.riskLevel === "high" ? 4.8 : marker.riskLevel === "medium" ? 4.2 : 3.7;
+        const radius = baseRadius + zBoost;
+
+        if (marker.riskLevel === "high") {
+          const halo = ctx.createRadialGradient(sx, sy, 0, sx, sy, 28 + zBoost * 8);
+          halo.addColorStop(0, "rgba(244, 63, 94, 0.28)");
+          halo.addColorStop(0.55, "rgba(244, 63, 94, 0.11)");
+          halo.addColorStop(1, "rgba(244, 63, 94, 0)");
+          ctx.fillStyle = halo;
+          ctx.beginPath();
+          ctx.arc(sx, sy, 28 + zBoost * 8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        const pulseStart = pulseMapRef.current.get(marker.id);
+        if (pulseStart) {
+          const age = now - pulseStart;
+          if (age <= 12000) {
+            const wave = Math.sin(age * 0.013) * 0.5 + 0.5;
+            const pulseR = 9 + wave * 16;
+            ctx.strokeStyle = marker.riskLevel === "high" ? "rgba(244, 63, 94, 0.25)" : "rgba(250, 204, 21, 0.2)";
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.arc(sx, sy, pulseR, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+
+        ctx.fillStyle = marker.color;
+        ctx.beginPath();
+        ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(15, 23, 42, 0.65)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(sx, sy, radius + 0.6, 0, Math.PI * 2);
+        ctx.stroke();
+
+        clickable.push({ x: sx, y: sy, r: Math.max(8, radius + 4), marker, z: p.z });
+      }
+
+      clickableRef.current = clickable;
+
+      const shine = ctx.createRadialGradient(
+        centerX - globeRadius * 0.25,
+        centerY - globeRadius * 0.28,
+        0,
+        centerX,
+        centerY,
+        globeRadius * 1.25
+      );
+      shine.addColorStop(0, "rgba(255, 255, 255, 0.1)");
+      shine.addColorStop(1, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = shine;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, globeRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      animationRef.current = requestAnimationFrame(draw);
+    };
+
+    draw();
 
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      window.removeEventListener("resize", resize);
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [rotation, mode, worldState, dataLayers, hoveredEntity]);
+  }, []);
 
-  // ─── RENDER COMPONENT ──────────────────────────────────────────────────
+  const handlePointerDown = (clientX, clientY) => {
+    setIsDragging(true);
+    dragStartRef.current = { x: clientX, y: clientY };
+  };
+
+  const handlePointerMove = (clientX, clientY) => {
+    if (!isDragging) return;
+    const dx = clientX - dragStartRef.current.x;
+    const dy = clientY - dragStartRef.current.y;
+    const current = rotationRef.current;
+    const nextLon = current.lon + dx * 0.005;
+    const nextLat = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, current.lat + dy * 0.005));
+    rotationRef.current = { lat: nextLat, lon: nextLon };
+    dragStartRef.current = { x: clientX, y: clientY };
+  };
+
+  const handlePointerUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleCanvasClick = (e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+    let nearest = null;
+    let nearestDist = Number.POSITIVE_INFINITY;
+    const points = clickableRef.current;
+    for (let i = 0; i < points.length; i += 1) {
+      const point = points[i];
+      const dist = Math.hypot(point.x - x, point.y - y);
+      if (dist <= point.r && dist < nearestDist) {
+        nearest = point;
+        nearestDist = dist;
+      }
+    }
+    setSelected(nearest ? nearest.marker : null);
+  };
+
+  const counts = useMemo(() => {
+    const breaking = events.filter((event) => event.markerKind === "breaking").length;
+    const tension = events.filter((event) => event.markerKind === "tension").length;
+    const monitored = events.filter((event) => event.markerKind === "monitored").length;
+    return { breaking, tension, monitored };
+  }, [events]);
+
+  const healthySources = Number(feedStatus?.stats?.healthySources || feedStatus?.healthySources || 0);
 
   return (
     <div
@@ -493,13 +585,20 @@ export default function GlobeVisualization({
     >
       <canvas
         ref={canvasRef}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onMouseDown={(e) => handlePointerDown(e.clientX, e.clientY)}
+        onMouseMove={(e) => handlePointerMove(e.clientX, e.clientY)}
+        onMouseUp={handlePointerUp}
+        onMouseLeave={handlePointerUp}
+        onClick={handleCanvasClick}
+        onTouchStart={(e) => {
+          if (e.touches.length !== 1) return;
+          handlePointerDown(e.touches[0].clientX, e.touches[0].clientY);
+        }}
+        onTouchMove={(e) => {
+          if (e.touches.length !== 1) return;
+          handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+        }}
+        onTouchEnd={handlePointerUp}
         style={{
           display: "block",
           width: "100%",
@@ -508,6 +607,53 @@ export default function GlobeVisualization({
           touchAction: "none",
         }}
       />
+
+      <div
+        style={{
+          position: "absolute",
+          left: 12,
+          top: 12,
+          padding: "8px 10px",
+          borderRadius: 10,
+          background: "rgba(2, 6, 23, 0.6)",
+          border: "1px solid rgba(148, 163, 184, 0.25)",
+          color: "#cbd5e1",
+          fontSize: 11,
+          lineHeight: 1.45,
+          backdropFilter: "blur(4px)",
+        }}
+      >
+        <div>Live: {loading ? "syncing..." : "online"}</div>
+        <div>Healthy sources: {healthySources}</div>
+        <div>Markers: {events.length}</div>
+        <div>Breaking {counts.breaking} | Tension {counts.tension} | Monitored {counts.monitored}</div>
+        <div>Refresh: {lastRefresh ? new Date(lastRefresh).toLocaleTimeString(language === "ar" ? "ar-SA" : "en-GB") : "-"}</div>
+      </div>
+
+      {selected ? (
+        <div
+          style={{
+            position: "absolute",
+            right: 12,
+            bottom: 12,
+            width: "min(280px, 72%)",
+            padding: "10px 12px",
+            borderRadius: 10,
+            background: "rgba(2, 6, 23, 0.78)",
+            border: "1px solid rgba(100, 180, 220, 0.35)",
+            color: "#e2e8f0",
+            fontSize: 12,
+            lineHeight: 1.55,
+            backdropFilter: "blur(6px)",
+          }}
+        >
+          <div style={{ color: selected.color, fontWeight: 800, marginBottom: 6 }}>{selected.title}</div>
+          <div>Region: {selected.region || "Global"}</div>
+          <div>Source: {selected.source || "unknown"}</div>
+          <div>Timestamp: {new Date(selected.timestamp).toLocaleString(language === "ar" ? "ar-SA" : "en-GB")}</div>
+          <div>Risk: {selected.riskLevel}</div>
+        </div>
+      ) : null}
     </div>
   );
 }

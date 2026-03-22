@@ -5,7 +5,7 @@ import GlobeVisualization from "./GlobeVisualization";
  * EyeViewer — Large eye frame containing the interactive globe
  * Metaphor: "World Eye" — the iris contains the living globe
  */
-export default function EyeViewer({ worldState, language = "ar" }) {
+export default function EyeViewer({ worldState, feedStatus, language = "ar", mode = "advanced" }) {
   const isAr = language === "ar";
 
   return (
@@ -40,7 +40,7 @@ export default function EyeViewer({ worldState, language = "ar" }) {
         />
 
         {/* Globe */}
-        <GlobeVisualization worldState={worldState} language={language} />
+        <GlobeVisualization worldState={worldState} feedStatus={feedStatus} language={language} mode={mode} />
 
         {/* Eye Shine */}
         <div
@@ -74,8 +74,8 @@ export default function EyeViewer({ worldState, language = "ar" }) {
         </div>
         <p style={{ color: "#cbd5e1", fontSize: 13, margin: 0, lineHeight: 1.6 }}>
           {isAr
-            ? "قم بتدوير الكرة الأرضية لاستكشاف البيانات • النقاط الحمراء = أحداث عاجلة • النقاط البرتقالية = مناطق توتر"
-            : "Drag to explore • Red = breaking events • Orange = tension zones"}
+            ? "اسحب للتدوير • أحمر = عاجل • برتقالي = توتر • أصفر = مراقبة"
+            : "Drag to rotate • Red = breaking • Orange = tension • Yellow = monitored"}
         </p>
       </div>
 
@@ -85,7 +85,7 @@ export default function EyeViewer({ worldState, language = "ar" }) {
           width: "100%",
           maxWidth: "560px",
           display: "grid",
-          gridTemplateColumns: "1fr 1fr",
+          gridTemplateColumns: "1fr 1fr 1fr",
           gap: 12,
         }}
       >
@@ -117,6 +117,21 @@ export default function EyeViewer({ worldState, language = "ar" }) {
           </div>
           <div style={{ color: "#94a3b8", fontSize: 12 }}>
             {worldState?.strategicSummary?.regionsWithHighestTension?.length || 0} {isAr ? "مناطق" : "regions"}
+          </div>
+        </div>
+        <div
+          style={{
+            padding: "12px 14px",
+            background: "rgba(250, 204, 21, 0.1)",
+            border: "1px solid rgba(250, 204, 21, 0.35)",
+            borderRadius: 8,
+          }}
+        >
+          <div style={{ color: "#facc15", fontSize: 11, fontWeight: 800, marginBottom: 4 }}>
+            {isAr ? "مراقبة" : "Monitored"}
+          </div>
+          <div style={{ color: "#94a3b8", fontSize: 12 }}>
+            {isAr ? "إشارات منخفضة/متوسطة" : "low/medium signals"}
           </div>
         </div>
       </div>
