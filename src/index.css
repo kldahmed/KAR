@@ -505,6 +505,14 @@ textarea {
   margin-bottom: 18px;
 }
 
+.intel-world-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .intel-section__heading h2 {
   margin: 8px 0 0;
   font-size: clamp(1.2rem, 2vw, 1.9rem);

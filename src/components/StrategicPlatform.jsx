@@ -133,9 +133,29 @@ export default function StrategicPlatform({
   activeAlert = null,
   onRetry,
   onOpenArticle,
+  onOpenWorldEye,
 }) {
   const copy = sectionCopy(language);
   const [worldState, setWorldState] = useState(() => getWorldState());
+
+  useEffect(() => {
+    setWorldState(getWorldState());
+  }, [displayedNews, feedStatus, activeAlert, language]);
+
+  const newsFallbackEntries = useMemo(() => {
+    return dedupeByHeadline(displayedNews)
+      .slice(0, 10)
+      .map((item) => ({
+        id: item.id || item.url || item.title,
+        headline: normalizeWhitespace(item.title || item.headline),
+        location: deriveRegion(item),
+        timestamp: item.time || item.timestamp || new Date().toISOString(),
+        severity: deriveImpactLevel(item),
+        source: item.source || "News feed",
+        isUnconfirmed: getSourceCredibility(item.source).tier === "low",
+      }))
+      .filter((item) => item.headline);
+  }, [displayedNews]);
 
   useEffect(() => {
     setWorldState(getWorldState());
@@ -196,17 +216,62 @@ export default function StrategicPlatform({
         isUnconfirmed: getSourceCredibility(item.source).tier === "low",
       }));
 
-    return dedupeByHeadline([...alertEntry, ...breakingEntries, ...strategicEntries])
+    return dedupeByHeadline([...alertEntry, ...breakingEntries, ...strategicEntries, ...newsFallbackEntries])
       .sort((a, b) => parseTimestamp(b.timestamp) - parseTimestamp(a.timestamp))
       .slice(0, 14);
-  }, [activeAlert, feedStatus?.breaking, worldState?.topEvents]);
+  }, [activeAlert, feedStatus?.breaking, newsFallbackEntries, worldState?.topEvents]);
+
+  const derivedRiskLevel = useMemo(() => {
+    if (worldState?.strategicGlobalRisk?.level) return worldState.strategicGlobalRisk.level;
+    const highCount = newsFallbackEntries.filter((item) => item.severity === "high").length;
+    const mediumCount = newsFallbackEntries.filter((item) => item.severity === "medium").length;
+    if (highCount >= 4) return "HIGH";
+    if (highCount >= 2 || mediumCount >= 4) return "MODERATE";
+    return "LOW";
+  }, [newsFallbackEntries, worldState?.strategicGlobalRisk?.level]);
 
   const summaryText = useMemo(() => buildReadableSummary(worldState, language), [worldState, language]);
-  const topRisks = toArray(worldState?.strategicSummary?.topGlobalEvents).slice(0, 3);
-  const hotspotRegions = toArray(worldState?.strategicSummary?.regionsWithHighestTension).slice(0, 5);
-  const outlookText = worldState?.strategicSummary?.likelyNext72Hours || "";
-  const explanationText = worldState?.strategicSummary?.narrative || worldState?.strategicCausalLinks?.[0]?.explanation || "";
-  const riskLevel = worldState?.strategicGlobalRisk?.level || "LOW";
+  const topRisks = useMemo(() => {
+    const strategicRisks = toArray(worldState?.strategicSummary?.topGlobalEvents).slice(0, 3);
+    if (strategicRisks.length > 0) return strategicRisks;
+    return dedupeByHeadline(displayedNews)
+      .slice(0, 3)
+      .map((item) => ({
+        title: normalizeWhitespace(item.title || item.headline),
+        region: deriveRegion(item),
+        why: summarizeText(item.summary || item.text || item.description, 150),
+      }));
+  }, [displayedNews, worldState?.strategicSummary?.topGlobalEvents]);
+
+  const hotspotRegions = useMemo(() => {
+    const strategicHotspots = toArray(worldState?.strategicSummary?.regionsWithHighestTension).slice(0, 5);
+    if (strategicHotspots.length > 0) return strategicHotspots;
+
+    const regionalScores = new Map();
+    newsFallbackEntries.forEach((entry) => {
+      const current = regionalScores.get(entry.location) || 0;
+      const weight = entry.severity === "high" ? 3 : entry.severity === "medium" ? 2 : 1;
+      regionalScores.set(entry.location, current + weight);
+    });
+
+    return [...regionalScores.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([region]) => region);
+  }, [newsFallbackEntries, worldState?.strategicSummary?.regionsWithHighestTension]);
+
+  const outlookText = worldState?.strategicSummary?.likelyNext72Hours
+    || (worldState?.interpretation ? (language === "ar" ? worldState.interpretation.ar : worldState.interpretation.en) : "")
+    || (newsFallbackEntries[0]?.headline
+      ? (language === "ar" ? `خلال الساعات الـ72 القادمة يتركز الانتباه على ${newsFallbackEntries[0].headline}.` : `Over the next 72 hours, attention is centered on ${newsFallbackEntries[0].headline}.`)
+      : "");
+
+  const explanationText = worldState?.strategicSummary?.narrative
+    || worldState?.strategicCausalLinks?.[0]?.explanation
+    || (worldState?.interpretation ? (language === "ar" ? worldState.interpretation.ar : worldState.interpretation.en) : "")
+    || summaryText;
+
+  const riskLevel = derivedRiskLevel;
 
   return (
     <div className="intel-platform">
@@ -315,7 +380,14 @@ export default function StrategicPlatform({
             <div className="intel-section__eyebrow">{copy.worldEyeTitle}</div>
             <h2>{copy.worldEyeSubtitle}</h2>
           </div>
-          <div className={`intel-risk-pill intel-risk-pill--${String(riskLevel).toLowerCase()}`}>{riskLevel}</div>
+          <div className="intel-world-actions">
+            <div className={`intel-risk-pill intel-risk-pill--${String(riskLevel).toLowerCase()}`}>{riskLevel}</div>
+            {typeof onOpenWorldEye === "function" ? (
+              <button type="button" className="intel-action" onClick={onOpenWorldEye}>
+                {language === "ar" ? "فتح عين العالم" : "Open World Eye"}
+              </button>
+            ) : null}
+          </div>
         </div>
 
         <div className="intel-world-grid">

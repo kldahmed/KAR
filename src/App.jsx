@@ -7,6 +7,7 @@ import { startEngine as startGlobalEventsEngine, stopEngine as stopGlobalEventsE
 import LiveAlertDrawer from "./components/LiveAlertDrawer";
 import { useDashboardData } from "./lib/useDashboardData";
 import StrategicPlatform from "./components/StrategicPlatform";
+import WorldEyeMode from "./components/WorldEyeMode";
 import { localizeSummaryText, processNewsItem, needsCleaning } from "./lib/i18n/summaryLocalizer";
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalArticle, setModalArticle] = useState(null);
+  const [worldEyeOpen, setWorldEyeOpen] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [liveBreakingHeadlines, setLiveBreakingHeadlines] = useState([]);
   const [streamStatus, setStreamStatus] = useState("");
@@ -199,6 +201,14 @@ export default function App() {
         </div>
 
         <div className="app-header__controls">
+          <button
+            type="button"
+            onClick={() => setWorldEyeOpen(true)}
+            className="app-world-eye-btn"
+            title={language === "ar" ? "فتح عين العالم" : "Open World Eye"}
+          >
+            👁️ {language === "ar" ? "عين العالم" : "World Eye"}
+          </button>
           <LanguageSwitcher />
         </div>
       </header>
@@ -233,8 +243,11 @@ export default function App() {
           activeAlert={activeAlert}
           onRetry={retryNews}
           onOpenArticle={handleCardClick}
+          onOpenWorldEye={() => setWorldEyeOpen(true)}
         />
       </main>
+
+      {worldEyeOpen ? <WorldEyeMode onClose={() => setWorldEyeOpen(false)} /> : null}
 
       {showBackToTop ? (
         <button
