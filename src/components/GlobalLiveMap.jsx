@@ -17,6 +17,7 @@ import { getRadarForMap, subscribeRadar, getSignalArcs } from "../lib/radar/glob
 const Globe = lazy(() => import("react-globe.gl"));
 
 const MAP_MODE_KEYS = ["live", "pressure", "clusters", "economic", "sports", "forecast", "entities", "radar"];
+const MAP_ENDPOINT_FALLBACKS = ["/api/global-map-state", "/api/global-events", "/api/radar"];
 
 const WORLD_GEOJSON_URL =
   "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson";
@@ -38,6 +39,10 @@ export default function GlobalLiveMap() {
   const [mode, setMode] = useState("live");
   const [mapState, setMapState] = useState(null);
   const [geoData, setGeoData] = useState(null);
+  const [loadState, setLoadState] = useState("loading"); // loading | success | error
+  const [loadError, setLoadError] = useState("");
+  const [resolvedEndpoint, setResolvedEndpoint] = useState("");
+  const [retryTick, setRetryTick] = useState(0);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [range, setRange] = useState("30m");
   const [playing, setPlaying] = useState(false);
@@ -46,6 +51,114 @@ export default function GlobalLiveMap() {
   const [useGlobe, setUseGlobe] = useState(false);
   const [isLowPower, setIsLowPower] = useState(false);
   const globeRef = useRef();
+  const requestSeqRef = useRef(0);
+
+  const isMapStatePayload = useCallback((payload) => {
+    return Boolean(
+      payload &&
+      Array.isArray(payload.countries) &&
+      Array.isArray(payload.links) &&
+      Array.isArray(payload.signals)
+    );
+  }, []);
+
+  const normalizeFallbackPayload = useCallback((endpoint, payload) => {
+    if (endpoint === "/api/global-map-state" && isMapStatePayload(payload)) {
+      return payload;
+    }
+
+    if (endpoint === "/api/global-events" && Array.isArray(payload?.events)) {
+      return {
+        countries: [],
+        links: [],
+        signals: payload.events.map((event, idx) => ({
+          id: event.id || `evt-${idx}`,
+          title: event.title || "",
+          summary: event.summary || "",
+          source: event.source || "global-events",
+          time: event.time || new Date().toISOString(),
+          category: event.category || "news",
+          impact: Number(event.severity || 0) / 100,
+          confidence: Number(event.confidence || 50) / 100,
+          urgency: event.urgency || "medium",
+          country: event.country || "",
+          zones: [],
+        })),
+        timeline: {},
+      };
+    }
+
+    if (endpoint === "/api/radar" && Array.isArray(payload?.signals)) {
+      return {
+        countries: [],
+        links: [],
+        signals: payload.signals.map((signal, idx) => ({
+          id: signal.id || `rad-${idx}`,
+          title: signal.title || signal.headline || "",
+          summary: signal.summary || "",
+          source: signal.source || "radar",
+          time: signal.time || new Date().toISOString(),
+          category: signal.category || "news",
+          impact: Number(signal.impact || signal.score || 0) / 100,
+          confidence: Number(signal.confidence || 50) / 100,
+          urgency: signal.urgency || "medium",
+          country: signal.country || "",
+          zones: [],
+        })),
+        timeline: {},
+      };
+    }
+
+    return null;
+  }, [isMapStatePayload]);
+
+  const fetchEndpointJson = useCallback(async (endpoint, timeoutMs = 12000) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(endpoint, {
+        signal: controller.signal,
+        headers: { "Accept": "application/json" },
+      });
+      if (!response.ok) throw new Error(`http_${response.status}`);
+      return await response.json();
+    } finally {
+      clearTimeout(timeout);
+    }
+  }, []);
+
+  const loadMapStateWithFallback = useCallback(async () => {
+    const seq = ++requestSeqRef.current;
+    setLoadState((prev) => (prev === "success" ? prev : "loading"));
+    setLoadError("");
+
+    for (const endpoint of MAP_ENDPOINT_FALLBACKS) {
+      try {
+        const payload = await fetchEndpointJson(endpoint);
+        const normalized = normalizeFallbackPayload(endpoint, payload);
+        if (!normalized) {
+          throw new Error(`invalid_payload_${endpoint}`);
+        }
+
+        if (seq !== requestSeqRef.current) return;
+        setMapState(normalized);
+        setResolvedEndpoint(endpoint);
+        setLoadState("success");
+        if (!selectedNodeId && normalized?.countries?.length) {
+          setSelectedNodeId(normalized.countries[0].id);
+        }
+        return;
+      } catch (error) {
+        if (seq !== requestSeqRef.current) return;
+        // Continue trying the fallback chain.
+      }
+    }
+
+    if (seq !== requestSeqRef.current) return;
+    setLoadState("error");
+    setLoadError("تعذر تحميل هذا القسم حالياً");
+    setMapState((prev) => prev || { countries: [], links: [], signals: [], timeline: {} });
+  }, [fetchEndpointJson, normalizeFallbackPayload, selectedNodeId]);
 
   // Global live events layer
   const [globalEvents, setGlobalEvents] = useState([]);
@@ -86,37 +199,46 @@ export default function GlobalLiveMap() {
   useEffect(() => {
     let mounted = true;
 
-    async function loadMapState() {
+    async function loadMapResources() {
       try {
-        const [stateRes, geoRes] = await Promise.all([
-          fetch("/api/global-map-state"),
-          geoData ? Promise.resolve(null) : fetch(WORLD_GEOJSON_URL)
-        ]);
+        await loadMapStateWithFallback();
 
-        const state = await stateRes.json();
-        if (mounted) {
-          setMapState(state);
-          if (!selectedNodeId && state?.countries?.length) {
-            setSelectedNodeId(state.countries[0].id);
+        if (!geoData) {
+          try {
+            const world = await fetchEndpointJson(WORLD_GEOJSON_URL, 15000);
+            if (mounted) setGeoData(world);
+          } catch {
+            // Geo layer is optional; keep map operational without country polygons.
           }
         }
-
-        if (!geoData && geoRes?.ok) {
-          const world = await geoRes.json();
-          if (mounted) setGeoData(world);
-        }
       } catch {
-        if (mounted) setMapState((prev) => prev || { countries: [], links: [], signals: [], timeline: {} });
+        if (mounted) {
+          setLoadState("error");
+          setLoadError("تعذر تحميل هذا القسم حالياً");
+        }
       }
     }
 
-    loadMapState();
-    const interval = setInterval(loadMapState, 30000);
+    loadMapResources();
+    const interval = setInterval(loadMapResources, 30000);
     return () => {
       mounted = false;
       clearInterval(interval);
     };
-  }, [geoData, selectedNodeId]);
+  }, [fetchEndpointJson, geoData, loadMapStateWithFallback]);
+
+  useEffect(() => {
+    if (loadState !== "error") return;
+    const retryTimer = setTimeout(() => {
+      setRetryTick((v) => v + 1);
+    }, 5000);
+    return () => clearTimeout(retryTimer);
+  }, [loadState]);
+
+  useEffect(() => {
+    if (retryTick === 0) return;
+    loadMapStateWithFallback();
+  }, [retryTick, loadMapStateWithFallback]);
 
   const motionSettings = useMemo(() => getMotionSettings(prefersReducedMotion), [prefersReducedMotion]);
 
@@ -255,7 +377,35 @@ export default function GlobalLiveMap() {
       )}
 
       <div className={`glm-map-wrap ${useGlobe ? "glm-globe-active" : ""}`}>
-        {useGlobe ? (
+        {loadState === "loading" && !mapState ? (
+          <div className="glm-globe-loading">
+            <div className="glm-globe-spinner" />
+            <span>{t("app.loading")}</span>
+          </div>
+        ) : null}
+
+        {loadState === "error" ? (
+          <div className="glm-globe-loading" dir={direction}>
+            <div style={{ color: "#ef4444", fontWeight: 700 }}>{loadError || "تعذر تحميل هذا القسم حالياً"}</div>
+            <button
+              type="button"
+              onClick={() => loadMapStateWithFallback()}
+              className="glm-globe-toggle"
+              style={{ marginTop: 10 }}
+            >
+              {language === "ar" ? "إعادة المحاولة" : "Retry"}
+            </button>
+          </div>
+        ) : null}
+
+        {loadState === "success" && resolvedEndpoint ? (
+          <div className="glm-performance-banner">
+            {language === "ar" ? `مصدر البيانات: ${resolvedEndpoint}` : `Data source: ${resolvedEndpoint}`}
+          </div>
+        ) : null}
+
+        {loadState !== "error" ? (
+        useGlobe ? (
           <Suspense
             fallback={
               <div className="glm-globe-loading">
@@ -368,7 +518,7 @@ export default function GlobalLiveMap() {
               radarArcs={mode === "radar" ? radarArcs : []}
             />
           </MapContainer>
-        )}
+        ) : null}
       </div>
 
       <div className="glm-footer-grid">
