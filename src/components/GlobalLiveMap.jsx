@@ -57,7 +57,7 @@ function getCountryId(feature) {
     .slice(0, 2);
 }
 
-export default function GlobalLiveMap() {
+export default function GlobalLiveMap({ featuredAlert = null }) {
   const { t, language, direction, formatDateTime } = useI18n();
   const [mode, setMode] = useState("live");
   const [mapState, setMapState] = useState(null);
@@ -592,6 +592,13 @@ export default function GlobalLiveMap() {
           </div>
         </div>
       </div>
+
+      {featuredAlert?.id ? (
+        <div className="glm-featured-alert" role="status" aria-live="polite">
+          <strong>{language === "ar" ? "تنبيه فوري" : "Priority alert"}</strong>
+          <span>{featuredAlert.title}</span>
+        </div>
+      ) : null}
 
       {isLowPower && (
         <div className="glm-performance-banner">

@@ -1,8 +1,12 @@
 import React from "react";
 import { formatDisplayTime } from "../AppHelpers";
 
-export default function LiveAlertDrawer({ alert, language = "ar", onDismiss, onOpenNews }) {
+export default function LiveAlertDrawer({ alert, history = [], language = "ar", onDismiss, onOpenNews }) {
   if (!alert) return null;
+
+  const recentAlerts = Array.isArray(history)
+    ? history.filter((item) => item?.id && item.id !== alert.id).slice(0, 3)
+    : [];
 
   return (
     <div className="live-alert-drawer" role="status" aria-live="polite">
@@ -18,6 +22,17 @@ export default function LiveAlertDrawer({ alert, language = "ar", onDismiss, onO
           <span>{formatDisplayTime(alert.time, language === "en" ? "en" : "ar") || alert.time || "—"}</span>
           <span>{language === "ar" ? `أولوية ${alert.intakePriority || 0}` : `Priority ${alert.intakePriority || 0}`}</span>
         </div>
+        {recentAlerts.length > 0 ? (
+          <div className="live-alert-drawer__timeline">
+            <div className="live-alert-drawer__timeline-title">{language === "ar" ? "آخر التنبيهات" : "Recent alerts"}</div>
+            {recentAlerts.map((item) => (
+              <div key={item.id} className="live-alert-drawer__timeline-item">
+                <span className="live-alert-drawer__timeline-dot" />
+                <span className="live-alert-drawer__timeline-text">{item.title}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
       <div className="live-alert-drawer__actions">
         <button type="button" className="live-alert-drawer__primary" onClick={onOpenNews}>

@@ -110,7 +110,7 @@ function LinkArc({ fromX, fromY, toX, toY, color, strength }) {
   );
 }
 
-export default function GlobalPressureMap() {
+export default function GlobalPressureMap({ featuredAlert = null }) {
   const { language } = useI18n();
   const isAr = language === "ar";
   const [ws, setWs] = useState(null);
@@ -196,6 +196,25 @@ export default function GlobalPressureMap() {
           <div style={{ fontSize: 17, fontWeight: 800, color: P.text }}>
             {isAr ? "أين يتصاعد الضغط العالمي؟" : "Where is global pressure rising?"}
           </div>
+          {featuredAlert?.id ? (
+            <div style={{
+              marginTop: 8,
+              border: "1px solid rgba(248,113,113,0.32)",
+              borderRadius: 999,
+              padding: "4px 10px",
+              background: "rgba(127,29,29,0.24)",
+              color: "#fecaca",
+              fontSize: 10,
+              fontWeight: 800,
+              display: "inline-flex",
+              maxWidth: 380,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}>
+              {isAr ? "تنبيه مباشر" : "Live alert"}: {featuredAlert.title}
+            </div>
+          ) : null}
         </div>
         <div style={{
           display: "flex", alignItems: "center", gap: 10,

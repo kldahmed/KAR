@@ -29,7 +29,7 @@ function ListPanel({ title, subtitle, items, renderItem, emptyText }) {
   );
 }
 
-export default function WorldStatePage({ language, mode = "simplified" }) {
+export default function WorldStatePage({ language, mode = "simplified", featuredAlert = null }) {
   const isAdvanced = mode === "advanced";
   const {
     signals,
@@ -150,8 +150,27 @@ export default function WorldStatePage({ language, mode = "simplified" }) {
           </div>
         </div>
 
+        {featuredAlert?.id ? (
+          <div style={{
+            marginBottom: 12,
+            border: "1px solid rgba(248,113,113,0.35)",
+            background: "linear-gradient(135deg, rgba(127,29,29,0.26), rgba(30,41,59,0.26))",
+            borderRadius: 12,
+            padding: "8px 10px",
+            color: "#fecaca",
+            fontSize: 12,
+            display: "grid",
+            gap: 4,
+          }}>
+            <div style={{ fontWeight: 900, letterSpacing: 0.4 }}>
+              {language === "ar" ? "تنبيه فوري على الخريطة" : "Map live priority alert"}
+            </div>
+            <div style={{ color: "#ffe4e6" }}>{featuredAlert.title}</div>
+          </div>
+        ) : null}
+
         <LazySection minHeight={isAdvanced ? 520 : 300}>
-          {isAdvanced ? <GlobalLiveMap /> : <GlobalPressureMap />}
+          {isAdvanced ? <GlobalLiveMap featuredAlert={featuredAlert} /> : <GlobalPressureMap featuredAlert={featuredAlert} />}
         </LazySection>
 
         {!isAdvanced ? (

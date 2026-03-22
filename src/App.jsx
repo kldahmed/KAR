@@ -40,6 +40,7 @@ export default function App() {
   const [liveBreakingHeadlines, setLiveBreakingHeadlines] = useState([]);
   const [streamStatus, setStreamStatus] = useState("");
   const [activeAlert, setActiveAlert] = useState(null);
+  const [alertHistory, setAlertHistory] = useState([]);
 
   const {
     categories,
@@ -185,6 +186,18 @@ export default function App() {
   }, [feedStatus?.featuredAlert]);
 
   useEffect(() => {
+    if (!activeAlert?.id) return;
+
+    setAlertHistory((current) => {
+      const next = [
+        activeAlert,
+        ...current.filter((item) => item?.id && item.id !== activeAlert.id),
+      ];
+      return next.slice(0, 8);
+    });
+  }, [activeAlert]);
+
+  useEffect(() => {
     const advancedPaths = new Set(getRoutesForMode("advanced").filter((route) => route.tier === "advanced" && route.id !== "console").map((route) => route.path));
     const allowedRoutePaths = new Set(getRoutesForMode(mode).map((route) => route.path));
 
@@ -231,7 +244,15 @@ export default function App() {
 
     switch (currentPath) {
       case "/world-state":
-        return <WorldStatePage language={language} mode={mode} intelMetrics={intelMetrics} refreshKey={intelRefreshKey} />;
+        return (
+          <WorldStatePage
+            language={language}
+            mode={mode}
+            intelMetrics={intelMetrics}
+            refreshKey={intelRefreshKey}
+            featuredAlert={activeAlert}
+          />
+        );
       case "/news":
         return (
           <NewsPage
@@ -289,7 +310,7 @@ export default function App() {
 
   return (
     <div
-      className="app-shell"
+      className={activeAlert ? "app-shell alert-active" : "app-shell"}
       dir={direction}
       style={{
         position: "relative"
@@ -359,6 +380,7 @@ export default function App() {
 
       <LiveAlertDrawer
         alert={activeAlert}
+        history={alertHistory}
         language={language}
         onDismiss={() => setActiveAlert(null)}
         onOpenNews={() => {
@@ -390,7 +412,7 @@ export default function App() {
 
       <ArticleModal open={modalOpen} onClose={() => setModalOpen(false)} article={modalArticle} />
 
-      <GlobalVoiceBriefing headlines={tickerHeadlines} />
+      <GlobalVoiceBriefing headlines={tickerHeadlines} priorityAlert={activeAlert} alertHistory={alertHistory} />
 
       <AppSectionBoundary>
         <AgentPresence refreshKey={intelRefreshKey} />

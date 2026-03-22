@@ -108,6 +108,32 @@
   font-weight: 500;
 }
 
+.glm-featured-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(248, 113, 113, 0.34);
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.34), rgba(15, 23, 42, 0.84));
+  color: #fecaca;
+  font-size: 0.8rem;
+}
+
+.glm-featured-alert strong {
+  color: #fda4af;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.glm-featured-alert span {
+  color: #ffe4e6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .glm-ops-controls {
   margin-bottom: 10px;
   border: 1px solid rgba(56, 189, 248, 0.16);

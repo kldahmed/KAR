@@ -181,8 +181,17 @@ function MiniStat({ label, value, color }) {
   );
 }
 
+function summarizeAlertText(alert, language) {
+  const title = String(alert?.title || "").trim();
+  if (!title) return "";
+  if (language === "ar") {
+    return `تنبيه فوري: ${title}`;
+  }
+  return `Priority alert: ${title}`;
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
-export default function GlobalVoiceBriefing({ headlines = [] }) {
+export default function GlobalVoiceBriefing({ headlines = [], priorityAlert = null }) {
   const { t, language } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -201,6 +210,7 @@ export default function GlobalVoiceBriefing({ headlines = [] }) {
   const styleRef = useRef(null);
   const refreshIntervalRef = useRef(null);
   const utterancesRef = useRef([]);
+  const announcedAlertRef = useRef("");
 
   // Inject keyframes once
   useEffect(() => {
@@ -359,6 +369,25 @@ export default function GlobalVoiceBriefing({ headlines = [] }) {
     setIsMuted(val === 0);
   }, []);
 
+  useEffect(() => {
+    if (!priorityAlert?.id) return;
+    if (!synthRef.current || !supported) return;
+    if (announcedAlertRef.current === priorityAlert.id) return;
+
+    announcedAlertRef.current = priorityAlert.id;
+
+    const alertText = summarizeAlertText(priorityAlert, language);
+    if (!alertText) return;
+
+    const utterance = new SpeechSynthesisUtterance(alertText);
+    utterance.lang = language === "ar" ? "ar-AE" : "en-US";
+    utterance.volume = isMuted ? 0 : Math.max(0.45, volume * 0.9);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    if (voiceRef.current) utterance.voice = voiceRef.current;
+    synthRef.current.speak(utterance);
+  }, [priorityAlert, language, supported, isMuted, volume]);
+
   // Current segment info
   const currentSeg = briefing?.segments?.[currentSegIdx] || null;
 
@@ -431,6 +460,19 @@ export default function GlobalVoiceBriefing({ headlines = [] }) {
               📡 {quickSummary}
             </div>
           )}
+
+          {priorityAlert?.id ? (
+            <div style={{
+              padding: "8px 18px",
+              background: "rgba(239,68,68,0.09)",
+              borderBottom: "1px solid rgba(239,68,68,0.16)",
+              color: "#fecaca",
+              fontSize: 11,
+              lineHeight: 1.5,
+            }}>
+              🚨 {summarizeAlertText(priorityAlert, language)}
+            </div>
+          ) : null}
 
           {/* Waveform + Current Segment */}
           {isPlaying && (
