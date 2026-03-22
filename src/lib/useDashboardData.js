@@ -116,8 +116,38 @@ function isValidArticle(item) {
 
 function normalizeNewsItem(item, language) {
   const localized = localizeDisplayItem(item, language);
+  const stripHtml = (value = "") => {
+    const raw = String(value || "");
+    const noScripts = raw
+      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, " ");
+    return noScripts
+      .replace(/<[^>]*>/g, " ")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  const clampText = (value = "", max = 160) => {
+    const clean = stripHtml(value);
+    if (clean.length <= max) return clean;
+    return `${clean.slice(0, Math.max(0, max - 1)).trim()}…`;
+  };
+
+  const safeTitle = clampText(localized.title || item.title || "", 140);
+  const safeSummary = clampText(localized.summary || item.summary || "", 160);
+  const safeSource = clampText(localized.source || item.source || "", 70);
+
   return {
     ...localized,
+    title: safeTitle,
+    summary: safeSummary,
+    source: safeSource,
     category: String(localized.category || item.category || "all").toLowerCase(),
   };
 }
