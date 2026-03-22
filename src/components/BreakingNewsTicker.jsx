@@ -12,15 +12,33 @@ export default function BreakingNewsTicker({
 }) {
   const { t, direction } = useI18n();
 
+  const sanitizeHeadline = (value = "") => {
+    const clean = String(value || "")
+      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]*>/g, " ")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!clean) return "";
+    if (clean.length <= 90) return clean;
+    return `${clean.slice(0, 89).trim()}…`;
+  };
+
   const safeHeadlines = useMemo(() => {
     if (!Array.isArray(headlines) || headlines.length === 0) {
       return [t("ticker.fallback")];
     }
 
     return headlines
-      .map((item) => String(item || "").replace(/\s+/g, " ").trim())
+      .map((item) => sanitizeHeadline(item))
       .filter(Boolean);
-  }, [headlines]);
+  }, [headlines, t]);
 
   const tickerItems = useMemo(() => {
     // نكرر المحتوى 3 مرات لضمان الاستمرارية

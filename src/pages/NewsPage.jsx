@@ -1,6 +1,14 @@
 import React, { useMemo } from "react";
 import { PageHero, pageShell, panelStyle } from "./shared/pagePrimitives";
 
+const CATEGORY_BLOCKS = [
+  { key: "politics", labelAr: "سياسة", labelEn: "Politics" },
+  { key: "economy", labelAr: "اقتصاد", labelEn: "Economy" },
+  { key: "regional", labelAr: "إقليمي", labelEn: "Regional" },
+  { key: "sports", labelAr: "رياضة", labelEn: "Sports" },
+  { key: "technology", labelAr: "تقنية", labelEn: "Technology" },
+];
+
 function formatTime(value = "", language = "ar") {
   if (!value) return language === "ar" ? "الآن" : "Now";
   const date = new Date(value);
@@ -95,7 +103,26 @@ export default function NewsPage({
   const ranked = useMemo(() => rankNews(Array.isArray(displayedNews) ? displayedNews : []), [displayedNews]);
   const hero = ranked[0] || null;
   const featured = ranked.slice(1, 5);
-  const regular = ranked.slice(5);
+  const latest = ranked.slice(5, 17);
+
+  const categoryRows = useMemo(() => {
+    return CATEGORY_BLOCKS.map((block) => {
+      const primary = ranked.filter((item) => String(item?.category || "").toLowerCase() === block.key).slice(0, 4);
+      if (primary.length >= 4) {
+        return { ...block, items: primary };
+      }
+
+      const fallback = ranked
+        .filter((item) => String(item?.category || "").toLowerCase() !== block.key)
+        .filter((item) => !primary.some((entry) => String(entry?.id || entry?.title) === String(item?.id || item?.title)))
+        .slice(0, 4 - primary.length);
+
+      return {
+        ...block,
+        items: [...primary, ...fallback].slice(0, 4),
+      };
+    });
+  }, [ranked]);
 
   return (
     <div style={pageShell} className="news-modern-page">
@@ -163,11 +190,24 @@ export default function NewsPage({
           <h3>{language === "ar" ? "آخر الأخبار" : "Latest news"}</h3>
         </div>
         <div className="news-regular-grid">
-          {regular.map((item) => (
+          {latest.map((item) => (
             <StoryCard key={item.id || item.title} item={item} language={language} onOpen={handleCardClick} compact />
           ))}
         </div>
       </section>
+
+      {categoryRows.map((section) => (
+        <section className="news-section" key={section.key}>
+          <div className="news-section__head">
+            <h3>{language === "ar" ? section.labelAr : section.labelEn}</h3>
+          </div>
+          <div className="news-featured-grid">
+            {section.items.map((item) => (
+              <StoryCard key={`${section.key}-${item.id || item.title}`} item={item} language={language} onOpen={handleCardClick} />
+            ))}
+          </div>
+        </section>
+      ))}
 
       {loading ? <div className="news-state">{language === "ar" ? "جارٍ التحديث" : "Refreshing"}</div> : null}
       {error ? (
