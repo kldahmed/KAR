@@ -36,7 +36,7 @@ export function LanguageSwitcher() {
         aria-label="Switch language"
         aria-expanded={isOpen}
       >
-        <span className="language-flag">{isArabic ? "AR" : "EN"}</span>
+        <span className="language-flag">{isArabic ? "ع" : "EN"}</span>
         <span className="language-label">{isArabic ? "العربية" : "English"}</span>
         <svg className="dropdown-icon" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -50,7 +50,7 @@ export function LanguageSwitcher() {
             onClick={() => handleLanguageChange("ar")}
           >
             <span className="option-flag">🇸🇦</span>
-            <span className="option-text">العربية</span>
+            <span className="option-text">{isArabic ? "العربية" : "Arabic"}</span>
             {language === "ar" && <span className="checkmark">✓</span>}
           </button>
           <button
@@ -58,7 +58,7 @@ export function LanguageSwitcher() {
             onClick={() => handleLanguageChange("en")}
           >
             <span className="option-flag">🇬🇧</span>
-            <span className="option-text">English</span>
+            <span className="option-text">{isArabic ? "الإنجليزية" : "English"}</span>
             {language === "en" && <span className="checkmark">✓</span>}
           </button>
         </div>

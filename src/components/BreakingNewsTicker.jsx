@@ -85,7 +85,7 @@ export default function BreakingNewsTicker({
               fontSize: "12px",
             }}
           >
-            {direction === "rtl" ? `${liveCount} عاجل` : `${liveCount} breaking`}
+            {direction === "rtl" ? `${liveCount} عاجل` : `${liveCount} Breaking`}
           </div>
         ) : null}
 
