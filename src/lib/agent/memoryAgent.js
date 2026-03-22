@@ -20,6 +20,7 @@ const SERVER_SYNC_TTL_MS = 10 * 1000;
 
 let lastServerSyncAt = 0;
 let lastServerSyncOk = false;
+let lastServerSnapshot = null;
 
 function canUseStorage() {
   return typeof window !== "undefined" && typeof localStorage !== "undefined";
@@ -139,6 +140,10 @@ export const agentMemory = {
     };
   },
 
+  getLatestReasoningChain() {
+    return lastServerSnapshot?.reasoningChain || null;
+  },
+
   /** Pull latest memory snapshot from server and hydrate local fallback store. */
   async syncFromServer(force = false) {
     const now = Date.now();
@@ -158,6 +163,7 @@ export const agentMemory = {
       const snapshot = await res.json();
       const hydrated = hydrateFromServerSnapshot(snapshot);
       lastServerSyncOk = hydrated || Boolean(snapshot?.status === "active");
+      lastServerSnapshot = snapshot;
 
       return {
         ok: lastServerSyncOk,

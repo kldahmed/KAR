@@ -168,7 +168,7 @@ html {
 }
 
 .agent-dashboard-grid-primary {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.18fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr) minmax(0, 1fr);
   margin-bottom: 18px;
 }
 

@@ -92,6 +92,70 @@ function computeMeta(items, feedback) {
   };
 }
 
+function buildEntityLinkGraph(items) {
+  const pairCounts = new Map();
+  for (const item of items.slice(-400)) {
+    const entities = (Array.isArray(item.entities) ? item.entities : []).slice(0, 8);
+    for (let i = 0; i < entities.length; i++) {
+      for (let j = i + 1; j < entities.length; j++) {
+        const a = String(entities[i] || "").trim();
+        const b = String(entities[j] || "").trim();
+        if (!a || !b || a === b) continue;
+        const key = [a, b].sort().join("|#|");
+        pairCounts.set(key, (pairCounts.get(key) || 0) + 1);
+      }
+    }
+  }
+
+  return [...pairCounts.entries()]
+    .map(([key, weight]) => {
+      const [from, to] = key.split("|#|");
+      return { from, to, weight };
+    })
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, 24);
+}
+
+function buildReasoningChain(items, meta) {
+  const recent = items.slice(-120);
+  const topSignal = Object.entries(meta.signalCounts || {}).sort((a, b) => b[1] - a[1])[0];
+  const topRegion = recent
+    .flatMap((item) => (Array.isArray(item.region) ? item.region : [item.region]).filter(Boolean))
+    .reduce((acc, region) => {
+      acc[region] = (acc[region] || 0) + 1;
+      return acc;
+    }, {});
+  const topRegionEntry = Object.entries(topRegion).sort((a, b) => b[1] - a[1])[0];
+  const linkGraph = buildEntityLinkGraph(recent);
+  const strongestLink = linkGraph[0];
+  const confidence = Math.max(
+    20,
+    Math.min(
+      95,
+      Math.round(
+        ((meta.forecastAccuracy || 45) * 0.35) +
+        (Math.min(35, (topSignal?.[1] || 0) * 4)) +
+        (strongestLink ? 15 : 5) +
+        (topRegionEntry ? 8 : 0)
+      )
+    )
+  );
+
+  return {
+    event_detected: topSignal
+      ? `Dominant signal '${topSignal[0]}' repeated ${topSignal[1]} times`
+      : "No dominant signal yet",
+    linked_signals: strongestLink
+      ? `Entity linkage: ${strongestLink.from} ↔ ${strongestLink.to} (${strongestLink.weight}x)`
+      : "No strong entity links yet",
+    inferred_impact: topRegionEntry
+      ? `Likely pressure concentration in ${topRegionEntry[0]} (${topRegionEntry[1]} related records)`
+      : "Impact pattern still forming",
+    confidence,
+    generated_at: dubaiTimestamp(),
+  };
+}
+
 export function ingestServerItems(items, sourceType = "news") {
   const store = storeRef();
   const ts = dubaiTimestamp();
@@ -176,6 +240,8 @@ export function getServerAgentSnapshot() {
   const items = store.items.slice(-MAX_ITEMS);
   const feedback = store.feedback.slice(-MAX_FEEDBACK);
   const meta = computeMeta(items, feedback);
+  const relationGraph = buildEntityLinkGraph(items);
+  const reasoningChain = buildReasoningChain(items, meta);
 
   return {
     status: "active",
@@ -184,6 +250,7 @@ export function getServerAgentSnapshot() {
     memory: {
       items,
       meta,
+      relationGraph,
       stats: {
         totalIngested: store.stats.totalIngested,
         lastFeedAt: store.stats.lastFeedAt,
@@ -193,7 +260,8 @@ export function getServerAgentSnapshot() {
     feedback: {
       patternReliability: store.patternReliability,
       recent: feedback.slice(-50)
-    }
+    },
+    reasoningChain,
   };
 }
 

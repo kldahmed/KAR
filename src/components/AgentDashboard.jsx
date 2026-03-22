@@ -602,6 +602,91 @@ function ClusterPanel({ patterns }) {
   );
 }
 
+function ReasoningChainPanel({ memoryDepth, patterns, forecastSupport }) {
+  const serverReasoning = agentMemory.getLatestReasoningChain?.();
+  const topSignal = forecastSupport?.strongestSignals?.[0];
+  const linkedEntities = forecastSupport?.linkedEntities?.slice(0, 3) || [];
+  const contradiction = forecastSupport?.contradiction;
+  const confidenceTrend = forecastSupport?.confidenceTrend;
+  const impactLabel = patterns?.geopolitical?.label || patterns?.market?.label || "تأثير مركب";
+  const confidenceScore = Math.round(
+    ((forecastSupport?.forecastReadiness || 0) * 0.55) +
+    ((confidenceTrend?.recentAvg || 0) * 0.35) +
+    ((memoryDepth?.forecastAccuracy || 0) * 0.1)
+  );
+
+  const chain = [
+    {
+      id: "event",
+      title: "Event detected",
+      titleAr: "الحدث المرصود",
+      detail: serverReasoning?.event_detected || (topSignal
+        ? `تم رصد إشارة محورية: ${topSignal.signal} (${topSignal.count}×)`
+        : "لا توجد إشارة محورية كافية بعد"),
+      color: "#38bdf8",
+    },
+    {
+      id: "links",
+      title: "Linked signals",
+      titleAr: "الإشارات المرتبطة",
+      detail: serverReasoning?.linked_signals || (linkedEntities.length
+        ? linkedEntities.map((e) => `${e.entity} (${e.count})`).join(" • ")
+        : "الترابطات لا تزال قيد البناء"),
+      color: "#a78bfa",
+    },
+    {
+      id: "impact",
+      title: "Inferred impact",
+      titleAr: "الأثر المستنتج",
+      detail: serverReasoning?.inferred_impact || `${impactLabel}${contradiction?.level === "high" ? " مع تناقض مرتفع" : " ضمن سياق متماسك"}`,
+      color: "#f59e0b",
+    },
+    {
+      id: "confidence",
+      title: "Confidence",
+      titleAr: "الثقة النهائية",
+      detail: `${Math.max(0, Math.min(100, Number(serverReasoning?.confidence ?? confidenceScore)))}% — ${confidenceTrend?.label || "الثقة قيد التحديث"}`,
+      color: "#22c55e",
+    },
+  ];
+
+  return (
+    <div style={CARD}>
+      <div style={{ ...ACCENT_LINE, background: "linear-gradient(90deg,transparent,#38bdf8,#22c55e,transparent)" }} />
+      <div style={{ ...SECTION_TITLE, color: "#38bdf8" }}>
+        <span>🧭</span> AI Reasoning Chain
+      </div>
+      <div style={SUBTITLE}>Event → Signals → Impact → Confidence</div>
+
+      <div style={{ display: "grid", gap: 10 }}>
+        {chain.map((step, index) => (
+          <div
+            key={step.id}
+            style={{
+              position: "relative",
+              border: `1px solid ${step.color}30`,
+              background: `${step.color}0F`,
+              borderRadius: 12,
+              padding: "12px 14px 12px 16px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
+              <div style={{ fontSize: 11, color: step.color, fontWeight: 800, letterSpacing: "0.8px" }}>
+                {index + 1}. {step.titleAr}
+              </div>
+              <div style={{ fontSize: 10, color: "#64748b" }}>{step.title}</div>
+            </div>
+            <div style={{ fontSize: 12, color: "#cbd5e1", lineHeight: 1.7 }}>{step.detail}</div>
+            {index < chain.length - 1 ? (
+              <div style={{ position: "absolute", bottom: -12, insetInlineStart: 22, color: "#334155", fontSize: 11 }}>↓</div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Master component ──────────────────────────────────────────────────────────
 export default function AgentDashboard({ refreshKey = 0 }) {
   const [scoreData,       setScoreData]       = useState(null);
@@ -705,11 +790,11 @@ export default function AgentDashboard({ refreshKey = 0 }) {
       </div>
 
       <div className="agent-dashboard-grid agent-dashboard-grid-primary">
-        <div className="agent-dashboard-cell agent-dashboard-cell-pattern">
-          <PatternStrengthPanel patterns={patterns} />
-        </div>
         <div className="agent-dashboard-cell agent-dashboard-cell-feed">
           <FeedActivityPanel depth={memoryDepth} forecastSupport={forecastSupport} />
+        </div>
+        <div className="agent-dashboard-cell agent-dashboard-cell-pattern">
+          <PatternStrengthPanel patterns={patterns} />
         </div>
         <div className="agent-dashboard-cell agent-dashboard-cell-memory">
           <MemoryPanel depth={memoryDepth} />
@@ -726,6 +811,10 @@ export default function AgentDashboard({ refreshKey = 0 }) {
         <div className="agent-dashboard-cell agent-dashboard-cell-confidence">
           <ConfidenceTrendPanel forecastSupport={forecastSupport} />
         </div>
+      </div>
+
+      <div style={{ marginTop: "20px" }}>
+        <ReasoningChainPanel memoryDepth={memoryDepth} patterns={patterns} forecastSupport={forecastSupport} />
       </div>
 
       {/* Secondary panels */}

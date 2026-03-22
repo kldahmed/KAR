@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import BreakingNewsTicker from "./components/BreakingNewsTicker";
 import ArticleModal from "./components/ArticleModal";
 import { useI18n } from "./i18n/I18nProvider";
@@ -11,18 +11,17 @@ import TopSectionNav from "./components/TopSectionNav";
 import { useCurrentPath } from "./lib/simpleRouter";
 import { useDashboardData } from "./lib/useDashboardData";
 import AppSectionBoundary from "./components/AppSectionBoundary";
-import {
-  AnalysisCenterPage,
-  AgentPage,
-  EventsPage,
-  ForecastPage,
-  LivePage,
-  LinkCenterPage,
-  NewsPage,
-  OverviewPage,
-  RadarPage,
-  WorldStatePage,
-} from "./pages";
+
+const OverviewPage = lazy(() => import("./pages/OverviewPage"));
+const WorldStatePage = lazy(() => import("./pages/WorldStatePage"));
+const NewsPage = lazy(() => import("./pages/NewsPage"));
+const RadarPage = lazy(() => import("./pages/RadarPage"));
+const EventsPage = lazy(() => import("./pages/EventsPage"));
+const AnalysisCenterPage = lazy(() => import("./pages/AnalysisCenterPage"));
+const LinkCenterPage = lazy(() => import("./pages/LinkCenterPage"));
+const ForecastPage = lazy(() => import("./pages/ForecastPage"));
+const AgentPage = lazy(() => import("./pages/AgentPage"));
+const LivePage = lazy(() => import("./pages/LivePage"));
 
 export default function App() {
   const { t, direction, language } = useI18n();
@@ -75,6 +74,26 @@ export default function App() {
     setModalArticle(article);
     setModalOpen(true);
   };
+
+  const routeFallback = (
+    <div style={{ maxWidth: 1400, margin: "24px auto", padding: "16px 20px" }}>
+      <div
+        style={{
+          border: "1px solid rgba(255,255,255,0.08)",
+          background: "linear-gradient(160deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)",
+          borderRadius: 16,
+          minHeight: 180,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#64748b",
+          fontSize: 13,
+        }}
+      >
+        جارٍ تحميل الصفحة...
+      </div>
+    </div>
+  );
 
   const renderPage = () => {
     switch (currentPath) {
@@ -219,7 +238,9 @@ export default function App() {
       {worldEyeOpen ? <WorldEyeMode onClose={() => setWorldEyeOpen(false)} /> : null}
 
       <main>
-        <AppSectionBoundary>{renderPage()}</AppSectionBoundary>
+        <AppSectionBoundary>
+          <Suspense fallback={routeFallback}>{renderPage()}</Suspense>
+        </AppSectionBoundary>
       </main>
 
       {showBackToTop ? (

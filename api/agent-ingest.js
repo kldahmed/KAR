@@ -1,24 +1,34 @@
 import { ingestServerItems } from "./_agent-store.js";
+import { applyApiHeaders, handlePreflight, rejectUnsupportedMethod } from "./_api-utils.js";
+
+function validateIngestBody(body) {
+  const items = Array.isArray(body?.items) ? body.items : null;
+  if (!items || items.length === 0) {
+    return { valid: false, error: "items array required" };
+  }
+
+  if (items.length > 250) {
+    return { valid: false, error: "items payload too large" };
+  }
+
+  const invalidItem = items.find((item) => !item || typeof item !== "object");
+  if (invalidItem) {
+    return { valid: false, error: "invalid items payload" };
+  }
+
+  return { valid: true };
+}
 
 export default function handler(req, res) {
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  applyApiHeaders(req, res, "POST, OPTIONS");
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
+  if (handlePreflight(req, res)) return;
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  if (rejectUnsupportedMethod(req, res, "POST")) return;
 
   const { items, sourceType = "news" } = req.body || {};
-
-  if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: "items array required" });
-  }
+  const validation = validateIngestBody(req.body || {});
+  if (!validation.valid) return res.status(400).json({ error: validation.error });
 
   const result = ingestServerItems(items, sourceType);
 

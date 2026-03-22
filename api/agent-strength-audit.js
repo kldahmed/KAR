@@ -1,19 +1,13 @@
 import { AGENT_BENCHMARK_DATASET } from "../src/lib/agent/benchmarkDataset.js";
 import { computeAgentAuditFromSnapshot, getServerAgentSnapshot } from "./_agent-store.js";
+import { applyApiHeaders, handlePreflight, rejectUnsupportedMethod } from "./_api-utils.js";
 
 export default function handler(req, res) {
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  applyApiHeaders(req, res, "GET, OPTIONS");
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
+  if (handlePreflight(req, res)) return;
 
-  if (req.method !== "GET") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  if (rejectUnsupportedMethod(req, res, "GET")) return;
 
   const snapshot = getServerAgentSnapshot();
   const scores = computeAgentAuditFromSnapshot(snapshot, AGENT_BENCHMARK_DATASET);

@@ -110,6 +110,36 @@ function computeConfidence(entities, keywords, regions) {
   return Math.min(90, base + entities.length * 5 + keywords.length * 3 + regions.length * 5);
 }
 
+function inferEventType(text, category) {
+  const t = (text || "").toLowerCase();
+  if (/missile|strike|airstrike|drone|صاروخ|ضربة|غارة|مسيّرة/.test(t)) return "kinetic_event";
+  if (/sanction|tariff|inflation|market|عقوبات|تعرفة|تضخم|سوق/.test(t)) return "economic_shock";
+  if (/election|minister|president|انتخاب|وزير|رئيس/.test(t)) return "political_shift";
+  if (/transfer|match|goal|انتقال|مباراة|هدف/.test(t)) return "sports_dynamic";
+  if (category === "regional") return "regional_tension";
+  return "general_event";
+}
+
+function inferImpactVector(category, urgency, relevanceScore) {
+  if (urgency === "high" && relevanceScore >= 65) return "immediate_operational";
+  if (["conflict", "energy", "economy"].includes(category)) return "market_and_policy";
+  if (category === "politics") return "governance_and_sentiment";
+  if (category === "sports") return "public_attention";
+  return "situational_awareness";
+}
+
+function buildCausalSummary({ eventType, keywords, entities, region, impactVector }) {
+  const rootSignal = keywords?.[0] || "signal";
+  const anchorEntity = entities?.[0] || "entity";
+  const anchorRegion = region?.[0] || "Global";
+  return {
+    event: eventType,
+    trigger: rootSignal,
+    linkage: `${anchorEntity}@${anchorRegion}`,
+    expectedImpact: impactVector,
+  };
+}
+
 // ── Main ingestion function ──────────────────────────────────────────────────
 
 /**
@@ -128,6 +158,9 @@ export function ingestItem(raw, sourceType = "news") {
   const urgency = raw.urgency || computeUrgency(text);
   const relevanceScore = computeRelevance(text, category, entities);
   const confidence = computeConfidence(entities, keywords, region);
+  const eventType = inferEventType(text, category);
+  const impactVector = inferImpactVector(category, urgency, relevanceScore);
+  const causalSummary = buildCausalSummary({ eventType, keywords, entities, region, impactVector });
 
   const item = {
     id: raw.id || `agent-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -142,6 +175,9 @@ export function ingestItem(raw, sourceType = "news") {
     urgency,
     relevanceScore,
     confidence,
+    eventType,
+    impactVector,
+    causalSummary,
     timestamp: raw.time || raw.timestamp || raw.publishedAt || dubaiTimestamp(),
     linkedClusterId: null, // set by patternAgent later
     source: raw.source || raw.sourceName || "unknown",

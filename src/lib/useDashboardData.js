@@ -53,6 +53,8 @@ export function useDashboardData({ t, currentPath }) {
   const [intelMetrics, setIntelMetrics] = useState(null);
   const intervalRef = useRef(null);
   const standingsIntervalRef = useRef(null);
+  const newsRequestSeqRef = useRef(0);
+  const standingsRequestSeqRef = useRef(0);
 
   const categories = useMemo(
     () => CATEGORIES.map((item) => ({ ...item, label: t(`app.categories.${item.key}`) })),
@@ -66,8 +68,31 @@ export function useDashboardData({ t, currentPath }) {
 
   useEffect(() => {
     let cancelled = false;
+    let activeController = null;
+
+    const fetchJsonWithRetry = async (url, { retries = 1, timeoutMs = 12000 } = {}) => {
+      let attempt = 0;
+      while (attempt <= retries) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        activeController = controller;
+        try {
+          const response = await fetch(url, { signal: controller.signal });
+          if (!response.ok) throw new Error(`http_${response.status}`);
+          const payload = await response.json();
+          clearTimeout(timeoutId);
+          return payload;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          if (attempt >= retries) throw error;
+          attempt += 1;
+        }
+      }
+      return null;
+    };
 
     const fetchNews = async () => {
+      const requestId = ++newsRequestSeqRef.current;
       setLoading(true);
       setError("");
 
@@ -76,24 +101,21 @@ export function useDashboardData({ t, currentPath }) {
           ? `/api/sports?competition=${sportsCompetition}`
           : `/api/news?category=${cat}`;
 
-        const response = await fetch(endpoint);
-        if (!response.ok) throw new Error("fetch_failed");
-
-        const data = await response.json();
+        const data = await fetchJsonWithRetry(endpoint, { retries: 1, timeoutMs: 12000 });
         const incomingNews = Array.isArray(data.news) ? data.news.slice(0, 100) : [];
         const filteredNews = cat === "sports"
           ? incomingNews.filter((item) => item.category === "sports")
           : incomingNews.filter((item) => item.category !== "sports" || cat === "all");
 
-        if (cancelled) return;
+        if (cancelled || requestId !== newsRequestSeqRef.current) return;
         setNews(sortArticlesByPriority(filteredNews));
         setError("");
       } catch {
-        if (cancelled) return;
+        if (cancelled || requestId !== newsRequestSeqRef.current) return;
         setNews([]);
         setError(t("app.errorLoadNews"));
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && requestId === newsRequestSeqRef.current) setLoading(false);
       }
     };
 
@@ -103,6 +125,7 @@ export function useDashboardData({ t, currentPath }) {
 
     return () => {
       cancelled = true;
+      activeController?.abort();
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [cat, sportsCompetition, currentPath, t]);
@@ -128,18 +151,26 @@ export function useDashboardData({ t, currentPath }) {
     }
 
     let cancelled = false;
+    let activeController = null;
 
     const loadStandings = () => {
+      const requestId = ++standingsRequestSeqRef.current;
       setIsStandingsLoading((prev) => (uaeStandings.length === 0 ? true : prev));
       const timeout = setTimeout(() => {
         if (!cancelled) setIsStandingsLoading(false);
       }, 3000);
 
-      fetch("/api/uae-standings")
-        .then((response) => response.json())
+      const controller = new AbortController();
+      activeController = controller;
+
+      fetch("/api/uae-standings", { signal: controller.signal })
+        .then((response) => {
+          if (!response.ok) throw new Error(`http_${response.status}`);
+          return response.json();
+        })
         .then((data) => {
           clearTimeout(timeout);
-          if (cancelled) return;
+          if (cancelled || requestId !== standingsRequestSeqRef.current) return;
           if (Array.isArray(data.standings) && data.standings.length) {
             setUaeStandings(data.standings);
             setUaeStandingsUpdatedAt(data.updatedAt || "");
@@ -148,7 +179,9 @@ export function useDashboardData({ t, currentPath }) {
         })
         .catch(() => {
           clearTimeout(timeout);
-          if (!cancelled) setIsStandingsLoading(false);
+          if (!cancelled && requestId === standingsRequestSeqRef.current) {
+            setIsStandingsLoading(false);
+          }
         });
     };
 
@@ -158,6 +191,7 @@ export function useDashboardData({ t, currentPath }) {
 
     return () => {
       cancelled = true;
+      activeController?.abort();
       if (standingsIntervalRef.current) clearInterval(standingsIntervalRef.current);
     };
   }, [cat, sportsCompetition, uaeStandings.length]);
