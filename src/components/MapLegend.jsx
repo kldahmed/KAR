@@ -6,7 +6,9 @@ const CATEGORY_ITEMS = [
   { labelAr: "سياسي", labelEn: "Political", color: "#f97316" },
   { labelAr: "اقتصادي", labelEn: "Economic", color: "#3b82f6" },
   { labelAr: "سيبراني", labelEn: "Cyber", color: "#8b5cf6" },
-  { labelAr: "لوجستي", labelEn: "Logistics", color: "#22c55e" }
+  { labelAr: "لوجستي", labelEn: "Logistics", color: "#22c55e" },
+  { labelAr: "بحري", labelEn: "Maritime", color: "#14b8a6" },
+  { labelAr: "طيران", labelEn: "Aviation", color: "#facc15" }
 ];
 
 const SEVERITY_ITEMS = [
@@ -54,6 +56,7 @@ export default function MapLegend({ stats, signalStats, layerToggles }) {
 
       <div className="glm-legend-footnote">
         <span>{onLabel("◎ = مجموعة/عنقود أحداث قريب", "◎ = Nearby event cluster")}</span>
+        <span>{onLabel("╌ = صلة بين إشارات مرتبطة", "╌ = Relationship line between linked events")}</span>
         <span>{layerToggles?.hotspots ? "●" : "○"} Hotspots</span>
         <span>{layerToggles?.links ? "●" : "○"} Relationship lines</span>
         <span>{layerToggles?.heat ? "●" : "○"} Heat pressure</span>

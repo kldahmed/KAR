@@ -654,6 +654,11 @@
   filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.24));
 }
 
+.glm-cluster-divicon {
+  background: transparent;
+  border: 0;
+}
+
 .glm-cluster-badge {
   width: 100%;
   height: 100%;
@@ -722,6 +727,10 @@
 
 .glm-pulse-low {
   animation: glmPulseLow 2.4s ease-in-out infinite;
+}
+
+.glm-signal-critical {
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.5));
 }
 
 @keyframes glmPulseCritical {

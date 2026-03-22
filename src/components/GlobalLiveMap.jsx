@@ -9,6 +9,14 @@ import MapPlaybackBar from "./MapPlaybackBar";
 import { getMotionSettings } from "../lib/map/mapAnimationEngine";
 import { buildMapLayers, buildPlaybackFrame } from "../lib/map/mapSignalEngine";
 import { MODE_CONFIG } from "../lib/map/mapRegionEngine";
+import {
+  applySignalFilters,
+  buildHotspots,
+  buildIntelligenceSummary,
+  buildRelatedSignals,
+  buildRelationshipLines,
+  normalizeSignals,
+} from "../lib/map/intelMapUtils";
 import { useI18n } from "../i18n/I18nProvider";
 import { getEventsForMap, subscribeEvents } from "../lib/globalEventsEngine";
 import { getRadarForMap, subscribeRadar, getSignalArcs } from "../lib/radar/globalRadarEngine";
@@ -24,7 +32,7 @@ const CATEGORY_OPTIONS = [
   "conflict",
   "political",
   "cyber",
-  "economy",
+  "economic",
   "logistics",
   "aviation",
   "maritime",
@@ -32,7 +40,7 @@ const CATEGORY_OPTIONS = [
   "news",
 ];
 const SEVERITY_OPTIONS = [FILTER_ALL, "critical", "high", "medium", "low"];
-const TIME_WINDOW_OPTIONS = ["1h", "6h", "24h"];
+const TIME_WINDOW_OPTIONS = ["1h", "6h", "24h", "7d"];
 
 const WORLD_GEOJSON_URL =
   "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson";
@@ -47,47 +55,6 @@ function getCountryId(feature) {
   )
     .toLowerCase()
     .slice(0, 2);
-}
-
-function normalizeCategory(value) {
-  const raw = String(value || "news").toLowerCase();
-  if (raw === "cyber" || raw === "cybersecurity") return "cyber";
-  if (raw === "economic") return "economy";
-  if (raw === "air") return "aviation";
-  if (raw === "aviation") return "aviation";
-  if (raw === "shipping" || raw === "sea" || raw === "naval") return "maritime";
-  if (raw === "trade" || raw === "finance" || raw === "energy") return "economy";
-  if (raw === "military" || raw === "security" || raw === "war") return "conflict";
-  return CATEGORY_OPTIONS.includes(raw) ? raw : "news";
-}
-
-function toTimestampMs(value) {
-  if (!value) return null;
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function toDedupKey(signal) {
-  const t = String(signal?.title || "").trim().toLowerCase();
-  const c = String(signal?.category || "").trim().toLowerCase();
-  const lat = Math.round(Number(signal?.lat || 0) * 100) / 100;
-  const lng = Math.round(Number(signal?.lng || 0) * 100) / 100;
-  const ts = signal?.timestampMs ? Math.floor(signal.timestampMs / (5 * 60 * 1000)) : 0;
-  return `${t}|${c}|${lat}|${lng}|${ts}`;
-}
-
-function severityFromScore(score, urgency) {
-  const u = String(urgency || "").toLowerCase();
-  if (u === "critical" || score >= 85) return "critical";
-  if (u === "high" || score >= 68) return "high";
-  if (u === "medium" || score >= 45) return "medium";
-  return "low";
-}
-
-function getTimeWindowMs(windowKey) {
-  if (windowKey === "1h") return 60 * 60 * 1000;
-  if (windowKey === "6h") return 6 * 60 * 60 * 1000;
-  return 24 * 60 * 60 * 1000;
 }
 
 export default function GlobalLiveMap() {
@@ -124,6 +91,7 @@ export default function GlobalLiveMap() {
   });
   const [selectedSignal, setSelectedSignal] = useState(null);
   const [selectedHotspot, setSelectedHotspot] = useState(null);
+  const [selectedCluster, setSelectedCluster] = useState(null);
   const globeRef = useRef();
   const requestSeqRef = useRef(0);
   const autoRetryCountRef = useRef(0);
@@ -410,78 +378,7 @@ export default function GlobalLiveMap() {
   }, [layers.countryNodes]);
 
   const normalizedSignals = useMemo(() => {
-    const sourceSignals = Array.isArray(mapState?.signals) ? mapState.signals : [];
-    const normalized = sourceSignals
-      .map((signal, idx) => {
-        const rawId = signal?.id || signal?.uid || `sig-${idx}`;
-        const rawTitle = signal?.title || signal?.headline || signal?.event || "";
-        const category = normalizeCategory(signal?.category);
-
-        let lat = Number(signal?.lat ?? signal?.latitude);
-        let lng = Number(signal?.lng ?? signal?.lon ?? signal?.longitude);
-
-        if ((!Number.isFinite(lat) || !Number.isFinite(lng)) && Array.isArray(signal?.coordinates)) {
-          lng = Number(signal.coordinates[0]);
-          lat = Number(signal.coordinates[1]);
-        }
-
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-          const node = countryNodeById.get(String(signal?.country || "").toLowerCase());
-          if (node?.centerCoordinates?.length >= 2) {
-            lat = Number(node.centerCoordinates[0]);
-            lng = Number(node.centerCoordinates[1]);
-          }
-        }
-
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
-
-        const impact = Number(signal?.impact);
-        const confidence = Number(signal?.confidence);
-        const impactScore = Number.isFinite(impact) ? (impact <= 1 ? impact * 100 : impact) : 42;
-        const confidenceScore = Number.isFinite(confidence) ? (confidence <= 1 ? confidence * 100 : confidence) : 54;
-        const importanceScore = Math.max(0, Math.min(100, Math.round(impactScore * 0.7 + confidenceScore * 0.3)));
-        const severity = severityFromScore(importanceScore, signal?.urgency);
-
-        const timestamp = signal?.time || signal?.timestamp || null;
-        const region = signal?.region || signal?.zones?.[0] || signal?.country || "Global";
-
-        return {
-          id: String(rawId),
-          title: rawTitle || (language === "ar" ? "إشارة بدون عنوان" : "Untitled signal"),
-          summary: signal?.summary || signal?.description || "",
-          description: signal?.description || signal?.summary || "",
-          category,
-          severity,
-          importanceScore,
-          confidenceScore,
-          source: signal?.source || "system",
-          country: signal?.country || "",
-          region,
-          relatedEntities: Array.isArray(signal?.entities)
-            ? signal.entities
-            : Array.isArray(signal?.relatedEntities)
-            ? signal.relatedEntities
-            : [],
-          urgency: String(signal?.urgency || severity),
-          lat,
-          lng,
-          timestamp,
-          timestampMs: toTimestampMs(timestamp),
-        };
-      })
-      .filter(Boolean);
-
-    const dedup = new Map();
-    normalized.forEach((signal) => {
-      const key = toDedupKey(signal);
-      const prev = dedup.get(key);
-      if (!prev || (signal.importanceScore || 0) > (prev.importanceScore || 0)) {
-        dedup.set(key, signal);
-      }
-    });
-
-    return Array.from(dedup.values());
+    return normalizeSignals(mapState?.signals, countryNodeById, language);
   }, [countryNodeById, language, mapState?.signals]);
 
   const regionOptions = useMemo(() => {
@@ -491,112 +388,13 @@ export default function GlobalLiveMap() {
   }, [normalizedSignals]);
 
   const filteredSignalPoints = useMemo(() => {
-    const now = Date.now();
-    const windowMs = getTimeWindowMs(filters.timeWindow);
-    const query = String(filters.query || "").trim().toLowerCase();
-    return normalizedSignals.filter((signal) => {
-      if (filters.category !== FILTER_ALL && signal.category !== filters.category) return false;
-      if (filters.severity !== FILTER_ALL && signal.severity !== filters.severity) return false;
-      if (filters.region !== FILTER_ALL && String(signal.region) !== filters.region) return false;
-
-      if (windowMs && signal.timestampMs && now - signal.timestampMs > windowMs) return false;
-      if (windowMs && !signal.timestampMs) return false;
-
-      if (query) {
-        const haystack = [signal.title, signal.summary, signal.category, signal.source, signal.region, signal.country]
-          .join(" ")
-          .toLowerCase();
-        if (!haystack.includes(query)) return false;
-      }
-
-      if (mode === "economic" && signal.category !== "economy") return false;
-      if (mode === "sports" && signal.category !== "sports") return false;
-      if (mode === "radar" && !["aviation", "maritime", "logistics"].includes(signal.category)) return false;
-
-      return true;
-    });
+    return applySignalFilters(normalizedSignals, filters, mode);
   }, [filters, mode, normalizedSignals]);
 
-  const hotspots = useMemo(() => {
-    const buckets = new Map();
-    filteredSignalPoints.forEach((signal) => {
-      const latKey = Math.round(signal.lat / 4) * 4;
-      const lngKey = Math.round(signal.lng / 4) * 4;
-      const key = `${latKey}:${lngKey}`;
-      if (!buckets.has(key)) {
-        buckets.set(key, {
-          id: key,
-          lat: latKey,
-          lng: lngKey,
-          count: 0,
-          score: 0,
-          categories: new Map(),
-          regions: new Map(),
-        });
-      }
-      const bucket = buckets.get(key);
-      bucket.count += 1;
-      bucket.score += signal.importanceScore;
-      bucket.categories.set(signal.category, (bucket.categories.get(signal.category) || 0) + 1);
-      bucket.regions.set(signal.region, (bucket.regions.get(signal.region) || 0) + 1);
-    });
-
-    return Array.from(buckets.values())
-      .filter((bucket) => bucket.count >= 2)
-      .map((bucket) => {
-        const topCategory = Array.from(bucket.categories.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "news";
-        const region = Array.from(bucket.regions.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "Global";
-        const avgScore = bucket.score / Math.max(1, bucket.count);
-        return {
-          id: bucket.id,
-          lat: bucket.lat,
-          lng: bucket.lng,
-          count: bucket.count,
-          region,
-          topCategory,
-          avgScore,
-          radius: Math.min(20, 7 + bucket.count * 1.6),
-          color: avgScore >= 75 ? "#ef4444" : avgScore >= 58 ? "#f59e0b" : "#38bdf8",
-        };
-      })
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 24);
-  }, [filteredSignalPoints]);
+  const hotspots = useMemo(() => buildHotspots(filteredSignalPoints), [filteredSignalPoints]);
 
   const relationshipLines = useMemo(() => {
-    const lines = [];
-    const pairGuard = new Set();
-    const points = filteredSignalPoints.slice(0, 180);
-
-    for (let i = 0; i < points.length; i += 1) {
-      const a = points[i];
-      for (let j = i + 1; j < points.length; j += 1) {
-        const b = points[j];
-        const sameRegion = a.region && b.region && String(a.region) === String(b.region);
-        const entitiesA = new Set((a.relatedEntities || []).map((v) => String(v).toLowerCase()));
-        const sharedEntities = (b.relatedEntities || []).filter((entity) => entitiesA.has(String(entity).toLowerCase()));
-        if (!sameRegion && sharedEntities.length === 0) continue;
-
-        const pairKey = `${a.id}:${b.id}`;
-        if (pairGuard.has(pairKey)) continue;
-        pairGuard.add(pairKey);
-
-        const strength = Math.min(1, (sharedEntities.length * 0.55) + (sameRegion ? 0.35 : 0.15));
-        lines.push({
-          id: `rel-${pairKey}`,
-          from: [a.lat, a.lng],
-          to: [b.lat, b.lng],
-          count: sharedEntities.length,
-          strength,
-          color: sameRegion ? "#60a5fa" : "#a78bfa",
-          label: sameRegion
-            ? (language === "ar" ? "صلة إقليمية" : "Shared region")
-            : (language === "ar" ? "كيانات مشتركة" : "Shared entities"),
-        });
-      }
-    }
-
-    return lines.sort((a, b) => b.strength - a.strength).slice(0, isCompactViewport ? 16 : 48);
+    return buildRelationshipLines(filteredSignalPoints, language, isCompactViewport ? 16 : 48);
   }, [filteredSignalPoints, isCompactViewport, language]);
 
   const signalStats = useMemo(() => {
@@ -608,60 +406,11 @@ export default function GlobalLiveMap() {
   }, [filteredSignalPoints.length, hotspots.length, relationshipLines.length]);
 
   const intelligenceSummary = useMemo(() => {
-    const points = filteredSignalPoints;
-    if (!points.length) {
-      return {
-        total: 0,
-        topRegion: "-",
-        topCategory: "-",
-        highest: null,
-        avgConfidence: 0,
-      };
-    }
-
-    const regionCount = new Map();
-    const categoryCount = new Map();
-    let confidenceSum = 0;
-    let highest = points[0];
-
-    points.forEach((point) => {
-      const region = String(point.region || point.country || "Global");
-      regionCount.set(region, (regionCount.get(region) || 0) + 1);
-      categoryCount.set(point.category, (categoryCount.get(point.category) || 0) + 1);
-      confidenceSum += Number(point.confidenceScore || 0);
-      if ((point.importanceScore || 0) > (highest.importanceScore || 0)) highest = point;
-    });
-
-    const topRegion = Array.from(regionCount.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "-";
-    const topCategory = Array.from(categoryCount.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "-";
-
-    return {
-      total: points.length,
-      topRegion,
-      topCategory,
-      highest,
-      avgConfidence: Math.round(confidenceSum / Math.max(1, points.length)),
-    };
+    return buildIntelligenceSummary(filteredSignalPoints);
   }, [filteredSignalPoints]);
 
   const relatedSignals = useMemo(() => {
-    if (!selectedSignal) return [];
-    const entities = new Set((selectedSignal.relatedEntities || []).map((v) => String(v).toLowerCase()));
-    return filteredSignalPoints
-      .filter((point) => point.id !== selectedSignal.id)
-      .map((point) => {
-        const sharedEntities = (point.relatedEntities || []).filter((entity) => entities.has(String(entity).toLowerCase()));
-        const sameRegion = point.region && selectedSignal.region && point.region === selectedSignal.region;
-        return {
-          ...point,
-          relatedScore: (sameRegion ? 1.5 : 0) + sharedEntities.length,
-          sameRegion,
-          sharedEntities,
-        };
-      })
-      .filter((point) => point.relatedScore > 0)
-      .sort((a, b) => b.relatedScore - a.relatedScore || (b.importanceScore || 0) - (a.importanceScore || 0))
-      .slice(0, 6);
+    return buildRelatedSignals(selectedSignal, filteredSignalPoints);
   }, [filteredSignalPoints, selectedSignal]);
 
   const frameSignals = useMemo(
@@ -690,8 +439,16 @@ export default function GlobalLiveMap() {
   }, [hotspots, selectedHotspot]);
 
   useEffect(() => {
+    if (!selectedCluster) return;
+    const eventIds = new Set(filteredSignalPoints.map((signal) => signal.id));
+    const stillValid = (selectedCluster.events || []).some((event) => eventIds.has(event.id));
+    if (!stillValid) setSelectedCluster(null);
+  }, [filteredSignalPoints, selectedCluster]);
+
+  useEffect(() => {
     setSelectedSignal(null);
     setSelectedHotspot(null);
+    setSelectedCluster(null);
   }, [mode]);
 
   const selectedNode = layers.countryNodes.find((node) => node.id === selectedNodeId) || null;
@@ -802,6 +559,7 @@ export default function GlobalLiveMap() {
     });
     setSelectedSignal(null);
     setSelectedHotspot(null);
+    setSelectedCluster(null);
   };
 
   return (
@@ -1057,6 +815,7 @@ export default function GlobalLiveMap() {
                 setSelectedNodeId(nodeId);
                 setSelectedSignal(null);
                 setSelectedHotspot(null);
+                setSelectedCluster(null);
               }}
               motionSettings={motionSettings}
               globalEvents={layerToggles.liveSignals ? globalEvents : []}
@@ -1073,10 +832,17 @@ export default function GlobalLiveMap() {
               onSelectSignal={(signal) => {
                 setSelectedSignal(signal);
                 setSelectedHotspot(null);
+                setSelectedCluster(null);
               }}
               onSelectHotspot={(hotspot) => {
                 setSelectedHotspot(hotspot);
                 setSelectedSignal(null);
+                setSelectedCluster(null);
+              }}
+              onSelectCluster={(cluster) => {
+                setSelectedCluster(cluster);
+                setSelectedSignal(null);
+                setSelectedHotspot(null);
               }}
               selectedSignalId={selectedSignal?.id || null}
               selectedHotspotId={selectedHotspot?.id || null}
@@ -1085,7 +851,7 @@ export default function GlobalLiveMap() {
           )
         ) : null}
 
-        {(selectedSignal || selectedHotspot) && !useGlobe ? (
+        {(selectedSignal || selectedHotspot || selectedCluster) && !useGlobe ? (
           <aside className="glm-detail-panel" dir={direction}>
             {selectedSignal ? (
               <>
@@ -1124,6 +890,36 @@ export default function GlobalLiveMap() {
                     </ul>
                   </div>
                 ) : null}
+              </>
+            ) : selectedCluster ? (
+              <>
+                <div className="glm-detail-header">
+                  <strong>{language === "ar" ? "عنقود أحداث" : "Event cluster"}</strong>
+                  <button type="button" onClick={() => setSelectedCluster(null)}>×</button>
+                </div>
+                <p>
+                  {language === "ar"
+                    ? `تم اكتشاف ${selectedCluster.count} أحداث متقاربة مكانياً في هذه المنطقة.`
+                    : `${selectedCluster.count} geospatially proximate events detected in this area.`}
+                </p>
+                <div className="glm-detail-related">
+                  <div>{language === "ar" ? "الأحداث داخل العنقود" : "Cluster events"}</div>
+                  <ul>
+                    {(selectedCluster.events || []).slice(0, 12).map((event) => (
+                      <li key={event.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedSignal(event);
+                            setSelectedCluster(null);
+                          }}
+                        >
+                          {event.title}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </>
             ) : (
               <>

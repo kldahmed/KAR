@@ -11,8 +11,8 @@ const CATEGORY_STYLE = {
   economic: { color: "#3b82f6", ring: "#60a5fa" },
   cyber: { color: "#8b5cf6", ring: "#a78bfa" },
   logistics: { color: "#22c55e", ring: "#4ade80" },
-  aviation: { color: "#3b82f6", ring: "#60a5fa" },
-  maritime: { color: "#22c55e", ring: "#4ade80" },
+  aviation: { color: "#facc15", ring: "#fde047" },
+  maritime: { color: "#14b8a6", ring: "#2dd4bf" },
   sports: { color: "#8b5cf6", ring: "#a78bfa" },
   news: { color: "#38bdf8", ring: "#7dd3fc" },
 };
@@ -47,6 +47,7 @@ function ClusteredSignals({
   signalPoints,
   selectedSignalId,
   onSelectSignal,
+  onSelectCluster,
   styleForCategory,
   severityToScale,
   t,
@@ -129,6 +130,7 @@ function ClusteredSignals({
               icon={clusterIcon}
               eventHandlers={{
                 click: () => {
+                  onSelectCluster?.(cluster);
                   setExpandedClusters((prev) => {
                     const next = new Set(prev);
                     next.add(cluster.id);
@@ -152,6 +154,7 @@ function ClusteredSignals({
           const style = styleForCategory(signal.category);
           const scale = severityToScale(signal.severity);
           const radius = Math.max(4, Math.round((signal.importanceScore || 40) / 16) * scale);
+          const criticalClass = signal.severity === "critical" ? "glm-signal-critical" : "";
           return (
             <CircleMarker
               key={`sig-${signal.id}`}
@@ -162,7 +165,7 @@ function ClusteredSignals({
                 fillColor: style.color,
                 fillOpacity: 0.55,
                 weight: selectedSignalId === signal.id ? 2.2 : 1.2,
-                className: `glm-signal-point ${urgencyPulseClass(signal.urgency)}`,
+                className: `glm-signal-point ${urgencyPulseClass(signal.urgency)} ${criticalClass}`,
               }}
               eventHandlers={{ click: () => onSelectSignal?.(signal) }}
             >
@@ -206,6 +209,7 @@ export default function MapSignalLayer({
   showHeatLayer = false,
   onSelectSignal,
   onSelectHotspot,
+  onSelectCluster,
   selectedSignalId,
   selectedHotspotId,
 }) {
@@ -351,6 +355,7 @@ export default function MapSignalLayer({
           signalPoints={safeSignalPoints}
           selectedSignalId={selectedSignalId}
           onSelectSignal={onSelectSignal}
+          onSelectCluster={onSelectCluster}
           styleForCategory={styleForCategory}
           severityToScale={severityToScale}
           t={t}
