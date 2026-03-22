@@ -405,7 +405,7 @@ export default function GlobalLiveMap() {
         ) : null}
 
         {loadState !== "error" ? (
-        useGlobe ? (
+          useGlobe ? (
           <Suspense
             fallback={
               <div className="glm-globe-loading">
@@ -518,6 +518,7 @@ export default function GlobalLiveMap() {
               radarArcs={mode === "radar" ? radarArcs : []}
             />
           </MapContainer>
+          )
         ) : null}
       </div>
 
