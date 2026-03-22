@@ -640,8 +640,7 @@ export default function GlobalLiveEventsPanel() {
         display: "grid", gridTemplateColumns: "1fr 1fr",
         gap: 14,
       }}>
-        <RegionBreakdown stats={stats} />
-          <RegionBreakdown stats={stats} isAr={isAr} />
+        <RegionBreakdown stats={stats} isAr={isAr} />
         {/* Category breakdown */}
         <div style={{
           background: P.surface, border: `1px solid ${P.border}`,
@@ -689,8 +688,7 @@ export default function GlobalLiveEventsPanel() {
         padding: "8px 12px", background: "rgba(255,255,255,.02)",
         border: "1px solid rgba(255,255,255,.04)", borderRadius: 10,
       }}>
-        {REGION_FILTERS.map(f => (
-            {regionFilters.map(f => (
+        {regionFilters.map(f => (
           <button key={f.id} onClick={() => setRegionFilter(f.id)} style={{
             background: regionFilter === f.id ? `${P.blue}20` : "transparent",
             color: regionFilter === f.id ? P.blue : P.muted,
@@ -710,8 +708,7 @@ export default function GlobalLiveEventsPanel() {
         padding: "6px 12px", background: "rgba(255,255,255,.015)",
         border: "1px solid rgba(255,255,255,.03)", borderRadius: 10,
       }}>
-        {CAT_FILTERS.map(f => {
-            {catFilters.map(f => {
+        {catFilters.map(f => {
           const catMeta = EVENT_CATEGORIES[f.id] || {};
           return (
             <button key={f.id} onClick={() => setCatFilter(f.id)} style={{
@@ -737,16 +734,14 @@ export default function GlobalLiveEventsPanel() {
             animation: "glePulse 1s linear infinite",
             margin: "0 auto 12px",
           }} />
-          جاري رصد الأحداث العالمية...
-                  {isAr ? "جاري رصد الأحداث العالمية..." : "Detecting global events..."}
+            {isAr ? "جاري رصد الأحداث العالمية..." : "Detecting global events..."}
         </div>
       ) : displayed.length === 0 ? (
         <div style={{
           textAlign: "center", padding: 40, color: P.muted,
           background: P.surface, borderRadius: 12,
         }}>
-          لا توجد أحداث تطابق الفلتر الحالي
-                  {isAr ? "لا توجد أحداث تطابق الفلتر الحالي" : "No events match the current filter"}
+            {isAr ? "لا توجد أحداث تطابق الفلتر الحالي" : "No events match the current filter"}
         </div>
       ) : (
         <div style={{
@@ -760,7 +755,7 @@ export default function GlobalLiveEventsPanel() {
               event={ev}
               expanded={expanded.has(ev.id)}
               onToggle={() => toggleExpand(ev.id)}
-                          isAr={isAr}
+              isAr={isAr}
             />
           ))}
         </div>
@@ -772,7 +767,6 @@ export default function GlobalLiveEventsPanel() {
         color: P.muted, fontSize: 10,
         borderTop: "1px solid rgba(255,255,255,.04)",
       }}>
-        محرك الأحداث العالمية — يُحدّث تلقائياً كل 20 ثانية ·
         {isAr
           ? `محرك الأحداث العالمية — يُحدّث تلقائياً كل 20 ثانية${events.length > 0 ? ` · ${events.length} حدث نشط` : ""}`
           : `Global Events Engine — auto-updates every 20s${events.length > 0 ? ` · ${events.length} active events` : ""}`}
