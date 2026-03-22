@@ -67,6 +67,15 @@ function toTimestampMs(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function toDedupKey(signal) {
+  const t = String(signal?.title || "").trim().toLowerCase();
+  const c = String(signal?.category || "").trim().toLowerCase();
+  const lat = Math.round(Number(signal?.lat || 0) * 100) / 100;
+  const lng = Math.round(Number(signal?.lng || 0) * 100) / 100;
+  const ts = signal?.timestampMs ? Math.floor(signal.timestampMs / (5 * 60 * 1000)) : 0;
+  return `${t}|${c}|${lat}|${lng}|${ts}`;
+}
+
 function severityFromScore(score, urgency) {
   const u = String(urgency || "").toLowerCase();
   if (u === "critical" || score >= 85) return "critical";
@@ -402,7 +411,7 @@ export default function GlobalLiveMap() {
 
   const normalizedSignals = useMemo(() => {
     const sourceSignals = Array.isArray(mapState?.signals) ? mapState.signals : [];
-    return sourceSignals
+    const normalized = sourceSignals
       .map((signal, idx) => {
         const rawId = signal?.id || signal?.uid || `sig-${idx}`;
         const rawTitle = signal?.title || signal?.headline || signal?.event || "";
@@ -425,6 +434,7 @@ export default function GlobalLiveMap() {
         }
 
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
 
         const impact = Number(signal?.impact);
         const confidence = Number(signal?.confidence);
@@ -461,6 +471,17 @@ export default function GlobalLiveMap() {
         };
       })
       .filter(Boolean);
+
+    const dedup = new Map();
+    normalized.forEach((signal) => {
+      const key = toDedupKey(signal);
+      const prev = dedup.get(key);
+      if (!prev || (signal.importanceScore || 0) > (prev.importanceScore || 0)) {
+        dedup.set(key, signal);
+      }
+    });
+
+    return Array.from(dedup.values());
   }, [countryNodeById, language, mapState?.signals]);
 
   const regionOptions = useMemo(() => {
@@ -585,6 +606,63 @@ export default function GlobalLiveMap() {
       relations: relationshipLines.length,
     };
   }, [filteredSignalPoints.length, hotspots.length, relationshipLines.length]);
+
+  const intelligenceSummary = useMemo(() => {
+    const points = filteredSignalPoints;
+    if (!points.length) {
+      return {
+        total: 0,
+        topRegion: "-",
+        topCategory: "-",
+        highest: null,
+        avgConfidence: 0,
+      };
+    }
+
+    const regionCount = new Map();
+    const categoryCount = new Map();
+    let confidenceSum = 0;
+    let highest = points[0];
+
+    points.forEach((point) => {
+      const region = String(point.region || point.country || "Global");
+      regionCount.set(region, (regionCount.get(region) || 0) + 1);
+      categoryCount.set(point.category, (categoryCount.get(point.category) || 0) + 1);
+      confidenceSum += Number(point.confidenceScore || 0);
+      if ((point.importanceScore || 0) > (highest.importanceScore || 0)) highest = point;
+    });
+
+    const topRegion = Array.from(regionCount.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "-";
+    const topCategory = Array.from(categoryCount.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "-";
+
+    return {
+      total: points.length,
+      topRegion,
+      topCategory,
+      highest,
+      avgConfidence: Math.round(confidenceSum / Math.max(1, points.length)),
+    };
+  }, [filteredSignalPoints]);
+
+  const relatedSignals = useMemo(() => {
+    if (!selectedSignal) return [];
+    const entities = new Set((selectedSignal.relatedEntities || []).map((v) => String(v).toLowerCase()));
+    return filteredSignalPoints
+      .filter((point) => point.id !== selectedSignal.id)
+      .map((point) => {
+        const sharedEntities = (point.relatedEntities || []).filter((entity) => entities.has(String(entity).toLowerCase()));
+        const sameRegion = point.region && selectedSignal.region && point.region === selectedSignal.region;
+        return {
+          ...point,
+          relatedScore: (sameRegion ? 1.5 : 0) + sharedEntities.length,
+          sameRegion,
+          sharedEntities,
+        };
+      })
+      .filter((point) => point.relatedScore > 0)
+      .sort((a, b) => b.relatedScore - a.relatedScore || (b.importanceScore || 0) - (a.importanceScore || 0))
+      .slice(0, 6);
+  }, [filteredSignalPoints, selectedSignal]);
 
   const frameSignals = useMemo(
     () => buildPlaybackFrame(mapState, range, frameIndex, 24),
@@ -764,6 +842,14 @@ export default function GlobalLiveMap() {
       )}
 
       <div className="glm-ops-controls">
+        <div className="glm-intel-summary">
+          <div className="glm-intel-item"><strong>{intelligenceSummary.total}</strong><span>{language === "ar" ? "إجمالي الأحداث" : "Live events"}</span></div>
+          <div className="glm-intel-item"><strong>{intelligenceSummary.topRegion}</strong><span>{language === "ar" ? "أعلى منطقة" : "Top region"}</span></div>
+          <div className="glm-intel-item"><strong>{intelligenceSummary.topCategory}</strong><span>{language === "ar" ? "أعلى فئة" : "Top category"}</span></div>
+          <div className="glm-intel-item"><strong>{intelligenceSummary.highest?.title || "-"}</strong><span>{language === "ar" ? "أعلى شدة" : "Highest severity event"}</span></div>
+          <div className="glm-intel-item"><strong>{intelligenceSummary.avgConfidence}%</strong><span>{language === "ar" ? "متوسط الثقة" : "Average confidence"}</span></div>
+        </div>
+
         <div className="glm-filter-row">
           <input
             className="glm-filter-input"
@@ -1012,6 +1098,7 @@ export default function GlobalLiveMap() {
                   <span>{language === "ar" ? "المصدر" : "Source"}: {selectedSignal.source || "-"}</span>
                   <span>{language === "ar" ? "الفئة" : "Category"}: {selectedSignal.category}</span>
                   <span>{language === "ar" ? "الدرجة" : "Importance"}: {selectedSignal.importanceScore}</span>
+                  <span>{language === "ar" ? "الثقة" : "Confidence"}: {selectedSignal.confidenceScore}%</span>
                   <span>{language === "ar" ? "الوقت" : "Timestamp"}: {formatDateTime(selectedSignal.timestamp)}</span>
                   <span>{language === "ar" ? "الموقع" : "Location"}: {selectedSignal.country || selectedSignal.region || "Global"}</span>
                 </div>
@@ -1023,6 +1110,20 @@ export default function GlobalLiveMap() {
                     ))}
                   </ul>
                 </div>
+                {relatedSignals.length ? (
+                  <div className="glm-detail-related">
+                    <div>{language === "ar" ? "إشارات مرتبطة" : "Related signals"}</div>
+                    <ul>
+                      {relatedSignals.map((item) => (
+                        <li key={item.id}>
+                          <button type="button" onClick={() => setSelectedSignal(item)}>
+                            {item.title}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </>
             ) : (
               <>

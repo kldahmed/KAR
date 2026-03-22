@@ -1,5 +1,6 @@
 import React from "react";
-import { Circle, CircleMarker, Polyline, Tooltip, useMap } from "react-leaflet";
+import L from "leaflet";
+import { Circle, CircleMarker, Marker, Polyline, Tooltip, useMap } from "react-leaflet";
 import MapEventTooltip from "./MapEventTooltip";
 import { useI18n } from "../i18n/I18nProvider";
 
@@ -53,12 +54,29 @@ function ClusteredSignals({
 }) {
   const map = useMap();
   const [zoomLevel, setZoomLevel] = React.useState(() => map.getZoom());
+  const [expandedClusters, setExpandedClusters] = React.useState(() => new Set());
+
+  const clusterIconFor = React.useCallback((count, color) => {
+    const size = Math.min(54, 28 + count * 2);
+    return L.divIcon({
+      className: "glm-cluster-divicon",
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+      html: `<div class="glm-cluster-badge" style="--cluster-color:${color}"><span>${count}</span></div>`,
+    });
+  }, []);
 
   React.useEffect(() => {
     const onZoomEnd = () => setZoomLevel(map.getZoom());
     map.on("zoomend", onZoomEnd);
     return () => map.off("zoomend", onZoomEnd);
   }, [map]);
+
+  React.useEffect(() => {
+    if (zoomLevel >= 5 && expandedClusters.size) {
+      setExpandedClusters(new Set());
+    }
+  }, [expandedClusters, zoomLevel]);
 
   const clustered = React.useMemo(() => {
     const size = getClusterWindow(zoomLevel);
@@ -94,41 +112,39 @@ function ClusteredSignals({
       ...cluster,
       lat: cluster.lat / Math.max(1, cluster.count),
       lng: cluster.lng / Math.max(1, cluster.count),
-      expanded: zoomLevel >= 5 || cluster.count < 3,
+      expanded: zoomLevel >= 5 || cluster.count < 3 || expandedClusters.has(cluster.id),
     }));
-  }, [signalPoints, zoomLevel]);
+  }, [expandedClusters, signalPoints, zoomLevel]);
 
   return (
     <>
       {clustered.map((cluster) => {
         if (!cluster.expanded) {
           const style = styleForCategory(cluster.topCategory);
-          const clusterRadius = Math.min(24, 8 + cluster.count * 1.35);
+          const clusterIcon = clusterIconFor(cluster.count, style.color);
           return (
-            <CircleMarker
+            <Marker
               key={`cluster-${cluster.id}`}
-              center={[cluster.lat, cluster.lng]}
-              radius={clusterRadius}
-              pathOptions={{
-                color: style.ring,
-                fillColor: style.color,
-                fillOpacity: 0.34,
-                weight: 2,
-                className: "glm-cluster-marker",
-              }}
+              position={[cluster.lat, cluster.lng]}
+              icon={clusterIcon}
               eventHandlers={{
                 click: () => {
+                  setExpandedClusters((prev) => {
+                    const next = new Set(prev);
+                    next.add(cluster.id);
+                    return next;
+                  });
                   map.flyTo([cluster.lat, cluster.lng], Math.min(6, zoomLevel + 2), { duration: 0.5 });
                 },
               }}
             >
               <Tooltip sticky direction="top" offset={[0, -8]}>
-                <div style={{ fontSize: 11, padding: "4px 6px", direction }}>
+                <div className="glm-event-tooltip" style={{ direction }}>
                   <div style={{ fontWeight: 800 }}>{cluster.count} {t("map.signals")}</div>
                   <div style={{ color: "#94a3b8", fontSize: 10 }}>{t("map.pressure")}: {cluster.topCategory}</div>
                 </div>
               </Tooltip>
-            </CircleMarker>
+            </Marker>
           );
         }
 
@@ -151,15 +167,16 @@ function ClusteredSignals({
               eventHandlers={{ click: () => onSelectSignal?.(signal) }}
             >
               <Tooltip direction="top" offset={[0, -8]} opacity={1}>
-                <div style={{ padding: "4px 6px", fontSize: 11, maxWidth: 260, direction }}>
-                  <div style={{ fontWeight: 800, marginBottom: 2 }}>{signal.title}</div>
-                  <div style={{ color: "#94a3b8", fontSize: 10 }}>
+                <div className="glm-event-tooltip" style={{ direction }}>
+                  <div className="glm-event-tooltip-title">{signal.title}</div>
+                  <div className="glm-event-tooltip-meta">
                     {signal.category} · {signal.country || signal.region || "Global"}
                   </div>
-                  <div style={{ color: "#94a3b8", fontSize: 10 }}>
+                  <div className="glm-event-tooltip-meta">
                     {t("map.pressure")}: {signal.importanceScore || 0}
                   </div>
-                  <div style={{ color: "#64748b", fontSize: 10, marginTop: 2 }}>{signal.timestamp || signal.time || ""}</div>
+                  <div className="glm-event-tooltip-time">{signal.timestamp || signal.time || ""}</div>
+                  {signal.summary ? <div className="glm-event-tooltip-summary">{signal.summary.slice(0, 120)}</div> : null}
                 </div>
               </Tooltip>
             </CircleMarker>
