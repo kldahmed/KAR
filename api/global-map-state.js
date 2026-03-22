@@ -98,6 +98,10 @@ function mapCategory(text) {
 }
 
 function mapImpact(item) {
+  if (Number.isFinite(Number(item.importanceScore))) {
+    const normalized = Number(item.importanceScore) / 100;
+    return Math.min(0.95, Math.max(0.2, normalized));
+  }
   const urgency = String(item.urgency || "").toLowerCase();
   if (urgency === "high") return 0.85;
   if (urgency === "medium") return 0.62;
@@ -105,6 +109,9 @@ function mapImpact(item) {
 }
 
 function mapConfidence(item) {
+  if (Number.isFinite(Number(item.confidence)) && Number(item.confidence) <= 1) {
+    return Math.min(0.95, Math.max(0.2, Number(item.confidence)));
+  }
   const explicit = Number(item.confidence || item.confidenceScore || 0);
   if (explicit > 0) return Math.min(0.95, Math.max(0.2, explicit / 100));
   const urgency = String(item.urgency || "").toLowerCase();
@@ -211,7 +218,7 @@ function buildLinks(mapSignals) {
   const pairScore = new Map();
 
   mapSignals.forEach((signal) => {
-    const nodes = [...new Set([signal.country, ...safeArray(signal.zones)])].filter(Boolean);
+    const nodes = [...new Set([signal.country, ...safeArray(signal.zones), ...safeArray(signal.entities)])].filter(Boolean);
     for (let i = 0; i < nodes.length; i += 1) {
       for (let j = i + 1; j < nodes.length; j += 1) {
         const a = nodes[i];
@@ -332,6 +339,120 @@ function buildTimeline(signals) {
   return timeline;
 }
 
+function normalizeText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function scoreSourceReliability(source) {
+  const s = normalizeText(source);
+  if (/reuters|bbc|al jazeera|sky news|nytimes/.test(s)) return 82;
+  if (/intelnews|global events|global-events/.test(s)) return 76;
+  if (/x|twitter|author|rss/.test(s)) return 64;
+  if (/radar/.test(s)) return 68;
+  return 58;
+}
+
+function inferUrgencyFromText(text) {
+  const t = normalizeText(text);
+  if (/missile|drone|attack|strike|war|explosion|sanctions|عاجل|هجوم|قصف|صاروخ|حرب/.test(t)) return "high";
+  if (/talks|summit|economy|market|oil|inflation|مفاوضات|اقتصاد|أسواق|نفط/.test(t)) return "medium";
+  return "low";
+}
+
+function inferImportanceScore(item) {
+  if (Number.isFinite(Number(item.importanceScore))) {
+    return Math.min(100, Math.max(25, Number(item.importanceScore)));
+  }
+
+  const sourceScore = scoreSourceReliability(item.source);
+  const urgency = String(item.urgency || inferUrgencyFromText(`${item.title || ""} ${item.summary || ""}`)).toLowerCase();
+  const urgencyScore = urgency === "high" ? 24 : urgency === "medium" ? 15 : 8;
+  const category = String(item.category || "").toLowerCase();
+  const categoryScore = /conflict|geopolitics|military|air/.test(category)
+    ? 16
+    : /economy|politics|regional/.test(category)
+      ? 11
+      : 6;
+  const confidenceScore = Number(item.confidence || item.confidenceScore || 0) > 1
+    ? Math.min(12, Number(item.confidence || item.confidenceScore || 0) / 8)
+    : Math.min(12, Number(item.confidence || 0) * 12);
+
+  return Math.min(100, Math.round(sourceScore * 0.55 + urgencyScore + categoryScore + confidenceScore));
+}
+
+function deriveEntities(item, mentions) {
+  const body = `${item.title || ""} ${item.summary || ""} ${item.region || ""}`;
+  const matchedCountries = mentions.countries
+    .map((countryId) => COUNTRY_HINTS.find((entry) => entry.id === countryId)?.name)
+    .filter(Boolean);
+  const matchedZones = mentions.zones
+    .map((zoneId) => SPECIAL_ZONES.find((entry) => entry.id === zoneId)?.name)
+    .filter(Boolean);
+  const categoryEntity = item.category ? [String(item.category)] : [];
+  const sourceEntity = item.source ? [String(item.source)] : [];
+  const rawTokens = normalizeText(body).split(" ").filter((token) => token.length > 4).slice(0, 3);
+  return [...new Set([...matchedCountries, ...matchedZones, ...categoryEntity, ...sourceEntity, ...rawTokens])].slice(0, 8);
+}
+
+function dedupeSignals(items) {
+  const seen = new Map();
+  safeArray(items).forEach((item, index) => {
+    const titleKey = normalizeText(item.title || item.summary || item.id || `signal-${index}`).slice(0, 180);
+    const sourceKey = normalizeText(item.source || "source");
+    const key = titleKey || `${sourceKey}-${index}`;
+    const prev = seen.get(key);
+    if (!prev) {
+      seen.set(key, item);
+      return;
+    }
+
+    const prevScore = Number(prev.importanceScore || 0);
+    const nextScore = Number(item.importanceScore || 0);
+    const prevTime = new Date(prev.timestamp || prev.time || 0).getTime() || 0;
+    const nextTime = new Date(item.timestamp || item.time || 0).getTime() || 0;
+    if (nextScore > prevScore || (nextScore === prevScore && nextTime > prevTime)) {
+      seen.set(key, item);
+    }
+  });
+
+  return [...seen.values()];
+}
+
+function ensureMinimumSignals(items, aircraft) {
+  const output = [...safeArray(items)];
+  const aircraftDerived = deriveSignalsFromAircraft(aircraft).map((item, index) => ({
+    ...item,
+    id: item.id || `derived-air-${index}`,
+    importanceScore: inferImportanceScore(item),
+    timestamp: toIsoTime(item.time),
+  }));
+
+  for (const item of aircraftDerived) {
+    if (output.length >= 10) break;
+    output.push(item);
+  }
+
+  let fallbackIndex = 0;
+  while (output.length < 10) {
+    const fallback = MINIMAL_FALLBACK_ITEMS[fallbackIndex % MINIMAL_FALLBACK_ITEMS.length];
+    const cycle = Math.floor(fallbackIndex / MINIMAL_FALLBACK_ITEMS.length) + 1;
+    output.push({
+      ...fallback,
+      id: `${fallback.id}-${fallbackIndex}`,
+      title: cycle > 1 ? `${fallback.title} ${cycle}` : fallback.title,
+      timestamp: toIsoTime(fallback.time),
+      importanceScore: inferImportanceScore(fallback),
+    });
+    fallbackIndex += 1;
+  }
+
+  return output;
+}
+
 function toIsoTime(value) {
   const parsed = new Date(value || Date.now());
   return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
@@ -349,7 +470,14 @@ function normalizeNewsItems(items, sourceLabel) {
       category: item.category || item.domain || mapCategory(`${item.title || ""} ${item.summary || ""}`),
       region: item.region || "",
       confidence: Number(item.confidence || 0),
-      clusterId: item.clusterId || null
+      clusterId: item.clusterId || null,
+      timestamp: toIsoTime(item.time || item.publishedAt || item.updatedAt),
+      importanceScore: inferImportanceScore({
+        ...item,
+        source: item.source || sourceLabel,
+        urgency: item.urgency || "medium",
+        category: item.category || item.domain || mapCategory(`${item.title || ""} ${item.summary || ""}`),
+      })
     }))
     .filter((item) => item.title || item.summary);
 }
@@ -366,7 +494,14 @@ function normalizeEventItems(items) {
       category: item.category || item.type || "geopolitics",
       region: item.region || "",
       confidence: Number(item.confidence || item.confidenceScore || 0),
-      clusterId: item.clusterId || null
+      clusterId: item.clusterId || null,
+      timestamp: toIsoTime(item.time || item.updatedAt),
+      importanceScore: inferImportanceScore({
+        ...item,
+        source: item.source || "global-events",
+        urgency: item.urgency || (Number(item.impactScore || item.impact || 0) > 70 ? "high" : "medium"),
+        category: item.category || item.type || "geopolitics",
+      })
     }))
     .filter((item) => item.title || item.summary);
 }
@@ -384,7 +519,14 @@ function normalizeXFeedItems(payload) {
       category: item.category || item.domain || item.queryDomain || "news",
       region: item.region || "",
       confidence: Number(item.confidence || 0),
-      clusterId: item.clusterId || null
+      clusterId: item.clusterId || null,
+      timestamp: toIsoTime(item.time || item.createdAt || item.timestamp),
+      importanceScore: inferImportanceScore({
+        ...item,
+        source: item.source || item.authorName || item.author || "X",
+        urgency: item.urgency || "medium",
+        category: item.category || item.domain || item.queryDomain || "news",
+      })
     }))
     .filter((item) => item.title || item.summary);
 }
@@ -413,75 +555,93 @@ function deriveSignalsFromAircraft(aircraft) {
     summary: `Live radar track at altitude ${Math.round(Number(flight.altitude || 0))} ft`,
     source: "radar",
     time: new Date().toISOString(),
+    timestamp: new Date().toISOString(),
     urgency: Number(flight.altitude || 0) > 30000 ? "medium" : "low",
     category: "air",
     region: flight.lng > 42 ? "Middle East" : "Europe",
     confidence: 58,
-    clusterId: null
+    clusterId: null,
+    importanceScore: Number(flight.altitude || 0) > 30000 ? 71 : 54
   }));
 }
 
 function compilePayload({ events, aircraft, newsItems, intelItems, xItems }) {
-  const sourceItems = [
+  const sourceItems = dedupeSignals([
     ...safeArray(events),
     ...safeArray(newsItems),
     ...safeArray(intelItems),
     ...safeArray(xItems)
-  ];
+  ]);
 
   const inputItems = sourceItems.length > 0
     ? sourceItems
-    : [...deriveSignalsFromAircraft(aircraft), ...MINIMAL_FALLBACK_ITEMS];
+    : ensureMinimumSignals([], aircraft);
 
-  const mapSignals = inputItems
+  const mapSignals = ensureMinimumSignals(inputItems, aircraft)
     .map((item, idx) => {
       const mentions = detectMentions(item);
       const country = resolvePrimaryCountry(item, mentions);
       if (!country) return null;
+      const entities = deriveEntities(item, mentions);
+      const timestamp = toIsoTime(item.timestamp || item.time);
+      const importanceScore = inferImportanceScore(item);
       return {
         id: item.id || `signal-${idx}`,
         title: item.title || "",
+        category: mapCategory(item.category || item.domain || item.title),
+        country: country.id,
         summary: item.summary || "",
         source: item.source || "",
-        time: toIsoTime(item.time),
-        category: mapCategory(item.category || item.domain || item.title),
+        time: timestamp,
+        timestamp,
         impact: mapImpact(item),
         confidence: mapConfidence(item),
+        importanceScore,
         urgency: item.urgency || "low",
         linkedEventCluster: item.clusterId || null,
-        country: country.id,
         region: country.region,
         centerCoordinates: country.centerCoordinates,
-        zones: mentions.zones
+        zones: mentions.zones,
+        entities
       };
     })
     .filter(Boolean);
 
-  const ensuredSignals = mapSignals.length > 0
-    ? mapSignals
+  const ensuredSignals = dedupeSignals(mapSignals).sort((a, b) => {
+    const importanceDiff = Number(b.importanceScore || 0) - Number(a.importanceScore || 0);
+    if (importanceDiff !== 0) return importanceDiff;
+    return new Date(b.timestamp || b.time).getTime() - new Date(a.timestamp || a.time).getTime();
+  });
+
+  const nonEmptySignals = ensuredSignals.length > 0
+    ? ensureMinimumSignals(ensuredSignals, aircraft)
     : MINIMAL_FALLBACK_ITEMS.map((item, idx) => {
         const mentions = detectMentions(item);
         const country = resolvePrimaryCountry(item, mentions) || COUNTRY_HINTS.find((entry) => entry.id === "sa");
+        const timestamp = toIsoTime(item.time);
         return {
           id: item.id || `fallback-signal-${idx}`,
           title: item.title,
+          category: mapCategory(item.category || item.title),
+          country: country.id,
           summary: item.summary,
           source: item.source,
-          time: toIsoTime(item.time),
-          category: mapCategory(item.category || item.title),
+          time: timestamp,
+          timestamp,
           impact: mapImpact(item),
           confidence: mapConfidence(item),
+          importanceScore: inferImportanceScore(item),
           urgency: item.urgency || "low",
           linkedEventCluster: null,
-          country: country.id,
           region: country.region,
           centerCoordinates: country.centerCoordinates,
-          zones: mentions.zones
+          zones: mentions.zones,
+          entities: deriveEntities(item, mentions)
         };
       });
 
   const byCountry = new Map();
-  ensuredSignals.forEach((signal) => {
+  nonEmptySignals.forEach((signal) => {
     const bucket = byCountry.get(signal.country) || {
       id: signal.country,
       name: COUNTRY_HINTS.find((c) => c.id === signal.country)?.name || signal.country,
@@ -501,7 +661,7 @@ function compilePayload({ events, aircraft, newsItems, intelItems, xItems }) {
     bucket.lastUpdated = new Date(signal.time) > new Date(bucket.lastUpdated) ? signal.time : bucket.lastUpdated;
     bucket.confidence += signal.confidence;
     bucket.topEvents.push(signal.title);
-    bucket.topEntities.push(signal.source);
+    bucket.topEntities.push(...safeArray(signal.entities));
     bucket.categories[signal.category] = (bucket.categories[signal.category] || 0) + 1;
 
     byCountry.set(signal.country, bucket);
@@ -529,8 +689,8 @@ function compilePayload({ events, aircraft, newsItems, intelItems, xItems }) {
   });
 
   const regions = groupByRegion(countries);
-  const links = buildLinks(ensuredSignals);
-  const timeline = buildTimeline(ensuredSignals);
+  const links = buildLinks(nonEmptySignals);
+  const timeline = buildTimeline(nonEmptySignals);
 
   return {
     generatedAt: new Date().toISOString(),
@@ -540,12 +700,12 @@ function compilePayload({ events, aircraft, newsItems, intelItems, xItems }) {
     countries,
     regions,
     links,
-    signals: ensuredSignals,
+    signals: nonEmptySignals,
     zones: SPECIAL_ZONES,
     timeline,
     explainability: {
       sourcesUsed: ["global-events", "radar", "news", "x-feed", "intelnews"],
-      totalSignals: ensuredSignals.length,
+      totalSignals: nonEmptySignals.length,
       countryCount: countries.length,
       linkCount: links.length,
       note: "All highlights are derived from real ingested items and mapped by explicit geographic evidence."
