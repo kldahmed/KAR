@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from "react";
 import { getRoutesForMode } from "../lib/simpleRouter";
 
-export default function TopSectionNav({ currentPath, navigate, language = "ar" }) {
+export default function TopSectionNav({ currentPath, navigate, language = "ar", includeAdmin = false }) {
   const scrollRef = useRef(null);
-  const routeList = getRoutesForMode();
+  const routeList = getRoutesForMode({ includeAdmin });
 
   const handleKeyDown = (event) => {
     const buttons = Array.from(scrollRef.current?.querySelectorAll("button") || []);

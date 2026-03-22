@@ -1,7 +1,114 @@
-import React from "react";
-import NewsCard from "../components/NewsCard";
-import { localizeSummaryText } from "../lib/i18n/summaryLocalizer";
+import React, { useMemo, useState } from "react";
 import { PageHero, pageShell, panelStyle } from "./shared/pagePrimitives";
+
+const CATEGORY_SECTIONS = [
+  { key: "politics", labelAr: "سياسة", labelEn: "Politics" },
+  { key: "economy", labelAr: "اقتصاد", labelEn: "Economy" },
+  { key: "regional", labelAr: "إقليم", labelEn: "Regional" },
+  { key: "sports", labelAr: "رياضة", labelEn: "Sports" },
+  { key: "technology", labelAr: "تقنية", labelEn: "Technology" },
+  { key: "health", labelAr: "صحة", labelEn: "Health" },
+];
+
+function formatTime(value = "", language = "ar") {
+  if (!value) return language === "ar" ? "الآن" : "Now";
+  const time = new Date(value);
+  if (Number.isNaN(time.getTime())) return String(value);
+  return time.toLocaleString(language === "ar" ? "ar-AE" : "en-GB", {
+    timeZone: "Asia/Dubai",
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "short",
+  });
+}
+
+function toReadNewsLabel(language = "ar") {
+  return language === "ar" ? "قراءة المزيد" : "Read more";
+}
+
+function scoreArticle(item, index = 0) {
+  const urgency = String(item?.urgency || "low").toLowerCase();
+  const urgencyScore = urgency === "high" ? 60 : urgency === "medium" ? 34 : 12;
+  const reliability = String(item?.reliability || "medium").toLowerCase();
+  const reliabilityScore = reliability === "high" ? 18 : reliability === "medium" ? 10 : 4;
+  const freshness = Math.max(0, 40 - Math.min(40, Number(item?.freshnessMinutes || 0)));
+  const quality = Math.min(30, Number(item?.qualityScore || 0) / 3.4);
+  const trending = item?.isBreaking ? 20 : 0;
+  const rankingPenalty = Math.min(20, index * 1.8);
+  return urgencyScore + reliabilityScore + freshness + quality + trending - rankingPenalty;
+}
+
+function sanitizeSummary(value = "", language = "ar") {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return language === "ar" ? "تفاصيل إضافية متاحة داخل الخبر." : "More details are available in the full story.";
+  return text;
+}
+
+function deriveEditorialSections(news = []) {
+  const scored = [...news]
+    .map((item, index) => ({ ...item, __score: scoreArticle(item, index) }))
+    .sort((a, b) => Number(b.__score || 0) - Number(a.__score || 0));
+
+  const hero = scored[0] || null;
+  const topStories = scored.slice(1, 7);
+  const breaking = scored.filter((item) => item?.isBreaking || String(item?.urgency || "").toLowerCase() === "high").slice(0, 10);
+  const trending = scored.slice(0, 8);
+
+  const byCategory = CATEGORY_SECTIONS.reduce((acc, section) => {
+    acc[section.key] = scored
+      .filter((item) => String(item?.category || "").toLowerCase() === section.key)
+      .slice(0, 4);
+    return acc;
+  }, {});
+
+  return {
+    hero,
+    topStories,
+    breaking,
+    trending,
+    byCategory,
+    ranked: scored,
+  };
+}
+
+function ensureMinimumNews(items = [], backup = []) {
+  if (items.length >= 20) return items;
+  const merged = [...items];
+  backup.forEach((entry) => {
+    if (merged.length >= 20) return;
+    const exists = merged.some((item) => String(item?.id || "") === String(entry?.id || ""));
+    if (!exists) merged.push(entry);
+  });
+  return merged;
+}
+
+function StoryCard({ item, language, onOpen, compact = false }) {
+  const image = item?.image || item?.image_url || "";
+  return (
+    <article className={compact ? "news-story-card news-story-card--compact" : "news-story-card"}>
+      {image ? (
+        <img src={image} alt={item?.title || "story"} loading="lazy" className="news-story-card__image" />
+      ) : (
+        <div className="news-story-card__image news-story-card__image--fallback" />
+      )}
+      <div className="news-story-card__body">
+        <div className="news-story-card__meta">
+          <span>{item?.source || (language === "ar" ? "مصدر معتمد" : "Verified source")}</span>
+          <span>•</span>
+          <span>{formatTime(item?.time || item?.published_at, language)}</span>
+          <span>•</span>
+          <span>{item?.category || (language === "ar" ? "عام" : "General")}</span>
+        </div>
+        <h3 className="news-story-card__title">{item?.title}</h3>
+        <p className="news-story-card__summary">{sanitizeSummary(item?.summary, language)}</p>
+        <button type="button" className="news-story-card__cta" onClick={() => onOpen(item)}>
+          {toReadNewsLabel(language)}
+        </button>
+      </div>
+    </article>
+  );
+}
 
 export default function NewsPage({
   language,
@@ -15,231 +122,166 @@ export default function NewsPage({
   retryNews,
   handleCardClick,
 }) {
-  const healthySources = Number(feedStatus?.stats?.healthySources || 0);
-  const totalSources = Number(feedStatus?.stats?.totalSources || 0);
-  const breakingCount = Number(feedStatus?.stats?.breakingCount || 0);
-  const avgQuality = Number(feedStatus?.stats?.averageQuality || 0);
-  const quarantinedSources = Number(feedStatus?.stats?.quarantinedSources || 0);
-  const featuredAlert = feedStatus?.featuredAlert || null;
-  const dashboard = feedStatus?.dashboard || null;
-  const sourceRegistry = Array.isArray(feedStatus?.sources) ? feedStatus.sources : [];
-  const capacityProjection = dashboard?.capacity_projection || null;
-  const weakestSources = Array.isArray(dashboard?.weakest_sources) ? dashboard.weakest_sources.slice(0, 6) : [];
-  const fastestSources = Array.isArray(dashboard?.fastest_sources) ? dashboard.fastest_sources.slice(0, 6) : [];
-  const sourceRegistryPreview = sourceRegistry.slice(0, 12);
-  const alerts = dashboard?.alerts || {};
-  const persistence = dashboard?.persistence || null;
-  const dailyCounters = dashboard?.counters || {};
+  const [latestVisibleCount, setLatestVisibleCount] = useState(12);
+  const newsPool = Array.isArray(displayedNews) ? displayedNews : [];
+  const backupPool = useMemo(() => {
+    const sectionNews = Array.isArray(feedStatus?.sections?.latest) ? feedStatus.sections.latest : [];
+    const trendingNews = Array.isArray(feedStatus?.sections?.trending) ? feedStatus.sections.trending : [];
+    return [...sectionNews, ...trendingNews];
+  }, [feedStatus]);
+
+  const effectiveNews = useMemo(() => ensureMinimumNews(newsPool, backupPool), [newsPool, backupPool]);
+  const editorial = useMemo(() => deriveEditorialSections(effectiveNews), [effectiveNews]);
+
+  const hero = editorial.hero;
+  const topStories = editorial.topStories;
+  const breaking = editorial.breaking;
+  const trending = editorial.trending;
+  const latest = editorial.ranked.slice(0, Math.max(20, latestVisibleCount));
 
   return (
-    <div style={pageShell}>
+    <div style={pageShell} className="news-landing">
       <PageHero
-        eyebrow={language === "ar" ? "الأخبار" : "NEWS"}
-        title={language === "ar" ? "الأخبار الأساسية الآن" : "Core News Now"}
+        eyebrow={language === "ar" ? "غرفة الأخبار" : "Newsroom"}
+        title={language === "ar" ? "منصة أخبار احترافية مباشرة" : "Professional Live News Surface"}
         description={language === "ar"
-          ? "الإشارات الفارقة فقط: عاجل، جودة المصادر، والقصص الأهم."
-          : "Only high-signal output: breaking, source quality, and top stories."}
+          ? "أخبار مرتبة حسب التأثير والأهمية والحداثة مع عرض بصري حديث يشبه غرف الأخبار العالمية."
+          : "A modern editorial surface ranked by impact, importance, and freshness."}
       />
 
-      <section style={{ ...panelStyle, padding: "12px 14px", marginBottom: 14 }}>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <span style={{ color: "#e2e8f0", fontSize: 12, fontWeight: 800 }}>
-            {language === "ar" ? `المصادر الجاهزة ${healthySources}/${totalSources}` : `Healthy sources ${healthySources}/${totalSources}`}
-          </span>
-          <span style={{ color: "#f87171", fontSize: 12, fontWeight: 800 }}>
-            {language === "ar" ? `عاجل الآن ${breakingCount}` : `Breaking now ${breakingCount}`}
-          </span>
-          <span style={{ color: quarantinedSources > 0 ? "#fca5a5" : "#94a3b8", fontSize: 12, fontWeight: 800 }}>
-            {language === "ar" ? `معزول مؤقتا ${quarantinedSources}` : `Quarantined ${quarantinedSources}`}
-          </span>
-          <span style={{ color: "#67e8f9", fontSize: 12, fontWeight: 800 }}>
-            {language === "ar" ? `متوسط الجودة ${avgQuality}/100` : `Average quality ${avgQuality}/100`}
-          </span>
-          <span style={{ color: "#94a3b8", fontSize: 12 }}>
-            {language === "ar"
-              ? localizeSummaryText(feedStatus?.sourceMode || "", "ar", { kind: "label" })
-              : (feedStatus?.sourceMode || "")}
-          </span>
+      <section style={{ ...panelStyle, padding: "12px 14px", marginBottom: 16 }}>
+        <div className="news-categories-row">
+          {categories.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setCat(item.id)}
+              className={cat === item.id ? "news-category-chip active" : "news-category-chip"}
+            >
+              {item.emoji} {item.label}
+            </button>
+          ))}
         </div>
       </section>
 
-      {dashboard ? (
-        <section style={{ ...panelStyle, padding: "14px 14px 12px", marginBottom: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
-            <div>
-              <div style={{ color: "#f8fafc", fontSize: 14, fontWeight: 900, marginBottom: 4 }}>
-                {language === "ar" ? "لوحة تشغيل غرفة الأخبار" : "Newsroom operations"}
-              </div>
-              <div style={{ color: "#94a3b8", fontSize: 12 }}>
-                {language === "ar"
-                  ? `مستورد خام ${dailyCounters.imported_today_raw || 0} | فريد ${dailyCounters.imported_today_unique || 0} | منشور ${dailyCounters.published_today || 0} | مراجعة ${dailyCounters.review_required_today || 0}`
-                  : `Raw ${dailyCounters.imported_today_raw || 0} | Unique ${dailyCounters.imported_today_unique || 0} | Published ${dailyCounters.published_today || 0} | Review ${dailyCounters.review_required_today || 0}`}
-              </div>
-            </div>
-            <div style={{ color: "#94a3b8", fontSize: 12 }}>
-              {language === "ar"
-                ? `آخر تحديث تشغيلي ${feedStatus?.operationsUpdatedAt || dashboard?.generated_at || ""}`
-                : `Ops updated ${feedStatus?.operationsUpdatedAt || dashboard?.generated_at || ""}`}
-            </div>
+      {hero ? (
+        <section className="news-hero-story" style={panelStyle}>
+          <div className="news-hero-story__media">
+            {hero?.image || hero?.image_url ? (
+              <img src={hero.image || hero.image_url} loading="lazy" alt={hero.title} className="news-hero-story__image" />
+            ) : (
+              <div className="news-hero-story__image news-hero-story__image--fallback" />
+            )}
           </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 14 }}>
-            <div style={{ border: "1px solid rgba(56,189,248,0.18)", borderRadius: 12, padding: 10, background: "rgba(15,23,42,0.55)" }}>
-              <div style={{ color: "#94a3b8", fontSize: 11, marginBottom: 4 }}>{language === "ar" ? "الهدف اليومي الأدنى" : "Daily minimum"}</div>
-              <div style={{ color: "#67e8f9", fontSize: 18, fontWeight: 900 }}>{feedStatus?.stats?.ingestTargetMinimum || 1000}</div>
+          <div className="news-hero-story__content">
+            <div className="news-hero-story__kicker">{language === "ar" ? "الخبر الأهم" : "Hero story"}</div>
+            <h2 className="news-hero-story__title">{hero.title}</h2>
+            <p className="news-hero-story__summary">{sanitizeSummary(hero.summary, language)}</p>
+            <div className="news-hero-story__meta">
+              <span>{hero.source || (language === "ar" ? "مصدر معتمد" : "Verified source")}</span>
+              <span>•</span>
+              <span>{formatTime(hero.time || hero.published_at, language)}</span>
+              <span>•</span>
+              <span>{hero.category || (language === "ar" ? "عام" : "General")}</span>
             </div>
-            <div style={{ border: "1px solid rgba(56,189,248,0.18)", borderRadius: 12, padding: 10, background: "rgba(15,23,42,0.55)" }}>
-              <div style={{ color: "#94a3b8", fontSize: 11, marginBottom: 4 }}>{language === "ar" ? "توقع الفريد اليومي" : "Projected unique/day"}</div>
-              <div style={{ color: capacityProjection?.meets_minimum_1000 ? "#86efac" : "#fca5a5", fontSize: 18, fontWeight: 900 }}>{capacityProjection?.projected_unique_per_day || 0}</div>
-            </div>
-            <div style={{ border: "1px solid rgba(56,189,248,0.18)", borderRadius: 12, padding: 10, background: "rgba(15,23,42,0.55)" }}>
-              <div style={{ color: "#94a3b8", fontSize: 11, marginBottom: 4 }}>{language === "ar" ? "معدل التكرار" : "Duplicate rate"}</div>
-              <div style={{ color: "#f8fafc", fontSize: 18, fontWeight: 900 }}>{Math.round(Number(dashboard?.rates?.duplicates_rate || 0) * 100)}%</div>
-            </div>
-            <div style={{ border: "1px solid rgba(56,189,248,0.18)", borderRadius: 12, padding: 10, background: "rgba(15,23,42,0.55)" }}>
-              <div style={{ color: "#94a3b8", fontSize: 11, marginBottom: 4 }}>{language === "ar" ? "معدل الفشل" : "Failure rate"}</div>
-              <div style={{ color: Number(dashboard?.rates?.failure_rate || 0) > 0.2 ? "#fca5a5" : "#f8fafc", fontSize: 18, fontWeight: 900 }}>{Math.round(Number(dashboard?.rates?.failure_rate || 0) * 100)}%</div>
-            </div>
+            <button type="button" className="news-hero-story__cta" onClick={() => handleCardClick(hero)}>
+              {toReadNewsLabel(language)}
+            </button>
           </div>
+        </section>
+      ) : null}
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 14 }}>
-            <div style={{ border: "1px solid rgba(248,113,113,0.2)", borderRadius: 12, padding: 12, background: "rgba(30,41,59,0.42)" }}>
-              <div style={{ color: "#fca5a5", fontWeight: 900, fontSize: 12, marginBottom: 8 }}>
-                {language === "ar" ? "إنذارات التشغيل" : "Operational alerts"}
-              </div>
-              <div style={{ display: "grid", gap: 6, color: "#e2e8f0", fontSize: 12 }}>
-                <div>{alerts.below_minimum_1000 ? (language === "ar" ? "السعة الحالية أقل من 1000 خبر فريد يوميا" : "Projected below 1000 unique/day") : (language === "ar" ? "الحد الأدنى اليومي محقق" : "Daily minimum currently met")}</div>
-                <div>{alerts.active_sources_below_50 ? (language === "ar" ? "المصادر النشطة أقل من 50" : "Active sources below 50") : (language === "ar" ? "عدد المصادر النشطة ضمن الهدف" : "Active source count on target")}</div>
-                <div>{alerts.source_failure_above_20_percent ? (language === "ar" ? "معدل فشل المصادر تجاوز 20%" : "Source failure rate above 20%") : (language === "ar" ? "معدل فشل المصادر تحت الحد" : "Source failure rate below threshold")}</div>
-                <div>{alerts.sensitive_review_backlog ? (language === "ar" ? "تراكم مرتفع في طابور مراجعة المحتوى الحساس" : "Sensitive-content review queue is elevated") : (language === "ar" ? "طابور مراجعة الحساسية ضمن المستوى الطبيعي" : "Sensitive review queue is within normal range")}</div>
-              </div>
-            </div>
-
-            <div style={{ border: "1px solid rgba(103,232,249,0.18)", borderRadius: 12, padding: 12, background: "rgba(15,23,42,0.42)" }}>
-              <div style={{ color: "#67e8f9", fontWeight: 900, fontSize: 12, marginBottom: 8 }}>
-                {language === "ar" ? "الاستدامة والحفظ" : "Persistence"}
-              </div>
-              <div style={{ display: "grid", gap: 6, color: "#e2e8f0", fontSize: 12 }}>
-                <div>{language === "ar" ? `الحفظ مفعل: ${persistence?.enabled ? "نعم" : "لا"}` : `Persistence enabled: ${persistence?.enabled ? "yes" : "no"}`}</div>
-                <div>{language === "ar" ? `تمت الاستعادة من snapshot: ${persistence?.hydrated_from_disk ? "نعم" : "لا"}` : `Hydrated from snapshot: ${persistence?.hydrated_from_disk ? "yes" : "no"}`}</div>
-                <div>{language === "ar" ? `آخر حفظ: ${persistence?.last_persisted_at || "-"}` : `Last persisted: ${persistence?.last_persisted_at || "-"}`}</div>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 14 }}>
-            <div style={{ border: "1px solid rgba(248,113,113,0.18)", borderRadius: 12, padding: 12, background: "rgba(15,23,42,0.42)" }}>
-              <div style={{ color: "#fecaca", fontWeight: 900, fontSize: 12, marginBottom: 8 }}>
-                {language === "ar" ? "أضعف المصادر حاليا" : "Weakest sources"}
-              </div>
-              <div style={{ display: "grid", gap: 8 }}>
-                {weakestSources.map((item) => (
-                  <div key={item.source_id} style={{ display: "flex", justifyContent: "space-between", gap: 8, color: "#e2e8f0", fontSize: 12 }}>
-                    <span>{item.name}</span>
-                    <span style={{ color: "#fca5a5" }}>{language === "ar" ? `إخفاقات ${item.failures}` : `fail ${item.failures}`}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ border: "1px solid rgba(56,189,248,0.18)", borderRadius: 12, padding: 12, background: "rgba(15,23,42,0.42)" }}>
-              <div style={{ color: "#bae6fd", fontWeight: 900, fontSize: 12, marginBottom: 8 }}>
-                {language === "ar" ? "أسرع المصادر استجابة" : "Fastest sources"}
-              </div>
-              <div style={{ display: "grid", gap: 8 }}>
-                {fastestSources.map((item) => (
-                  <div key={item.source_id} style={{ display: "flex", justifyContent: "space-between", gap: 8, color: "#e2e8f0", fontSize: 12 }}>
-                    <span>{item.name}</span>
-                    <span style={{ color: "#67e8f9" }}>{item.last_latency_ms || 0}ms</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div style={{ border: "1px solid rgba(148,163,184,0.18)", borderRadius: 12, padding: 12, background: "rgba(15,23,42,0.38)" }}>
-            <div style={{ color: "#f8fafc", fontWeight: 900, fontSize: 12, marginBottom: 8 }}>
-              {language === "ar" ? "سجل المصادر النشطة" : "Active source registry"}
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 8 }}>
-              {sourceRegistryPreview.map((item) => (
-                <div key={item.id} style={{ border: "1px solid rgba(71,85,105,0.55)", borderRadius: 10, padding: 10, background: "rgba(2,6,23,0.35)" }}>
-                  <div style={{ color: "#f8fafc", fontSize: 12, fontWeight: 800, marginBottom: 4 }}>{item.name}</div>
-                  <div style={{ color: "#94a3b8", fontSize: 11, marginBottom: 5 }}>{item.category} | {item.language}</div>
-                  <div style={{ display: "flex", justifyContent: "space-between", color: "#cbd5e1", fontSize: 11 }}>
-                    <span>{item.status}</span>
-                    <span>{item.update_interval_seconds}s</span>
-                  </div>
-                </div>
+      {breaking.length > 0 ? (
+        <section style={{ ...panelStyle, padding: "12px 14px", marginBottom: 18 }}>
+          <div className="news-breaking-strip">
+            <span className="news-breaking-strip__label">{language === "ar" ? "عاجل" : "Breaking"}</span>
+            <div className="news-breaking-strip__items">
+              {breaking.slice(0, 8).map((item) => (
+                <button key={item.id || item.title} type="button" className="news-breaking-strip__item" onClick={() => handleCardClick(item)}>
+                  {item.title}
+                </button>
               ))}
             </div>
           </div>
         </section>
       ) : null}
 
-      {featuredAlert?.title ? (
-        <section style={{ ...panelStyle, padding: "12px 14px", marginBottom: 14, border: "1px solid rgba(248,113,113,0.35)", background: "linear-gradient(145deg, rgba(127,29,29,0.14), rgba(30,41,59,0.5))" }}>
-          <div style={{ color: "#fecaca", fontSize: 12, fontWeight: 900, marginBottom: 5 }}>
-            {language === "ar" ? "تنبيه عاجل" : "Breaking alert"}
-          </div>
-          <div style={{ color: "#f8fafc", fontSize: 14, lineHeight: 1.7, marginBottom: 10 }}>
-            {featuredAlert.title}
-          </div>
-          <button
-            type="button"
-            onClick={() => handleCardClick(featuredAlert)}
-            style={{ border: "1px solid rgba(56,189,248,0.55)", background: "rgba(56,189,248,0.16)", color: "#bae6fd", borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
-          >
-            {language === "ar" ? "فتح الخبر" : "Open story"}
-          </button>
-        </section>
-      ) : null}
-
-      <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-        {categories.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setCat(item.id)}
-            style={{
-              background: cat === item.id ? "#38bdf8" : "#222",
-              color: cat === item.id ? "#fff" : "#38bdf8",
-              border: "none",
-              borderRadius: 10,
-              padding: "8px 16px",
-              fontWeight: 700,
-              fontSize: "1rem",
-              cursor: "pointer"
-            }}
-          >
-            {item.emoji} {item.label}
-          </button>
-        ))}
-      </div>
-
-      {loading ? <div style={{ textAlign: "center", color: "#38bdf8", padding: 30 }}>{language === "ar" ? "جارٍ التحميل" : "Loading"}</div> : null}
-      {error ? (
-        <div style={{ textAlign: "center", color: "#e74c3c", padding: 20 }}>
-          <div style={{ marginBottom: 10 }}>{error}</div>
-          <button
-            type="button"
-            onClick={retryNews}
-            style={{ border: "1px solid rgba(56,189,248,0.35)", background: "rgba(56,189,248,0.12)", color: "#7dd3fc", borderRadius: 8, padding: "7px 12px", fontWeight: 700, cursor: "pointer" }}
-          >
-            {language === "ar" ? "إعادة المحاولة" : "Retry"}
-          </button>
+      <section style={{ marginBottom: 22 }}>
+        <div className="news-section-head">
+          <h3>{language === "ar" ? "الأخبار الرئيسية" : "Top stories"}</h3>
         </div>
-      ) : null}
+        <div className="news-top-grid">
+          {topStories.map((item) => (
+            <StoryCard key={item.id || item.title} item={item} language={language} onOpen={handleCardClick} />
+          ))}
+        </div>
+      </section>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 18 }}>
-        {(displayedNews || []).map((item, idx) => (
-          <NewsCard key={item.id || idx} {...item} onClick={() => handleCardClick(item)} />
-        ))}
-      </div>
+      <section style={{ marginBottom: 24 }}>
+        <div className="news-section-head">
+          <h3>{language === "ar" ? "آخر الأخبار" : "Latest news"}</h3>
+        </div>
+        <div className="news-latest-feed">
+          {latest.slice(0, latestVisibleCount).map((item) => (
+            <StoryCard key={item.id || item.title} item={item} language={language} onOpen={handleCardClick} compact />
+          ))}
+        </div>
+        {latestVisibleCount < latest.length ? (
+          <div style={{ marginTop: 14, display: "flex", justifyContent: "center" }}>
+            <button type="button" className="news-load-more" onClick={() => setLatestVisibleCount((count) => count + 8)}>
+              {language === "ar" ? "عرض المزيد" : "Load more"}
+            </button>
+          </div>
+        ) : null}
+      </section>
 
-      {!loading && !error && (displayedNews || []).length === 0 ? (
-        <div style={{ textAlign: "center", color: "#94a3b8", padding: 16 }}>
-          {language === "ar" ? "لا توجد أخبار متاحة حاليا." : "No stories available right now."}
+      <section style={{ marginBottom: 24 }}>
+        <div className="news-section-head">
+          <h3>{language === "ar" ? "التصنيفات" : "Categories"}</h3>
+        </div>
+        <div className="news-categories-grid">
+          {CATEGORY_SECTIONS.map((section) => {
+            const items = editorial.byCategory[section.key] || [];
+            const fallback = editorial.ranked.filter((item) => String(item?.category || "") !== section.key).slice(0, 4 - items.length);
+            const finalItems = [...items, ...fallback].slice(0, 4);
+
+            return (
+              <div key={section.key} className="news-category-column" style={panelStyle}>
+                <div className="news-category-column__title">{language === "ar" ? section.labelAr : section.labelEn}</div>
+                <div className="news-category-column__list">
+                  {finalItems.map((item) => (
+                    <button key={`${section.key}-${item.id || item.title}`} type="button" className="news-category-column__item" onClick={() => handleCardClick(item)}>
+                      <span>{item.title}</span>
+                      <small>{item.source}</small>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section style={{ marginBottom: 24 }}>
+        <div className="news-section-head">
+          <h3>{language === "ar" ? "الأكثر تداولا" : "Trending"}</h3>
+        </div>
+        <div className="news-trending-grid">
+          {trending.map((item) => (
+            <article key={item.id || item.title} className="news-trending-item" style={panelStyle}>
+              <h4>{item.title}</h4>
+              <div>{item.source} • {formatTime(item.time || item.published_at, language)}</div>
+              <button type="button" onClick={() => handleCardClick(item)}>{toReadNewsLabel(language)}</button>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {loading ? <div className="news-page-state">{language === "ar" ? "جارٍ التحديث" : "Refreshing"}</div> : null}
+      {error ? (
+        <div className="news-page-state news-page-state--error">
+          <div>{error}</div>
+          <button type="button" onClick={retryNews}>{language === "ar" ? "إعادة المحاولة" : "Retry"}</button>
         </div>
       ) : null}
     </div>

@@ -2,25 +2,31 @@ import { useEffect, useMemo, useState } from "react";
 
 export const SECTION_ROUTES = [
   { id: "news",        path: "/news",        icon: "📰", tier: "public", titleAr: "الأخبار",       titleEn: "News",        descriptionAr: "أهم الأخبار من مصادر متعددة موثوقة",      descriptionEn: "Top news from multiple trusted sources" },
-  { id: "news-ops",    path: "/news-ops",    icon: "🛠️", tier: "public", titleAr: "تشغيل الأخبار", titleEn: "News Ops",    descriptionAr: "لوحة تشغيل المصادر والسعة وإعادة المعالجة", descriptionEn: "Operations panel for sources, capacity, and reprocessing" },
+  { id: "news-operations", path: "/admin/news-operations", icon: "🛠️", tier: "admin", titleAr: "تشغيل الأخبار", titleEn: "News Operations", descriptionAr: "لوحة تشغيل المصادر والسعة وإعادة المعالجة", descriptionEn: "Operations panel for sources, capacity, and reprocessing" },
   { id: "live",        path: "/live",        icon: "📡", tier: "public", titleAr: "البث الحي",     titleEn: "Live Feed",   descriptionAr: "تسلسل زمني مباشر للأحداث العاجلة",        descriptionEn: "Real-time timeline of breaking events" },
   { id: "live-news-ai", path: "/live-news-ai", icon: "🎙️", tier: "public", titleAr: "Live News by AI", titleEn: "Live News by AI", descriptionAr: "مذيع افتراضي يقرأ الأخبار العاجلة مع إظهار المصدر والتحقق", descriptionEn: "AI presenter reading live news with source attribution and verification" },
   { id: "world-eye",   path: "/world-eye",   icon: "👁️", tier: "public", titleAr: "عين العالم",   titleEn: "World Eye",   descriptionAr: "تقرير استخباراتي واضح عما يجري الآن",     descriptionEn: "Clear intelligence brief on what is happening now" },
   { id: "uae-weather", path: "/uae-weather", icon: "🌤️", tier: "public", titleAr: "طقس الإمارات", titleEn: "UAE Weather", descriptionAr: "حالة الطقس في إمارات الدولة السبع",        descriptionEn: "Live weather across all 7 UAE emirates" },
 ];
 
-// The home route "/" redirects to "/world-eye" in App.jsx
-export const HOME_REDIRECT = "/world-eye";
+// The home route "/" redirects to "/news" in App.jsx
+export const HOME_REDIRECT = "/news";
 
-export function getRoutesForMode() {
-  return SECTION_ROUTES;
+const PATH_ALIASES = {
+  "/news-operations": "/admin/news-operations",
+  "/admin/news-control": "/admin/news-operations",
+};
+
+export function getRoutesForMode({ includeAdmin = false } = {}) {
+  return SECTION_ROUTES.filter((route) => includeAdmin || route.tier !== "admin");
 }
 
 export function normalizePath(path) {
   if (!path || path === "/") return "/";
   const plain = String(path).split("?")[0].split("#")[0] || "/";
   const clean = plain.replace(/\/+$/, "");
-  return clean || "/";
+  const resolved = clean || "/";
+  return PATH_ALIASES[resolved] || resolved;
 }
 
 export function isKnownRoute(path) {
@@ -61,8 +67,25 @@ export function useCurrentPath(defaultPath = HOME_REDIRECT) {
 
   useEffect(() => {
     const sync = () => {
-      const raw = normalizePath(window.location.pathname || defaultPath);
-      // Redirect bare "/" to world-eye
+      const rawPathname = String(window.location.pathname || defaultPath);
+      const normalizedPathname = normalizePath(rawPathname);
+
+      if (rawPathname.startsWith("/category/")) {
+        const category = rawPathname.split("/").filter(Boolean)[1] || "all";
+        const next = `/news?category=${encodeURIComponent(category.toLowerCase())}`;
+        window.history.replaceState({}, "", next);
+        setCurrentPath("/news");
+        return;
+      }
+
+      if (rawPathname.startsWith("/news/") && rawPathname !== "/news") {
+        window.history.replaceState({}, "", "/news");
+        setCurrentPath("/news");
+        return;
+      }
+
+      const raw = normalizedPathname;
+      // Redirect bare "/" to news
       if (raw === "/") {
         window.history.replaceState({}, "", HOME_REDIRECT);
         setCurrentPath(HOME_REDIRECT);

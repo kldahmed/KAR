@@ -37,7 +37,7 @@ export function applyApiHeaders(req, res, methods = "GET, OPTIONS") {
 
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Access-Control-Allow-Methods", methods);
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Admin-Key");
   res.setHeader("Vary", "Origin");
 
   if (allowOrigin) {
@@ -46,6 +46,47 @@ export function applyApiHeaders(req, res, methods = "GET, OPTIONS") {
   } else {
     res.setHeader("Access-Control-Allow-Origin", "*");
   }
+}
+
+function resolveAdminSecret() {
+  return String(process.env.KAR_ADMIN_KEY || process.env.ADMIN_ACCESS_KEY || "").trim();
+}
+
+function resolveProvidedAdminKey(req) {
+  const fromHeader = String(req?.headers?.["x-admin-key"] || "").trim();
+  if (fromHeader) return fromHeader;
+
+  const authHeader = String(req?.headers?.authorization || "").trim();
+  if (/^bearer\s+/i.test(authHeader)) {
+    return authHeader.replace(/^bearer\s+/i, "").trim();
+  }
+
+  const fromQuery = String(req?.query?.admin_key || "").trim();
+  if (fromQuery) return fromQuery;
+
+  return "";
+}
+
+export function requireAdmin(req, res) {
+  const configuredSecret = resolveAdminSecret();
+  if (!configuredSecret) {
+    res.status(503).json({
+      error: "admin_not_configured",
+      message: "Admin access key is not configured on the server.",
+    });
+    return false;
+  }
+
+  const provided = resolveProvidedAdminKey(req);
+  if (!provided || provided !== configuredSecret) {
+    res.status(403).json({
+      error: "admin_forbidden",
+      message: "Admin access denied.",
+    });
+    return false;
+  }
+
+  return true;
 }
 
 export function handlePreflight(req, res) {

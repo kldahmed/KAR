@@ -1,9 +1,10 @@
-import { applyApiHeaders, handlePreflight, rejectUnsupportedMethod } from "../_api-utils";
+import { applyApiHeaders, handlePreflight, rejectUnsupportedMethod, requireAdmin } from "../_api-utils";
 import { getHighCapacitySourcesPayload, updateHighCapacitySource } from "../_high-capacity-news-core.js";
 
 export default async function handler(req, res) {
   applyApiHeaders(req, res, "GET, PATCH, OPTIONS");
   if (handlePreflight(req, res)) return;
+  if (!requireAdmin(req, res)) return;
 
   if (req.method === "GET") {
     try {

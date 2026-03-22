@@ -11,6 +11,7 @@ import { useDashboardData } from "./lib/useDashboardData";
 import { useWeather } from "./lib/useWeather";
 import { useCurrentPath } from "./lib/simpleRouter";
 import { processNewsItem } from "./lib/i18n/summaryLocalizer";
+import { clearAdminKey, isAdminRoute, readAdminKey, saveAdminKey } from "./lib/adminAccess";
 
 const NewsPage     = lazy(() => import("./pages/NewsPage"));
 const NewsOpsPage  = lazy(() => import("./pages/NewsOpsPage"));
@@ -39,6 +40,8 @@ export default function App() {
   const [activeAlert, setActiveAlert] = useState(null);
   const [alertHistory, setAlertHistory] = useState([]);
   const [routeSearch, setRouteSearch] = useState(() => (typeof window === "undefined" ? "" : (window.location.search || "")));
+  const [adminKey, setAdminKey] = useState(() => readAdminKey());
+  const [adminInput, setAdminInput] = useState("");
 
   const {
     cities: weatherCities,
@@ -71,7 +74,20 @@ export default function App() {
     uaeStandings,
     uaeStandingsUpdatedAt,
     isStandingsLoading,
-  } = useDashboardData({ t, currentPath, routeSearch, experienceMode: "simplified", language });
+  } = useDashboardData({ t, currentPath, routeSearch, experienceMode: "simplified", language, adminKey });
+
+  const adminAuthorized = Boolean(String(adminKey || "").trim());
+  const onSaveAdminKey = () => {
+    const value = String(adminInput || "").trim();
+    saveAdminKey(value);
+    setAdminKey(value);
+    setAdminInput("");
+  };
+
+  const onClearAdminSession = () => {
+    clearAdminKey();
+    setAdminKey("");
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -198,6 +214,37 @@ export default function App() {
   };
 
   const renderPage = () => {
+    if (isAdminRoute(currentPath) && !adminAuthorized) {
+      return (
+        <div style={{ maxWidth: 640, margin: "24px auto", padding: "24px", border: "1px solid rgba(148,163,184,0.24)", borderRadius: 20, background: "linear-gradient(160deg, rgba(10,18,30,0.92), rgba(7,12,20,0.95))" }}>
+          <div style={{ color: "#f8fafc", fontSize: 22, fontWeight: 900, marginBottom: 10 }}>
+            {language === "ar" ? "وصول إداري مطلوب" : "Admin access required"}
+          </div>
+          <div style={{ color: "#a9bacd", fontSize: 14, lineHeight: 1.8, marginBottom: 16 }}>
+            {language === "ar"
+              ? "هذه الصفحة مخصصة للإدارة فقط. أدخل مفتاح الإدارة للمتابعة."
+              : "This page is restricted to administrators. Enter the admin key to continue."}
+          </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <input
+              type="password"
+              value={adminInput}
+              onChange={(event) => setAdminInput(event.target.value)}
+              placeholder={language === "ar" ? "مفتاح الإدارة" : "Admin key"}
+              style={{ flex: "1 1 240px", minWidth: 220, borderRadius: 10, border: "1px solid rgba(148,163,184,0.32)", background: "rgba(15,23,42,0.7)", color: "#f8fafc", padding: "10px 12px" }}
+            />
+            <button
+              type="button"
+              onClick={onSaveAdminKey}
+              style={{ border: "1px solid rgba(56,189,248,0.42)", background: "rgba(56,189,248,0.14)", color: "#bae6fd", borderRadius: 10, padding: "10px 14px", fontWeight: 800, cursor: "pointer" }}
+            >
+              {language === "ar" ? "دخول" : "Access"}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     switch (currentPath) {
       case "/news":
         return (
@@ -222,7 +269,7 @@ export default function App() {
             lastUpdated={lastUpdated}
           />
         );
-      case "/news-ops":
+      case "/admin/news-operations":
         return (
           <NewsOpsPage
             language={language}
@@ -232,6 +279,7 @@ export default function App() {
             refreshOperations={refreshOperations}
             updateNewsSource={updateNewsSource}
             reprocessNewsBatch={reprocessNewsBatch}
+            onLogout={onClearAdminSession}
           />
         );
       case "/live":
@@ -316,6 +364,7 @@ export default function App() {
         currentPath={currentPath}
         navigate={navigate}
         language={language}
+        includeAdmin={adminAuthorized}
       />
 
       <LiveAlertDrawer

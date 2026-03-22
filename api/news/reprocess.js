@@ -1,9 +1,10 @@
-import { applyApiHeaders, handlePreflight } from "../_api-utils";
+import { applyApiHeaders, handlePreflight, requireAdmin } from "../_api-utils";
 import { reprocessRecentBatch } from "../_high-capacity-news-core.js";
 
 export default async function handler(req, res) {
   applyApiHeaders(req, res, "POST, OPTIONS");
   if (handlePreflight(req, res)) return;
+  if (!requireAdmin(req, res)) return;
 
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });

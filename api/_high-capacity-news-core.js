@@ -1,6 +1,4 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-
+import { getPersistenceAdapter } from "./_news-persistence.js";
 import { HIGH_CAPACITY_NEWS_SOURCES, SOURCE_TIERS } from "./_high-capacity-news-sources.js";
 
 const STORE_KEY = "__KAR_HIGH_CAPACITY_NEWS_V1__";
@@ -19,8 +17,6 @@ const PERSIST_MAX_RAW = 8000;
 const PERSIST_MAX_NORMALIZED = 12000;
 const PERSIST_MAX_IDS = 12000;
 const PERSIST_MAX_LOGS = 2500;
-const STORE_FILE_PATH = process.env.KAR_NEWS_STORE_PATH || path.join(process.cwd(), ".cache", "kar-high-capacity-news-store.json");
-const REQUESTED_PERSISTENCE_MODE = String(process.env.KAR_NEWS_PERSISTENCE_MODE || "file").toLowerCase();
 const SENSITIVE_RE = /حرب|هجوم|اغتيال|كارثة|زلزال|تفجير|قصف|غارة|اشتباكات|قتلى|ضحايا|وباء|حظر|طوارئ|قرار حكومي|military|assassination|war|attack|explosion|casualties|deaths|pandemic|outbreak|emergency|government order/i;
 const BREAKING_RE = /عاجل|breaking|urgent|missile|rocket|drone|strike|raid|explosion|صاروخ|مسيرة|غارة|انفجار|هجوم/i;
 const STOP_WORDS = new Set(["the", "a", "an", "and", "or", "for", "to", "in", "on", "of", "with", "by", "from", "is", "are", "at", "عن", "من", "في", "على", "إلى", "مع", "هذا", "هذه", "ذلك", "تلك", "تم", "بعد", "قبل", "خلال", "عبر", "ضمن"]);
@@ -43,30 +39,6 @@ function nowIso() {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
-}
-
-function canPersistToDisk() {
-  return typeof process !== "undefined" && process.release?.name === "node";
-}
-
-function resolvePersistenceMode() {
-  if (REQUESTED_PERSISTENCE_MODE === "memory") return "memory";
-  if (["redis", "postgres"].includes(REQUESTED_PERSISTENCE_MODE)) {
-    return canPersistToDisk() ? "file" : "memory";
-  }
-  if (REQUESTED_PERSISTENCE_MODE === "file") {
-    return canPersistToDisk() ? "file" : "memory";
-  }
-  return canPersistToDisk() ? "file" : "memory";
-}
-
-function isExternalPersistenceRequested() {
-  return ["redis", "postgres"].includes(REQUESTED_PERSISTENCE_MODE);
-}
-
-async function ensureStoreDirectory() {
-  if (!canPersistToDisk()) return;
-  await fs.mkdir(path.dirname(STORE_FILE_PATH), { recursive: true });
 }
 
 function pruneForPersistence(store) {
@@ -114,15 +86,14 @@ function pruneForPersistence(store) {
 }
 
 async function persistStoreSnapshot(store) {
-  if (resolvePersistenceMode() !== "file") return;
+  const adapter = await getPersistenceAdapterForStore(store);
   const snapshot = pruneForPersistence(store);
-  await ensureStoreDirectory();
-  await fs.writeFile(STORE_FILE_PATH, JSON.stringify(snapshot), "utf8");
-  store.lastPersistedAt = snapshot.persisted_at;
+  const result = await adapter.save(snapshot);
+  store.lastPersistedAt = result?.persistedAt || snapshot.persisted_at;
+  store.persistenceMeta = adapter.describe();
 }
 
 function scheduleStorePersist(store) {
-  if (resolvePersistenceMode() !== "file") return;
   if (store.persistTimer) clearTimeout(store.persistTimer);
   store.persistTimer = setTimeout(() => {
     persistStoreSnapshot(store).catch((error) => {
@@ -156,11 +127,25 @@ function restoreSourceState(store, snapshotSources = []) {
   });
 }
 
+async function getPersistenceAdapterForStore(store) {
+  if (!store.persistenceAdapterPromise) {
+    store.persistenceAdapterPromise = getPersistenceAdapter();
+  }
+  const adapter = await store.persistenceAdapterPromise;
+  store.persistenceAdapter = adapter;
+  store.persistenceMeta = adapter.describe();
+  return adapter;
+}
+
 async function hydrateStoreFromDisk(store) {
-  if (resolvePersistenceMode() !== "file" || store.hydratedFromDisk) return;
+  if (store.hydratedFromDisk) return;
   try {
-    const raw = await fs.readFile(STORE_FILE_PATH, "utf8");
-    const snapshot = JSON.parse(raw);
+    const adapter = await getPersistenceAdapterForStore(store);
+    const snapshot = await adapter.load();
+    if (!snapshot) {
+      store.hydratedFromDisk = true;
+      return;
+    }
     store.rawArticles = Array.isArray(snapshot.rawArticles) ? snapshot.rawArticles : [];
     store.normalizedById = new Map(Array.isArray(snapshot.normalizedEntries) ? snapshot.normalizedEntries : []);
     store.canonicalToId = new Map(Array.isArray(snapshot.canonicalToId) ? snapshot.canonicalToId : []);
@@ -176,6 +161,7 @@ async function hydrateStoreFromDisk(store) {
     store.daily = new Map(Array.isArray(snapshot.daily) ? snapshot.daily : []);
     restoreSourceState(store, Array.isArray(snapshot.sources) ? snapshot.sources : []);
     store.lastPersistedAt = snapshot.persisted_at || "";
+    store.persistenceMeta = adapter.describe();
     logAudit(store, "store_hydrated", {
       rawArticles: store.rawArticles.length,
       normalized: store.normalizedById.size,
@@ -417,6 +403,9 @@ function getStore() {
       hydratePromise: null,
       persistTimer: null,
       lastPersistedAt: "",
+      persistenceAdapter: null,
+      persistenceAdapterPromise: null,
+      persistenceMeta: null,
     };
   }
   return globalThis[STORE_KEY];
@@ -892,10 +881,11 @@ export async function ensureNewsEngineStarted() {
   if (!store.schedulerRunning) {
     store.schedulerRunning = true;
     logAudit(store, "engine_started", { sources: store.sources.size });
-    if (isExternalPersistenceRequested()) {
+    const adapter = await getPersistenceAdapterForStore(store);
+    if (adapter.requestedMode !== adapter.resolvedMode) {
       logAudit(store, "persistence_mode_fallback", {
-        requested: REQUESTED_PERSISTENCE_MODE,
-        resolved: resolvePersistenceMode(),
+        requested: adapter.requestedMode,
+        resolved: adapter.resolvedMode,
       });
     }
   }
@@ -1007,11 +997,7 @@ function buildMetricsSnapshot(store) {
       sensitive_review_backlog: store.reviewIds.length > 40,
     },
     persistence: {
-      enabled: resolvePersistenceMode() !== "memory" || canPersistToDisk(),
-      mode: resolvePersistenceMode(),
-      requested_mode: REQUESTED_PERSISTENCE_MODE,
-      external_mode_requested: isExternalPersistenceRequested(),
-      file_path: resolvePersistenceMode() === "file" ? STORE_FILE_PATH : "",
+      ...(store.persistenceMeta || {}),
       last_persisted_at: store.lastPersistedAt || "",
       hydrated_from_disk: Boolean(store.hydratedFromDisk),
     },

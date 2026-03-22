@@ -67,6 +67,17 @@ function parseSourceFilters(routeSearch = "", currentPath = "") {
   }
 }
 
+function parseCategoryFromSearch(routeSearch = "") {
+  try {
+    const params = new URLSearchParams(String(routeSearch || "").replace(/^\?/, ""));
+    const category = String(params.get("category") || "").trim().toLowerCase();
+    if (!category) return "";
+    return category;
+  } catch {
+    return "";
+  }
+}
+
 function readDashboardCache(key) {
   const now = Date.now();
   const memoryEntry = dashboardMemoryCache.get(key);
@@ -136,7 +147,7 @@ function dedupeByUrlOrTitle(items) {
   });
 }
 
-export function useDashboardData({ t, currentPath, routeSearch = "", experienceMode = "simplified", language = "ar" }) {
+export function useDashboardData({ t, currentPath, routeSearch = "", experienceMode = "simplified", language = "ar", adminKey = "" }) {
   const [cat, setCat] = useState("all");
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -157,6 +168,8 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
     dashboard: null,
     sources: [],
     operationsUpdatedAt: "",
+    sections: null,
+    pipeline: null,
   });
   const [opsBusy, setOpsBusy] = useState(false);
   const [opsMessage, setOpsMessage] = useState("");
@@ -201,6 +214,14 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
     () => (sourceFilters.length > 0 ? sourceFilters.map((item) => item.toLowerCase()).join("|") : "all"),
     [sourceFilters]
   );
+
+  useEffect(() => {
+    if (currentPath !== "/news") return;
+    const requested = parseCategoryFromSearch(routeSearch);
+    if (!requested) return;
+    const isValid = CATEGORIES.some((item) => item.id === requested);
+    if (isValid && requested !== cat) setCat(requested);
+  }, [routeSearch, currentPath, cat]);
 
   useEffect(() => {
     const availableCategoryIds = new Set(categories.map((item) => item.id));
@@ -332,7 +353,9 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
             ? (localizedFeatured?.displayable === false ? null : localizedFeatured)
             : localizedFeatured,
           dashboard: liveIntakePayload?.dashboard || current.dashboard,
+          sections: liveIntakePayload?.sections || current.sections,
           operationsUpdatedAt: liveIntakePayload?.dashboard?.generated_at || current.operationsUpdatedAt,
+          pipeline: liveIntakePayload?.pipeline || current.pipeline,
         }));
         writeDashboardCache(cacheKey, filteredNews);
         setNews(sortArticlesByPriority(filteredNews, rankingContext));
@@ -429,8 +452,14 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
   }, [cat, sportsCompetition, uaeStandings.length]);
 
   useEffect(() => {
-    if (currentPath !== "/news") {
+    if (currentPath !== "/admin/news-operations") {
       if (operationsIntervalRef.current) clearInterval(operationsIntervalRef.current);
+      return undefined;
+    }
+
+    if (!String(adminKey || "").trim()) {
+      if (operationsIntervalRef.current) clearInterval(operationsIntervalRef.current);
+      setOpsMessage(language === "ar" ? "يتطلب هذا القسم صلاحية مدير" : "This section requires admin access");
       return undefined;
     }
 
@@ -443,11 +472,22 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
 
       try {
         const [dashboardResponse, sourcesResponse] = await Promise.all([
-          fetch("/api/news/dashboard", { signal: controller.signal }),
-          fetch("/api/news/sources", { signal: controller.signal }),
+          fetch("/api/news/dashboard", {
+            signal: controller.signal,
+            headers: { "X-Admin-Key": String(adminKey || "").trim() },
+          }),
+          fetch("/api/news/sources", {
+            signal: controller.signal,
+            headers: { "X-Admin-Key": String(adminKey || "").trim() },
+          }),
         ]);
 
-        if (!dashboardResponse.ok) throw new Error(`dashboard_${dashboardResponse.status}`);
+        if (!dashboardResponse.ok) {
+          if (dashboardResponse.status === 403 || dashboardResponse.status === 503) {
+            throw new Error("admin_forbidden");
+          }
+          throw new Error(`dashboard_${dashboardResponse.status}`);
+        }
         if (!sourcesResponse.ok) throw new Error(`sources_${sourcesResponse.status}`);
 
         const [dashboardPayload, sourcesPayload] = await Promise.all([
@@ -465,6 +505,7 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
         }));
       } catch {
         if (cancelled) return;
+        setOpsMessage(language === "ar" ? "تعذر تحميل لوحة التشغيل أو صلاحية غير كافية" : "Unable to load operations dashboard or insufficient permissions");
       }
     };
 
@@ -479,7 +520,7 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
       activeController?.abort();
       if (operationsIntervalRef.current) clearInterval(operationsIntervalRef.current);
     };
-  }, [currentPath]);
+  }, [currentPath, adminKey, language]);
 
   const refreshOperations = async () => {
     if (typeof refreshOperationsRef.current === "function") {
@@ -493,7 +534,10 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
     try {
       const response = await fetch("/api/news/sources", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Key": String(adminKey || "").trim(),
+        },
         body: JSON.stringify(payload || {}),
       });
       const data = await response.json();
@@ -518,7 +562,10 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
     try {
       const response = await fetch("/api/news/reprocess", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Key": String(adminKey || "").trim(),
+        },
         body: JSON.stringify({ count }),
       });
       const data = await response.json();

@@ -80,9 +80,21 @@ export default function NewsOpsPage({
   updateNewsSource,
   reprocessNewsBatch,
   refreshOperations,
+  onLogout,
 }) {
   const dashboard = feedStatus?.dashboard || null;
   const sources = Array.isArray(feedStatus?.sources) ? feedStatus.sources : [];
+  const persistence = dashboard?.persistence || null;
+  const pipeline = feedStatus?.pipeline || null;
+
+  const systemStatus = [
+    { key: "ingestion", labelAr: "Ingestion", labelEn: "Ingestion", state: pipeline?.ingestion?.status || "unknown", queue: Number(pipeline?.ingestion?.queue || 0) },
+    { key: "verification", labelAr: "Verification", labelEn: "Verification", state: pipeline?.classification?.status || "unknown", queue: Number(pipeline?.classification?.queue || 0) },
+    { key: "summarization", labelAr: "Summarization", labelEn: "Summarization", state: pipeline?.summarization?.status || "unknown", queue: Number(pipeline?.summarization?.queue || 0) },
+    { key: "tts", labelAr: "TTS", labelEn: "TTS", state: "standby", queue: 0 },
+    { key: "avatar", labelAr: "Avatar", labelEn: "Avatar", state: "standby", queue: 0 },
+    { key: "composer", labelAr: "Composer", labelEn: "Composer", state: pipeline?.publishing?.status || "unknown", queue: Number(pipeline?.publishing?.queue || 0) },
+  ];
 
   const sourceGroups = useMemo(() => {
     const grouped = new Map();
@@ -119,6 +131,15 @@ export default function NewsOpsPage({
               : `Sources ${sources.length} | Review ${feedStatus?.stats?.reviewQueueDepth || 0} | Quarantined ${feedStatus?.stats?.quarantinedSources || 0}`}
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {typeof onLogout === "function" ? (
+              <button
+                type="button"
+                onClick={onLogout}
+                style={{ border: "1px solid rgba(248,113,113,0.32)", background: "rgba(248,113,113,0.08)", color: "#fecaca", borderRadius: 10, padding: "8px 12px", fontWeight: 800, cursor: "pointer" }}
+              >
+                {language === "ar" ? "تسجيل خروج الإدارة" : "Admin logout"}
+              </button>
+            ) : null}
             <button
               type="button"
               disabled={opsBusy}
@@ -148,6 +169,28 @@ export default function NewsOpsPage({
         {opsMessage ? (
           <div style={{ color: "#67e8f9", fontSize: 12, marginTop: 10 }}>{opsMessage}</div>
         ) : null}
+        {persistence ? (
+          <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 10 }}>
+            {language === "ar"
+              ? `التخزين المطلوب ${persistence.requested_mode || "-"} | الفعلي ${persistence.mode || "-"} ${persistence.fallback_reason ? `| fallback ${persistence.fallback_reason}` : ""}`
+              : `Requested ${persistence.requested_mode || "-"} | Active ${persistence.mode || "-"}${persistence.fallback_reason ? ` | fallback ${persistence.fallback_reason}` : ""}`}
+          </div>
+        ) : null}
+      </section>
+
+      <section style={{ ...panelStyle, padding: "16px 18px", marginBottom: 18 }}>
+        <div style={{ color: "#f8fafc", fontSize: 14, fontWeight: 900, marginBottom: 12 }}>
+          {language === "ar" ? "حالة الأنظمة" : "System status"}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+          {systemStatus.map((item) => (
+            <div key={item.key} style={{ border: "1px solid rgba(71,85,105,0.46)", borderRadius: 12, padding: 10, background: "rgba(2,6,23,0.36)" }}>
+              <div style={{ color: "#94a3b8", fontSize: 11, marginBottom: 6 }}>{language === "ar" ? item.labelAr : item.labelEn}</div>
+              <div style={{ color: "#f8fafc", fontSize: 13, fontWeight: 800, marginBottom: 4 }}>{item.state}</div>
+              <div style={{ color: "#cbd5e1", fontSize: 11 }}>{language === "ar" ? `Queue: ${item.queue}` : `Queue: ${item.queue}`}</div>
+            </div>
+          ))}
+        </div>
       </section>
 
       <div style={{ display: "grid", gap: 16 }}>
