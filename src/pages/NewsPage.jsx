@@ -26,14 +26,38 @@ export default function NewsPage({
   isStandingsLoading,
 }) {
   const [sourceFilters, setSourceFilters] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activePreset, setActivePreset] = useState("");
 
-  const syncSourceFiltersToUrl = (filters) => {
+  const PRESETS = useMemo(() => ([
+    {
+      id: "trusted-wire",
+      label: language === "ar" ? "موثوق سلكي" : "Trusted Wire",
+      sources: ["Reuters", "BBC", "AP", "NPR"],
+      categoryHint: "all",
+    },
+    {
+      id: "financial-watch",
+      label: language === "ar" ? "مراقبة مالية" : "Financial Watch",
+      sources: ["CNBC", "Yahoo Finance", "World Bank", "Reuters"],
+      categoryHint: "economy",
+    },
+    {
+      id: "regional-focus",
+      label: language === "ar" ? "تركيز إقليمي" : "Regional Focus",
+      sources: ["Al Jazeera", "Sky News", "BBC", "Reuters"],
+      categoryHint: "regional",
+    },
+  ]), [language]);
+
+  const writeFilterStateToUrl = ({ nextSources = sourceFilters, nextQuery = searchQuery, nextPreset = activePreset, replace = false } = {}) => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search || "");
-    if (filters.length > 0) {
-      params.set("source", filters.join(","));
+
+    if (Array.isArray(nextSources) && nextSources.length > 0) {
+      params.set("source", nextSources.join(","));
       try {
-        window.sessionStorage.setItem("kar-news-source-filters", JSON.stringify(filters));
+        window.sessionStorage.setItem("kar-news-source-filters", JSON.stringify(nextSources));
       } catch {
         // ignore storage errors
       }
@@ -45,60 +69,129 @@ export default function NewsPage({
         // ignore storage errors
       }
     }
+
+    const queryValue = String(nextQuery || "").trim();
+    if (queryValue) {
+      params.set("q", queryValue);
+      try {
+        window.sessionStorage.setItem("kar-news-search-query", queryValue);
+      } catch {
+        // ignore storage errors
+      }
+    } else {
+      params.delete("q");
+      try {
+        window.sessionStorage.removeItem("kar-news-search-query");
+      } catch {
+        // ignore storage errors
+      }
+    }
+
+    if (nextPreset) {
+      params.set("preset", nextPreset);
+      try {
+        window.sessionStorage.setItem("kar-news-source-preset", nextPreset);
+      } catch {
+        // ignore storage errors
+      }
+    } else {
+      params.delete("preset");
+      try {
+        window.sessionStorage.removeItem("kar-news-source-preset");
+      } catch {
+        // ignore storage errors
+      }
+    }
+
     const search = params.toString();
     const next = `${window.location.pathname}${search ? `?${search}` : ""}`;
-    window.history.pushState({}, "", next);
+    const method = replace ? "replaceState" : "pushState";
+    window.history[method]({}, "", next);
     window.dispatchEvent(new PopStateEvent("popstate"));
   };
 
   useEffect(() => {
-    const readSourceFilter = () => {
+    const readFilterState = () => {
       if (typeof window === "undefined") return;
       const params = new URLSearchParams(String(routeSearch || window.location.search || "").replace(/^\?/, ""));
       const raw = String(params.get("source") || "").trim();
+      const rawQuery = String(params.get("q") || "").trim();
+      const rawPreset = String(params.get("preset") || "").trim();
+
+      let nextSources = [];
+      let nextQuery = rawQuery;
+      let nextPreset = rawPreset;
+      let needsSeed = false;
 
       if (raw) {
-        const filters = raw.split(",").map((item) => decodeURIComponent(String(item || "").trim())).filter(Boolean).slice(0, 8);
-        setSourceFilters(filters);
+        nextSources = raw.split(",").map((item) => decodeURIComponent(String(item || "").trim())).filter(Boolean).slice(0, 8);
+      } else {
         try {
-          window.sessionStorage.setItem("kar-news-source-filters", JSON.stringify(filters));
+          const rawStored = window.sessionStorage.getItem("kar-news-source-filters");
+          const stored = rawStored ? JSON.parse(rawStored) : [];
+          if (Array.isArray(stored) && stored.length > 0) {
+            nextSources = stored.slice(0, 8);
+            needsSeed = true;
+          }
         } catch {
           // ignore storage errors
         }
-        return;
       }
 
-      try {
-        const rawStored = window.sessionStorage.getItem("kar-news-source-filters");
-        const stored = rawStored ? JSON.parse(rawStored) : [];
-        if (Array.isArray(stored) && stored.length > 0) {
-          setSourceFilters(stored.slice(0, 8));
-          const seededParams = new URLSearchParams(window.location.search || "");
-          seededParams.set("source", stored.slice(0, 8).join(","));
-          const seededSearch = seededParams.toString();
-          const seededNext = `${window.location.pathname}${seededSearch ? `?${seededSearch}` : ""}`;
-          window.history.replaceState({}, "", seededNext);
-          window.dispatchEvent(new PopStateEvent("popstate"));
-          return;
+      if (!rawQuery) {
+        try {
+          const storedQuery = String(window.sessionStorage.getItem("kar-news-search-query") || "").trim();
+          if (storedQuery) {
+            nextQuery = storedQuery;
+            needsSeed = true;
+          }
+        } catch {
+          // ignore storage errors
         }
-      } catch {
-        // ignore storage errors
       }
 
-      setSourceFilters([]);
+      if (!rawPreset) {
+        try {
+          const storedPreset = String(window.sessionStorage.getItem("kar-news-source-preset") || "").trim();
+          if (storedPreset) {
+            nextPreset = storedPreset;
+            needsSeed = true;
+          }
+        } catch {
+          // ignore storage errors
+        }
+      }
+
+      setSourceFilters(nextSources);
+      setSearchQuery(nextQuery);
+      setActivePreset(nextPreset);
+
+      if (needsSeed) {
+        writeFilterStateToUrl({
+          nextSources,
+          nextQuery,
+          nextPreset,
+          replace: true,
+        });
+      }
     };
 
-    readSourceFilter();
+    readFilterState();
   }, [routeSearch]);
 
   const filteredNews = useMemo(() => {
-    if (sourceFilters.length === 0) return displayedNews || [];
+    const normalizedQuery = searchQuery.trim().toLowerCase();
     const normalized = sourceFilters.map((item) => item.toLowerCase());
     return (displayedNews || []).filter((item) => {
       const source = String(item?.source || "").toLowerCase();
-      return normalized.some((needle) => source.includes(needle));
+      const title = String(item?.title || "").toLowerCase();
+      const summary = String(item?.summary || "").toLowerCase();
+      const category = String(item?.category || "").toLowerCase();
+      const sourceMatch = normalized.length === 0 || normalized.some((needle) => source.includes(needle));
+      const queryMatch = !normalizedQuery || `${title} ${summary} ${source} ${category}`.includes(normalizedQuery);
+      return sourceMatch && queryMatch;
     });
-  }, [displayedNews, sourceFilters]);
+  }, [displayedNews, sourceFilters, searchQuery]);
 
   const availableSourceChips = useMemo(() => {
     const counts = new Map();
@@ -196,6 +289,81 @@ export default function NewsPage({
         ))}
       </div>
 
+      <div style={{ ...panelStyle, padding: "10px 12px", marginBottom: 12, display: "grid", gap: 10 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={language === "ar" ? "ابحث في العناوين والمحتوى والمصدر..." : "Search titles, summary, and source..."}
+            style={{
+              flex: "1 1 260px",
+              borderRadius: 10,
+              border: "1px solid rgba(148,163,184,0.3)",
+              background: "rgba(15,23,42,0.65)",
+              color: "#e2e8f0",
+              padding: "8px 10px",
+              fontSize: 13,
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => writeFilterStateToUrl({ nextQuery: searchQuery })}
+            style={{ border: "1px solid rgba(56,189,248,0.5)", background: "rgba(56,189,248,0.15)", color: "#bae6fd", borderRadius: 8, padding: "7px 10px", fontWeight: 700, cursor: "pointer" }}
+          >
+            {language === "ar" ? "تطبيق البحث" : "Apply search"}
+          </button>
+          {searchQuery ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery("");
+                writeFilterStateToUrl({ nextQuery: "" });
+              }}
+              style={{ border: "1px solid rgba(148,163,184,0.35)", background: "rgba(15,23,42,0.45)", color: "#cbd5e1", borderRadius: 8, padding: "7px 10px", fontWeight: 700, cursor: "pointer" }}
+            >
+              {language === "ar" ? "مسح" : "Clear"}
+            </button>
+          ) : null}
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {PRESETS.map((preset) => {
+            const active = activePreset === preset.id;
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => {
+                  if (active) {
+                    setActivePreset("");
+                    writeFilterStateToUrl({ nextPreset: "", nextSources: [] });
+                    return;
+                  }
+
+                  setActivePreset(preset.id);
+                  setSourceFilters(preset.sources);
+                  if (preset.categoryHint && preset.categoryHint !== cat) setCat(preset.categoryHint);
+                  writeFilterStateToUrl({ nextPreset: preset.id, nextSources: preset.sources });
+                }}
+                style={{
+                  border: `1px solid ${active ? "rgba(244,201,123,0.58)" : "rgba(148,163,184,0.26)"}`,
+                  background: active ? "rgba(244,201,123,0.16)" : "rgba(15,23,42,0.45)",
+                  color: active ? "#fde68a" : "#cbd5e1",
+                  borderRadius: 999,
+                  padding: "7px 11px",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {sourceFilters.length > 0 ? (
         <div style={{ ...panelStyle, padding: "10px 12px", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", border: "1px solid rgba(56,189,248,0.32)", background: "rgba(56,189,248,0.08)" }}>
           <div style={{ color: "#dbeafe", fontSize: 13, fontWeight: 800, display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -208,7 +376,10 @@ export default function NewsPage({
           </div>
           <button
             type="button"
-            onClick={() => syncSourceFiltersToUrl([])}
+            onClick={() => {
+              setActivePreset("");
+              writeFilterStateToUrl({ nextSources: [], nextPreset: "" });
+            }}
             style={{ border: "1px solid rgba(148,163,184,0.45)", background: "rgba(15,23,42,0.55)", color: "#cbd5e1", borderRadius: 8, padding: "6px 10px", fontWeight: 700, cursor: "pointer" }}
           >
             {language === "ar" ? "إزالة الفلتر" : "Clear filter"}
@@ -228,7 +399,8 @@ export default function NewsPage({
                   const next = active
                     ? sourceFilters.filter((item) => item.toLowerCase() !== chip.toLowerCase())
                     : [...sourceFilters, chip].slice(0, 8);
-                  syncSourceFiltersToUrl(next);
+                  setActivePreset("");
+                  writeFilterStateToUrl({ nextSources: next, nextPreset: "" });
                 }}
                 style={{
                   border: `1px solid ${active ? "rgba(56,189,248,0.6)" : "rgba(148,163,184,0.25)"}`,
@@ -346,8 +518,8 @@ export default function NewsPage({
       {!loading && !error && filteredNews.length === 0 ? (
         <div style={{ textAlign: "center", color: "#94a3b8", padding: 16 }}>
           {language === "ar"
-            ? "لا توجد نتائج مطابقة لفلتر المصدر الحالي."
-            : "No stories match the current source filter."}
+            ? "لا توجد نتائج مطابقة للبحث أو فلاتر المصادر الحالية."
+            : "No stories match the current search or source filters."}
         </div>
       ) : null}
 
