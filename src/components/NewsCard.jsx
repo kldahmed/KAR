@@ -38,12 +38,15 @@ export default function NewsCard({
   source = "",
   time = "",
   image = "",
+  videoUrl = "",
+  mediaType = "none",
   url = "#",
   urgency = "low",
   onClick
 }) {
   const { t, language } = useI18n();
   const [imageVisible, setImageVisible] = useState(Boolean(image));
+  const hasVideo = Boolean(videoUrl);
 
   // Process the news item to clean and localize content
   const processedItem = useMemo(() => {
@@ -138,6 +141,11 @@ export default function NewsCard({
           style={{ width: "100%", borderRadius: "16px", marginBottom: "14px", maxHeight: "220px", objectFit: "cover", border: "1px solid rgba(255,255,255,0.08)" }}
         />
       )}
+      {hasVideo ? (
+        <div style={{ marginBottom: 10, display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(239,68,68,0.35)", background: "rgba(239,68,68,0.14)", color: "#fca5a5", fontSize: 11, fontWeight: 800 }}>
+          🎬 {mediaType === "youtube" ? "YouTube" : (language === "ar" ? "فيديو من المصدر" : "Source video")}
+        </div>
+      ) : null}
       <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginBottom: "10px", flexWrap: "wrap" }}>
         <span style={{ fontSize: "18px", fontWeight: 900, lineHeight: 1.3, flex: "1 1 240px" }}>{safeTitle}</span>
         <span style={{ background: `${badge.color}cc`, color: "#fff", borderRadius: "999px", padding: "5px 10px", fontSize: "11px", fontWeight: "800" }}>

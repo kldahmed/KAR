@@ -1,3 +1,5 @@
+import { FAST_NEWS_SOURCE_URLS, resolveSourceNameFromUrl } from "./_news-sources";
+
 function decodeHtml(str = "") {
   return String(str || "")
     .replace(/<!\[CDATA\[|\]\]>/g, "")
@@ -34,6 +36,35 @@ function extractImage(block = "") {
     block.match(/<img[^>]+src='([^']+)'/i);
 
   if (fromImg?.[1]) return decodeHtml(fromImg[1]);
+
+  return "";
+}
+
+function normalizeVideoUrl(url = "") {
+  const value = decodeHtml(String(url || "").trim());
+  if (!value) return "";
+
+  const youtubeWatch = value.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{6,})/i);
+  if (youtubeWatch?.[1]) return `https://www.youtube.com/embed/${youtubeWatch[1]}`;
+
+  const youtubeShort = value.match(/https?:\/\/(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{6,})/i);
+  if (youtubeShort?.[1]) return `https://www.youtube.com/embed/${youtubeShort[1]}`;
+
+  return value;
+}
+
+function extractVideo(block = "") {
+  const mediaVideo = block.match(/<media:content[^>]+type="video[^\"]*"[^>]+url="([^\"]+)"/i);
+  if (mediaVideo?.[1]) return normalizeVideoUrl(mediaVideo[1]);
+
+  const enclosure = block.match(/<enclosure[^>]+type="video[^\"]*"[^>]+url="([^\"]+)"/i);
+  if (enclosure?.[1]) return normalizeVideoUrl(enclosure[1]);
+
+  const iframe = block.match(/<iframe[^>]+src="([^"]+)"/i) || block.match(/<iframe[^>]+src='([^']+)'/i);
+  if (iframe?.[1]) return normalizeVideoUrl(iframe[1]);
+
+  const directVideo = block.match(/https?:\/\/[^\s"'<>]+\.(?:mp4|m3u8|webm)(?:\?[^\s"'<>]*)?/i);
+  if (directVideo?.[0]) return normalizeVideoUrl(directVideo[0]);
 
   return "";
 }
@@ -89,14 +120,15 @@ function normalizeCategory(title = "", summary = "", source = "") {
 }
 
 function cleanSourceName(src = "") {
-  const s = String(src || "").toLowerCase();
+  const mapped = resolveSourceNameFromUrl(src);
+  const s = String(mapped || "").toLowerCase();
 
   if (/nytimes/.test(s)) return "New York Times";
   if (/bbc/.test(s)) return "BBC";
   if (/aljazeera/.test(s)) return "Al Jazeera";
   if (/reuters/.test(s)) return "Reuters";
 
-  return src || "Fast Feed";
+  return mapped || "Fast Feed";
 }
 
 function dedupeArticles(items) {
@@ -173,6 +205,7 @@ function parseRssItems(xml = "", sourceUrl = "") {
     const link = extractTag(item, "link") || "#";
     const pubDate = extractTag(item, "pubDate") || new Date().toISOString();
     const image = extractImage(item);
+    const videoUrl = extractVideo(item) || extractVideo(rawDescription);
     const source = cleanSourceName(sourceUrl);
     const urgency = scoreUrgency(`${title} ${summary}`);
     const category = normalizeCategory(title, summary, source);
@@ -186,7 +219,10 @@ function parseRssItems(xml = "", sourceUrl = "") {
       urgency,
       category,
       url: link,
-      image
+      image,
+      videoUrl,
+      mediaType: videoUrl ? (videoUrl.includes("youtube.com/embed/") ? "youtube" : "video") : "none",
+      hasVideo: Boolean(videoUrl),
     };
   });
 }
@@ -206,12 +242,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const sources = [
-      "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
-      "https://feeds.bbci.co.uk/news/world/rss.xml",
-      "https://www.aljazeera.com/xml/rss/all.xml",
-      "https://www.reutersagency.com/feed/?best-topics=world&post_type=best"
-    ];
+    const sources = FAST_NEWS_SOURCE_URLS;
 
     let articles = [];
 
@@ -237,7 +268,7 @@ export default async function handler(req, res) {
     articles = dedupeArticles(articles);
     articles = sortArticles(articles).slice(0, 24);
 
-    res.setHeader("Cache-Control", "s-maxage=180, stale-while-revalidate=360");
+    res.setHeader("Cache-Control", "s-maxage=8, stale-while-revalidate=20");
 
     return res.status(200).json({
       news: articles,

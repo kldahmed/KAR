@@ -20,8 +20,9 @@ function getReliability(source) {
 export default function ArticleModal({ open, onClose, article }) {
   const { t } = useI18n();
   if (!open || !article) return null;
-  const { title, summary, source, time, url } = article;
+  const { title, summary, source, time, url, image, videoUrl } = article;
   const reliability = getReliability(source);
+  const isYoutube = String(videoUrl || "").includes("youtube.com/embed/");
   return (
     <div
       onClick={onClose}
@@ -70,6 +71,30 @@ export default function ArticleModal({ open, onClose, article }) {
             </span>
           </div>
           <h2 style={{ fontSize: "2rem", lineHeight: 1.15, marginBottom: "16px", marginTop: 0, color: "#f8fbff", letterSpacing: "-0.04em" }}>{title}</h2>
+          {videoUrl ? (
+            <div style={{ marginBottom: 16, borderRadius: 16, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "#020617" }}>
+              {isYoutube ? (
+                <div style={{ position: "relative", paddingTop: "56.25%" }}>
+                  <iframe
+                    src={videoUrl}
+                    title={title || "video"}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none" }}
+                  />
+                </div>
+              ) : (
+                <video
+                  controls
+                  preload="metadata"
+                  poster={image || ""}
+                  style={{ display: "block", width: "100%", maxHeight: 420, background: "#000" }}
+                >
+                  <source src={videoUrl} />
+                </video>
+              )}
+            </div>
+          ) : null}
           <div style={{ marginBottom: "20px", color: "#cbd5e1", lineHeight: 1.95, fontSize: "15px" }}>{summary}</div>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 18 }}>
             <div style={{ color: "#94a3b8", fontSize: 13 }}>

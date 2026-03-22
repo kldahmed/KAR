@@ -179,9 +179,9 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
 
   const refreshInterval = useMemo(() => {
     if (currentPath === "/news") {
-      return hasBreakingSignals ? 8000 : 12000;
+      return hasBreakingSignals ? 3000 : 5000;
     }
-    return hasBreakingSignals ? 10000 : 18000;
+    return hasBreakingSignals ? 5000 : 9000;
   }, [currentPath, hasBreakingSignals]);
 
   const sourceFilters = useMemo(

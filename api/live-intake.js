@@ -1,6 +1,6 @@
 import { applyApiHeaders, getInternalApiBase, handlePreflight, rejectUnsupportedMethod, withTimeout } from "./_api-utils";
 
-const CACHE_TTL_MS = 12 * 1000;
+const CACHE_TTL_MS = 4 * 1000;
 
 const FEED_ENDPOINTS = [
   { id: "news", path: "/api/news", priority: 10 },

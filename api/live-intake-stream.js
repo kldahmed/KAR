@@ -1,6 +1,6 @@
 import { getInternalApiBase } from "./_api-utils";
 
-const STREAM_INTERVAL_MS = 12000;
+const STREAM_INTERVAL_MS = 4000;
 
 async function fetchLiveIntake(baseUrl) {
   const response = await fetch(`${baseUrl}/api/live-intake`, {
