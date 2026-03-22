@@ -15,6 +15,7 @@
  * - Severity-coded badges and pulsing indicators
  */
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useI18n } from "../i18n/I18nProvider";
 import {
   startEngine,
   stopEngine,
@@ -41,40 +42,60 @@ const P = {
   dim: "#1e293b",
 };
 
-const SEVERITY_LEVELS = [
-  { min: 70, label: "حرج", color: "#ef4444", glow: "0 0 12px rgba(239,68,68,0.35)" },
-  { min: 50, label: "مرتفع", color: "#f59e0b", glow: "0 0 10px rgba(245,158,11,0.25)" },
-  { min: 30, label: "متوسط", color: "#38bdf8", glow: "0 0 8px rgba(56,189,248,0.2)" },
-  { min: 0,  label: "منخفض", color: "#64748b", glow: "none" },
+const SEVERITY_LEVELS_AR = [
+  { min: 70, label: "حرج",    color: "#ef4444", glow: "0 0 12px rgba(239,68,68,0.35)" },
+  { min: 50, label: "مرتفع",  color: "#f59e0b", glow: "0 0 10px rgba(245,158,11,0.25)" },
+  { min: 30, label: "متوسط",  color: "#38bdf8", glow: "0 0 8px rgba(56,189,248,0.2)" },
+  { min: 0,  label: "منخفض",  color: "#64748b", glow: "none" },
+];
+const SEVERITY_LEVELS_EN = [
+  { min: 70, label: "Critical", color: "#ef4444", glow: "0 0 12px rgba(239,68,68,0.35)" },
+  { min: 50, label: "High",     color: "#f59e0b", glow: "0 0 10px rgba(245,158,11,0.25)" },
+  { min: 30, label: "Medium",   color: "#38bdf8", glow: "0 0 8px rgba(56,189,248,0.2)" },
+  { min: 0,  label: "Low",      color: "#64748b", glow: "none" },
 ];
 
-function getSeverityLevel(score) {
-  return SEVERITY_LEVELS.find(l => score >= l.min) || SEVERITY_LEVELS[3];
+function getSeverityLevel(score, isAr = true) {
+  const levels = isAr ? SEVERITY_LEVELS_AR : SEVERITY_LEVELS_EN;
+  return levels.find(l => score >= l.min) || levels[3];
 }
 
-const REGION_FILTERS = [
-  { id: "all",     label: "الكل",              icon: "🌍" },
-  { id: "الشرق الأوسط", label: "الشرق الأوسط", icon: "🕌" },
-  { id: "أوروبا",  label: "أوروبا",            icon: "🏰" },
-  { id: "آسيا والمحيط الهادئ", label: "آسيا", icon: "🏯" },
-  { id: "أمريكا الشمالية", label: "أمريكا",    icon: "🗽" },
-  { id: "شمال أفريقيا", label: "أفريقيا",      icon: "🌍" },
-  { id: "الممرات البحرية", label: "بحري",       icon: "🚢" },
-  { id: "الأسواق", label: "الأسواق",           icon: "📈" },
-];
+const CAT_LABELS_EN = {
+  conflict: "Armed Conflict", military: "Military", terrorism: "Terrorism",
+  diplomacy: "Diplomacy", political: "Political", economic: "Economic",
+  market: "Markets", energy: "Energy", humanitarian: "Humanitarian",
+  sports: "Sports", technology: "Technology", environment: "Environment",
+  breaking: "Breaking", emerging: "Emerging Signal",
+};
 
-const CAT_FILTERS = [
-  { id: "all",      label: "الكل",     icon: "🌐" },
-  { id: "conflict", label: "نزاعات",   icon: "⚔️" },
-  { id: "military", label: "عسكري",    icon: "🎖️" },
-  { id: "diplomacy",label: "دبلوماسية",icon: "🤝" },
-  { id: "economic", label: "اقتصادي",  icon: "📊" },
-  { id: "energy",   label: "طاقة",     icon: "⛽" },
-  { id: "political",label: "سياسي",    icon: "🏛️" },
-  { id: "sports",   label: "رياضة",    icon: "⚽" },
-  { id: "breaking", label: "عاجل",     icon: "🔴" },
-  { id: "emerging", label: "ناشئة",    icon: "🔎" },
-];
+function getRegionFilters(isAr) {
+  return [
+    { id: "all",                      label: isAr ? "الكل" : "All",          icon: "🌍" },
+    { id: "الشرق الأوسط",             label: isAr ? "الشرق الأوسط" : "Middle East",  icon: "🕌" },
+    { id: "أوروبا",                    label: isAr ? "أوروبا" : "Europe",              icon: "🏰" },
+    { id: "آسيا والمحيط الهادئ",       label: isAr ? "آسيا" : "Asia",                  icon: "🏯" },
+    { id: "أمريكا الشمالية",           label: isAr ? "أمريكا" : "Americas",            icon: "🗽" },
+    { id: "شمال أفريقيا",              label: isAr ? "أفريقيا" : "Africa",             icon: "🌍" },
+    { id: "الممرات البحرية",           label: isAr ? "بحري" : "Maritime",              icon: "🚢" },
+    { id: "الأسواق",                   label: isAr ? "الأسواق" : "Markets",            icon: "📈" },
+  ];
+}
+
+function getCatFilters(isAr) {
+  return [
+    { id: "all",       label: isAr ? "الكل" : "All",         icon: "🌐" },
+    { id: "conflict",  label: isAr ? "نزاعات" : "Conflicts",  icon: "⚔️" },
+    { id: "military",  label: isAr ? "عسكري" : "Military",   icon: "🎖️" },
+    { id: "diplomacy", label: isAr ? "دبلوماسية" : "Diplomacy", icon: "🤝" },
+    { id: "economic",  label: isAr ? "اقتصادي" : "Economic", icon: "📊" },
+    { id: "energy",    label: isAr ? "طاقة" : "Energy",       icon: "⛽" },
+    { id: "political", label: isAr ? "سياسي" : "Political",  icon: "🏛️" },
+    { id: "sports",    label: isAr ? "رياضة" : "Sports",      icon: "⚽" },
+    { id: "breaking",  label: isAr ? "عاجل" : "Breaking",    icon: "🔴" },
+    { id: "emerging",  label: isAr ? "ناشئة" : "Emerging",   icon: "🔎" },
+  ];
+}
+
 
 // ── Pulse Animation CSS ────────────────────────────────────────────────────────
 const pulseKeyframes = `
@@ -105,8 +126,8 @@ function LiveDot({ color = P.green, size = 8 }) {
 }
 
 // ── Severity Badge ─────────────────────────────────────────────────────────────
-function SeverityBadge({ score }) {
-  const lvl = getSeverityLevel(score);
+function SeverityBadge({ score, isAr }) {
+  const lvl = getSeverityLevel(score, isAr);
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 4,
@@ -125,11 +146,11 @@ function SeverityBadge({ score }) {
 }
 
 // ── Confidence Bar ─────────────────────────────────────────────────────────────
-function ConfidenceBar({ value }) {
+function ConfidenceBar({ value, isAr }) {
   const color = value >= 70 ? P.green : value >= 45 ? P.amber : P.muted;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <span style={{ color: P.muted, fontSize: 10 }}>ثقة</span>
+      <span style={{ color: P.muted, fontSize: 10 }}>{isAr ? "ثقة" : "Conf."}</span>
       <div style={{
         width: 60, height: 4, borderRadius: 2,
         background: P.dim, overflow: "hidden",
@@ -183,7 +204,7 @@ function EventMiniMap({ events }) {
         marginBottom: 10, display: "flex", alignItems: "center", gap: 8,
       }}>
         <LiveDot color={P.red} size={6} />
-        🗺️ خريطة الأحداث الحية
+        🗺️ {isAr ? "خريطة الأحداث الحية" : "Live Events Map"}
       </div>
       <div style={{
         position: "relative", width: "100%", paddingBottom: "50%",
@@ -241,7 +262,7 @@ function EventMiniMap({ events }) {
                 width: 7, height: 7, borderRadius: "50%",
                 background: v.color,
               }} />
-              <span style={{ color: P.muted, fontSize: 10 }}>{v.icon} {v.label}</span>
+              <span style={{ color: P.muted, fontSize: 10 }}>{v.icon} {isAr ? v.label : (CAT_LABELS_EN[k] || v.label)}</span>
             </div>
           ))}
       </div>
@@ -250,7 +271,7 @@ function EventMiniMap({ events }) {
 }
 
 // ── Stats Bar ──────────────────────────────────────────────────────────────────
-function StatsBar({ stats }) {
+function StatsBar({ stats, isAr }) {
   return (
     <div style={{
       display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center",
@@ -259,14 +280,14 @@ function StatsBar({ stats }) {
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
         <LiveDot />
-        <span style={{ color: P.green, fontSize: 11, fontWeight: 700 }}>رصد مباشر</span>
+        <span style={{ color: P.green, fontSize: 11, fontWeight: 700 }}>{isAr ? "رصد مباشر" : "Live Monitoring"}</span>
       </div>
-      <StatPill label="حدث نشط" value={stats.total} color={P.blue} />
-      <StatPill label="حرج" value={stats.urgent} color={P.red} />
-      <StatPill label="مرتفع" value={stats.high} color={P.amber} />
-      <StatPill label="ناشئة" value={stats.emerging} color={P.muted} />
-      <StatPill label="متوسط الخطورة" value={stats.avgSeverity} color={P.purple} />
-      <StatPill label="متوسط الثقة" value={`${stats.avgConfidence}%`} color={P.green} />
+      <StatPill label={isAr ? "حدث نشط" : "Active Event"} value={stats.total} color={P.blue} />
+      <StatPill label={isAr ? "حرج" : "Critical"} value={stats.urgent} color={P.red} />
+      <StatPill label={isAr ? "مرتفع" : "High"} value={stats.high} color={P.amber} />
+      <StatPill label={isAr ? "ناشئة" : "Emerging"} value={stats.emerging} color={P.muted} />
+      <StatPill label={isAr ? "متوسط الخطورة" : "Avg Severity"} value={stats.avgSeverity} color={P.purple} />
+      <StatPill label={isAr ? "متوسط الثقة" : "Avg Confidence"} value={`${stats.avgConfidence}%`} color={P.green} />
     </div>
   );
 }
@@ -281,7 +302,7 @@ function StatPill({ label, value, color }) {
 }
 
 // ── Region Breakdown ───────────────────────────────────────────────────────────
-function RegionBreakdown({ stats }) {
+function RegionBreakdown({ stats, isAr }) {
   const regions = Object.entries(stats.regionBreakdown || {})
     .sort((a, b) => b[1] - a[1]).slice(0, 6);
   if (!regions.length) return null;
@@ -294,7 +315,7 @@ function RegionBreakdown({ stats }) {
       borderRadius: 12, padding: "14px 16px",
     }}>
       <div style={{ color: P.gold, fontWeight: 800, fontSize: 12, marginBottom: 10 }}>
-        📍 التوزيع الإقليمي
+        📍 {isAr ? "التوزيع الإقليمي" : "Regional Distribution"}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {regions.map(([region, count]) => (
@@ -320,15 +341,21 @@ function RegionBreakdown({ stats }) {
 }
 
 // ── Event Card ─────────────────────────────────────────────────────────────────
-function EventCard({ event, expanded, onToggle }) {
+function EventCard({ event, expanded, onToggle, isAr }) {
   const catMeta = event.categoryMeta || EVENT_CATEGORIES[event.category] || {};
   const color = catMeta.color || P.muted;
-  const sevLevel = getSeverityLevel(event.severity);
+  const catLabel = isAr ? (catMeta.label || event.category) : (CAT_LABELS_EN[event.category] || catMeta.label || event.category);
+  const sevLevel = getSeverityLevel(event.severity, isAr);
 
   const timeDiff = Date.now() - new Date(event.timestamp).getTime();
   const minsAgo = Math.floor(timeDiff / 60000);
-  const timeLabel = minsAgo < 1 ? "الآن" : minsAgo < 60 ? `منذ ${minsAgo} د` :
-    minsAgo < 1440 ? `منذ ${Math.floor(minsAgo / 60)} س` : `منذ ${Math.floor(minsAgo / 1440)} ي`;
+  const timeLabel = minsAgo < 1
+    ? (isAr ? "الآن" : "Now")
+    : minsAgo < 60
+      ? (isAr ? `منذ ${minsAgo} د` : `${minsAgo}m ago`)
+      : minsAgo < 1440
+        ? (isAr ? `منذ ${Math.floor(minsAgo / 60)} س` : `${Math.floor(minsAgo / 60)}h ago`)
+        : (isAr ? `منذ ${Math.floor(minsAgo / 1440)} ي` : `${Math.floor(minsAgo / 1440)}d ago`);
 
   return (
     <div style={{
@@ -358,16 +385,16 @@ function EventCard({ event, expanded, onToggle }) {
                 fontSize: 10, fontWeight: 800, padding: "2px 8px",
                 borderRadius: 999,
               }}>
-                {catMeta.icon || "🌍"} {catMeta.label || event.category}
+                {catMeta.icon || "🌍"} {catLabel}
               </span>
-              <SeverityBadge score={event.severity} />
+              <SeverityBadge score={event.severity} isAr={isAr} />
               {event.isEarlyWarning && (
                 <span style={{
                   background: "rgba(100,116,139,.1)", color: "#94a3b8",
                   border: "1px solid rgba(100,116,139,.2)",
                   fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 999,
                 }}>
-                  🔎 إشارة ناشئة
+                  🔎 {isAr ? "إشارة ناشئة" : "Emerging Signal"}
                 </span>
               )}
             </div>
@@ -384,14 +411,14 @@ function EventCard({ event, expanded, onToggle }) {
               <span>📍 {event.region}</span>
               <span>🏳️ {event.country}</span>
               <span>⏱️ {timeLabel}</span>
-              <span>📡 {event.signalCount} إشارة</span>
+              <span>📡 {event.signalCount} {isAr ? "إشارة" : "signals"}</span>
             </div>
           </div>
         </div>
 
         {/* Confidence */}
         <div style={{ marginBottom: 8 }}>
-          <ConfidenceBar value={event.confidence} />
+          <ConfidenceBar value={event.confidence} isAr={isAr} />
         </div>
 
         {/* Entities */}
@@ -417,7 +444,7 @@ function EventCard({ event, expanded, onToggle }) {
             display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8,
             padding: "6px 0", borderTop: "1px solid rgba(255,255,255,.04)",
           }}>
-            <span style={{ color: P.muted, fontSize: 10, fontWeight: 700 }}>المصادر:</span>
+            <span style={{ color: P.muted, fontSize: 10, fontWeight: 700 }}>{isAr ? "المصادر:" : "Sources:"}</span>
             {event.sources.slice(0, 4).map((s, i) => (
               <span key={i} style={{
                 background: "rgba(255,255,255,.03)",
@@ -439,8 +466,8 @@ function EventCard({ event, expanded, onToggle }) {
               marginBottom: expanded ? 8 : 0,
             }}>
               {expanded
-                ? `▲ إخفاء الإشارات`
-                : `▼ عرض الإشارات (${event.relatedSignals.length})`}
+                ? `▲ ${isAr ? "إخفاء الإشارات" : "Hide Signals"}`
+                : `▼ ${isAr ? `عرض الإشارات (${event.relatedSignals.length})` : `Show Signals (${event.relatedSignals.length})`}`}
             </button>
             {expanded && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -486,11 +513,17 @@ function EventCard({ event, expanded, onToggle }) {
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function GlobalLiveEventsPanel() {
+  const { language } = useI18n();
+  const isAr = language === "ar";
+
   const [events, setEvents] = useState([]);
   const [stats, setStats] = useState({});
   const [regionFilter, setRegionFilter] = useState("all");
   const [catFilter, setCatFilter] = useState("all");
   const [expanded, setExpanded] = useState(new Set());
+
+  const regionFilters = useMemo(() => getRegionFilters(isAr), [isAr]);
+  const catFilters = useMemo(() => getCatFilters(isAr), [isAr]);
   const [isLoading, setIsLoading] = useState(true);
   const styleRef = useRef(null);
 
@@ -572,7 +605,7 @@ export default function GlobalLiveEventsPanel() {
           <span style={{
             color: "#f8fafc", fontSize: 26, fontWeight: 900,
           }}>
-            الأحداث العالمية الآن
+            {isAr ? "الأحداث العالمية الآن" : "Global Live Events Now"}
           </span>
           <span style={{
             background: "rgba(239,68,68,.1)", color: P.red,
@@ -581,25 +614,26 @@ export default function GlobalLiveEventsPanel() {
             borderRadius: 999, letterSpacing: ".06em",
             animation: "gleGlow 2s infinite",
           }}>
-            LIVE GLOBAL EVENTS
+            {isAr ? "الأحداث العالمية المباشرة" : "LIVE GLOBAL EVENTS"}
           </span>
           {isLoading && (
-            <span style={{ color: P.muted, fontSize: 12 }}>يحدّث…</span>
+            <span style={{ color: P.muted, fontSize: 12 }}>{isAr ? "يحدّث…" : "Updating…"}</span>
           )}
         </div>
         <p style={{
           color: P.muted, fontSize: 12, margin: 0, lineHeight: 1.7,
         }}>
-          محرك رصد الأحداث العالمية — يكتشف ويصنف ويرتب الأحداث تلقائياً من مصادر
-          الأخبار، الإشارات الاجتماعية، الأسواق المالية، والرياضة في الوقت الحقيقي
+          {isAr
+            ? "محرك رصد الأحداث العالمية — يكتشف ويصنف ويرتب الأحداث تلقائياً من مصادر الأخبار، الإشارات الاجتماعية، الأسواق المالية، والرياضة في الوقت الحقيقي"
+            : "Global events detection engine — automatically discovers, classifies, and ranks events from news, social signals, financial markets, and sports in real-time"}
         </p>
       </div>
 
       {/* Stats */}
-      <StatsBar stats={stats} />
+      <StatsBar stats={stats} isAr={isAr} />
 
       {/* Mini Map */}
-      <EventMiniMap events={displayed} />
+      <EventMiniMap events={displayed} isAr={isAr} />
 
       {/* Region Breakdown + Categories */}
       <div style={{
@@ -607,13 +641,14 @@ export default function GlobalLiveEventsPanel() {
         gap: 14,
       }}>
         <RegionBreakdown stats={stats} />
+          <RegionBreakdown stats={stats} isAr={isAr} />
         {/* Category breakdown */}
         <div style={{
           background: P.surface, border: `1px solid ${P.border}`,
           borderRadius: 12, padding: "14px 16px",
         }}>
           <div style={{ color: P.gold, fontWeight: 800, fontSize: 12, marginBottom: 10 }}>
-            📊 التوزيع حسب النوع
+            📊 {isAr ? "التوزيع حسب النوع" : "Category Breakdown"}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {Object.entries(stats.categoryBreakdown || {})
@@ -625,7 +660,7 @@ export default function GlobalLiveEventsPanel() {
                   <div key={cat} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: 12 }}>{catMeta.icon || "🌍"}</span>
                     <span style={{ color: P.text, fontSize: 11, minWidth: 70 }}>
-                      {catMeta.label || cat}
+                      {isAr ? (catMeta.label || cat) : (CAT_LABELS_EN[cat] || catMeta.label || cat)}
                     </span>
                     <div style={{
                       flex: 1, height: 6, borderRadius: 3,
@@ -655,6 +690,7 @@ export default function GlobalLiveEventsPanel() {
         border: "1px solid rgba(255,255,255,.04)", borderRadius: 10,
       }}>
         {REGION_FILTERS.map(f => (
+            {regionFilters.map(f => (
           <button key={f.id} onClick={() => setRegionFilter(f.id)} style={{
             background: regionFilter === f.id ? `${P.blue}20` : "transparent",
             color: regionFilter === f.id ? P.blue : P.muted,
@@ -675,6 +711,7 @@ export default function GlobalLiveEventsPanel() {
         border: "1px solid rgba(255,255,255,.03)", borderRadius: 10,
       }}>
         {CAT_FILTERS.map(f => {
+            {catFilters.map(f => {
           const catMeta = EVENT_CATEGORIES[f.id] || {};
           return (
             <button key={f.id} onClick={() => setCatFilter(f.id)} style={{
@@ -701,6 +738,7 @@ export default function GlobalLiveEventsPanel() {
             margin: "0 auto 12px",
           }} />
           جاري رصد الأحداث العالمية...
+                  {isAr ? "جاري رصد الأحداث العالمية..." : "Detecting global events..."}
         </div>
       ) : displayed.length === 0 ? (
         <div style={{
@@ -708,6 +746,7 @@ export default function GlobalLiveEventsPanel() {
           background: P.surface, borderRadius: 12,
         }}>
           لا توجد أحداث تطابق الفلتر الحالي
+                  {isAr ? "لا توجد أحداث تطابق الفلتر الحالي" : "No events match the current filter"}
         </div>
       ) : (
         <div style={{
@@ -721,6 +760,7 @@ export default function GlobalLiveEventsPanel() {
               event={ev}
               expanded={expanded.has(ev.id)}
               onToggle={() => toggleExpand(ev.id)}
+                          isAr={isAr}
             />
           ))}
         </div>
@@ -733,7 +773,9 @@ export default function GlobalLiveEventsPanel() {
         borderTop: "1px solid rgba(255,255,255,.04)",
       }}>
         محرك الأحداث العالمية — يُحدّث تلقائياً كل 20 ثانية ·
-        {events.length > 0 && ` ${events.length} حدث نشط`}
+        {isAr
+          ? `محرك الأحداث العالمية — يُحدّث تلقائياً كل 20 ثانية${events.length > 0 ? ` · ${events.length} حدث نشط` : ""}`
+          : `Global Events Engine — auto-updates every 20s${events.length > 0 ? ` · ${events.length} active events` : ""}`}
       </div>
     </section>
   );
