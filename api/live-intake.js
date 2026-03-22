@@ -1,6 +1,10 @@
 import { applyApiHeaders, getInternalApiBase, handlePreflight, rejectUnsupportedMethod, withTimeout } from "./_api-utils";
 
 const CACHE_TTL_MS = 4 * 1000;
+const LOW_QUALITY_THRESHOLD = 45;
+const CONSECUTIVE_LOW_QUALITY_LIMIT = 3;
+const CONSECUTIVE_FAILURE_LIMIT = 2;
+const QUARANTINE_MS = 2 * 60 * 1000;
 
 const FEED_ENDPOINTS = [
   { id: "news", path: "/api/news", priority: 10 },
@@ -10,6 +14,93 @@ const FEED_ENDPOINTS = [
 ];
 
 let memoryCache = new Map();
+let sourceGovernanceState = new Map();
+
+function getSourceState(feedId) {
+  const existing = sourceGovernanceState.get(feedId);
+  if (existing) return existing;
+  const initial = {
+    lowQualityStreak: 0,
+    failureStreak: 0,
+    quarantinedUntil: 0,
+    quarantineReason: "",
+    lastQualityScore: 0,
+    lastUpdated: 0,
+  };
+  sourceGovernanceState.set(feedId, initial);
+  return initial;
+}
+
+function applySourceGovernance(healthEntries) {
+  const now = Date.now();
+  return healthEntries.map((entry) => {
+    const state = getSourceState(entry.id);
+
+    if (entry.quarantined) {
+      return {
+        ...entry,
+        governance: {
+          lowQualityStreak: state.lowQualityStreak,
+          failureStreak: state.failureStreak,
+          quarantinedUntil: state.quarantinedUntil,
+          quarantineReason: state.quarantineReason,
+          lastQualityScore: state.lastQualityScore,
+        },
+      };
+    }
+
+    if (!entry.ok) {
+      state.failureStreak += 1;
+      state.lowQualityStreak = 0;
+      state.lastQualityScore = 0;
+      state.lastUpdated = now;
+
+      if (state.failureStreak >= CONSECUTIVE_FAILURE_LIMIT) {
+        state.quarantinedUntil = now + QUARANTINE_MS;
+        state.quarantineReason = "repeated_failures";
+      }
+
+      return {
+        ...entry,
+        governance: {
+          lowQualityStreak: state.lowQualityStreak,
+          failureStreak: state.failureStreak,
+          quarantinedUntil: state.quarantinedUntil,
+          quarantineReason: state.quarantineReason,
+          lastQualityScore: state.lastQualityScore,
+        },
+      };
+    }
+
+    state.failureStreak = 0;
+    if (Number(entry.qualityScore || 0) < LOW_QUALITY_THRESHOLD) {
+      state.lowQualityStreak += 1;
+    } else {
+      state.lowQualityStreak = 0;
+      state.quarantinedUntil = 0;
+      state.quarantineReason = "";
+    }
+
+    state.lastQualityScore = Number(entry.qualityScore || 0);
+    state.lastUpdated = now;
+
+    if (state.lowQualityStreak >= CONSECUTIVE_LOW_QUALITY_LIMIT) {
+      state.quarantinedUntil = now + QUARANTINE_MS;
+      state.quarantineReason = "sustained_low_quality";
+    }
+
+    return {
+      ...entry,
+      governance: {
+        lowQualityStreak: state.lowQualityStreak,
+        failureStreak: state.failureStreak,
+        quarantinedUntil: state.quarantinedUntil,
+        quarantineReason: state.quarantineReason,
+        lastQualityScore: state.lastQualityScore,
+      },
+    };
+  });
+}
 
 function buildCacheKey(category, sourceKey = "all") {
   return `live-intake:${category || "all"}:${sourceKey}`;
@@ -160,8 +251,41 @@ export default async function handler(req, res) {
     url: `${baseUrl}${feed.path}${feed.id === "news" ? `?category=${encodeURIComponent(requestedCategory)}${sourceFilters.length > 0 ? `&source=${encodeURIComponent(sourceFilters.join(","))}` : ""}` : ""}`,
   }));
 
+  const healthDraft = [];
+  const activeFeeds = [];
+  const now = Date.now();
+
+  feedUrls.forEach((feed) => {
+    const state = getSourceState(feed.id);
+    if (state.quarantinedUntil && state.quarantinedUntil > now) {
+      healthDraft.push({
+        id: feed.id,
+        ok: false,
+        count: 0,
+        source: feed.id,
+        error: "quarantined",
+        updated: null,
+        latencyMs: null,
+        qualityScore: 0,
+        quarantined: true,
+        quarantinedUntil: state.quarantinedUntil,
+        quarantineReason: state.quarantineReason || "policy",
+      });
+      return;
+    }
+
+    if (state.quarantinedUntil && state.quarantinedUntil <= now) {
+      state.quarantinedUntil = 0;
+      state.quarantineReason = "";
+      state.lowQualityStreak = 0;
+      state.failureStreak = 0;
+    }
+
+    activeFeeds.push(feed);
+  });
+
   const results = await Promise.allSettled(
-    feedUrls.map(async (feed) => {
+    activeFeeds.map(async (feed) => {
       const startedAt = Date.now();
       const payload = await fetchInternalJson(feed.url);
       return {
@@ -175,11 +299,10 @@ export default async function handler(req, res) {
     })
   );
 
-  const healthDraft = [];
   let mergedItems = [];
 
   results.forEach((result, index) => {
-    const feed = feedUrls[index];
+    const feed = activeFeeds[index];
     if (result.status === "fulfilled") {
       mergedItems.push(...result.value.items);
       healthDraft.push({
@@ -190,6 +313,7 @@ export default async function handler(req, res) {
         updated: result.value.updated,
         latencyMs: result.value.latencyMs,
         _items: result.value.items,
+        quarantined: false,
       });
       return;
     }
@@ -203,6 +327,7 @@ export default async function handler(req, res) {
       updated: null,
       latencyMs: null,
       qualityScore: 0,
+      quarantined: false,
     });
   });
 
@@ -224,6 +349,9 @@ export default async function handler(req, res) {
         updated: entry.updated,
         latencyMs: entry.latencyMs,
         qualityScore: 0,
+        quarantined: Boolean(entry.quarantined),
+        quarantinedUntil: Number(entry.quarantinedUntil || 0),
+        quarantineReason: entry.quarantineReason || "",
         metrics: {
           duplicateRate: 1,
           mediaRichness: 0,
@@ -275,6 +403,9 @@ export default async function handler(req, res) {
       updated: entry.updated,
       latencyMs: entry.latencyMs,
       qualityScore: Math.min(100, Math.max(0, qualityScore)),
+      quarantined: false,
+      quarantinedUntil: 0,
+      quarantineReason: "",
       metrics: {
         duplicateRate,
         mediaRichness,
@@ -284,29 +415,33 @@ export default async function handler(req, res) {
     };
   });
 
+  const governedHealth = applySourceGovernance(health);
+  const quarantinedSources = governedHealth.filter((entry) => Boolean(entry?.governance?.quarantinedUntil)).length;
+
   mergedItems = mergedItems.filter((item) => matchesSourceFilters(item.source, sourceFilters));
   mergedItems = prioritize(dedupeItems(mergedItems)).slice(0, 120);
   const breakingItems = mergedItems.filter((item) => item.urgency === "high" || item.isBreaking).slice(0, 12);
   const featuredAlert = selectFeaturedAlert(mergedItems);
-  const healthySources = health.filter((entry) => entry.ok).length;
-  const averageQuality = health.length > 0
-    ? Math.round(health.reduce((sum, entry) => sum + Number(entry.qualityScore || 0), 0) / health.length)
+  const healthySources = governedHealth.filter((entry) => entry.ok).length;
+  const averageQuality = governedHealth.length > 0
+    ? Math.round(governedHealth.reduce((sum, entry) => sum + Number(entry.qualityScore || 0), 0) / governedHealth.length)
     : 0;
-  const topQualitySource = [...health]
+  const topQualitySource = [...governedHealth]
     .sort((a, b) => Number(b.qualityScore || 0) - Number(a.qualityScore || 0))[0]?.id || "";
 
   const payload = {
     news: mergedItems,
     updated: new Date().toLocaleString("ar-AE", { timeZone: "Asia/Dubai" }),
-    source: healthySources > 0 ? (healthySources === health.length ? "ok" : "partial-fallback") : "fallback",
+    source: healthySources > 0 ? (healthySources === governedHealth.length ? "ok" : "partial-fallback") : "fallback",
     sourceMode: "live-intake-open-source",
     sourceFilters,
-    health,
+    health: governedHealth,
     stats: {
       totalItems: mergedItems.length,
       breakingCount: breakingItems.length,
       healthySources,
-      totalSources: health.length,
+      totalSources: governedHealth.length,
+      quarantinedSources,
       averageQuality,
       topQualitySource,
     },

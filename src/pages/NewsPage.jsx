@@ -29,6 +29,7 @@ export default function NewsPage({
   const [sourceFilters, setSourceFilters] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activePreset, setActivePreset] = useState("");
+  const [dismissedAlerts, setDismissedAlerts] = useState([]);
 
   const PRESETS = useMemo(() => ([
     {
@@ -180,6 +181,17 @@ export default function NewsPage({
     readFilterState();
   }, [routeSearch]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.sessionStorage.getItem("kar-news-dismissed-alerts");
+      const parsed = raw ? JSON.parse(raw) : [];
+      setDismissedAlerts(Array.isArray(parsed) ? parsed.slice(0, 40) : []);
+    } catch {
+      setDismissedAlerts([]);
+    }
+  }, []);
+
   const filteredNews = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const normalized = sourceFilters.map((item) => item.toLowerCase());
@@ -210,6 +222,7 @@ export default function NewsPage({
   const totalSources = feedStatus?.stats?.totalSources || 0;
   const breakingCount = feedStatus?.stats?.breakingCount || 0;
   const avgQuality = Number(feedStatus?.stats?.averageQuality || 0);
+  const quarantinedSources = Number(feedStatus?.stats?.quarantinedSources || 0);
 
   const sourceQuality = useMemo(() => {
     const list = Array.isArray(feedStatus?.health) ? feedStatus.health : [];
@@ -231,6 +244,58 @@ export default function NewsPage({
       })
       .slice(0, 16);
   }, [filteredNews]);
+
+  const smartAlerts = useMemo(() => {
+    const alerts = [];
+    const featured = feedStatus?.featuredAlert;
+    if (featured?.title) {
+      alerts.push({
+        id: `featured-${featured.id || featured.title}`,
+        type: "breaking",
+        title: language === "ar" ? "تنبيه عاجل" : "Breaking alert",
+        message: featured.title,
+        item: featured,
+      });
+    }
+
+    if (quarantinedSources > 0) {
+      alerts.push({
+        id: `quarantine-${quarantinedSources}`,
+        type: "quality",
+        title: language === "ar" ? "حماية الجودة مفعلة" : "Quality protection active",
+        message: language === "ar"
+          ? `تم عزل ${quarantinedSources} مصدر مؤقتا بسبب ضعف الجودة أو تكرار الأعطال.`
+          : `${quarantinedSources} source(s) are temporarily quarantined due to low quality or repeated failures.`,
+      });
+    }
+
+    if (breakingCount >= 5) {
+      alerts.push({
+        id: `surge-${breakingCount}`,
+        type: "surge",
+        title: language === "ar" ? "تصاعد عاجل" : "Breaking surge",
+        message: language === "ar"
+          ? `تم رصد ${breakingCount} إشارات عاجلة حاليا، الأولوية للمصادر الأعلى موثوقية.`
+          : `${breakingCount} breaking signals detected now; trusted sources are prioritized.`,
+      });
+    }
+
+    return alerts.filter((entry) => !dismissedAlerts.includes(entry.id)).slice(0, 3);
+  }, [feedStatus?.featuredAlert, quarantinedSources, breakingCount, dismissedAlerts, language]);
+
+  const dismissAlert = (id) => {
+    setDismissedAlerts((prev) => {
+      const next = Array.from(new Set([...prev, id])).slice(-40);
+      if (typeof window !== "undefined") {
+        try {
+          window.sessionStorage.setItem("kar-news-dismissed-alerts", JSON.stringify(next));
+        } catch {
+          // ignore storage errors
+        }
+      }
+      return next;
+    });
+  };
 
   const takeaways = [
     language === "ar"
@@ -284,6 +349,9 @@ export default function NewsPage({
             <span style={{ color: "#f87171", fontSize: 12, fontWeight: 800 }}>
               {language === "ar" ? `عاجل الآن ${breakingCount}` : `Breaking now ${breakingCount}`}
             </span>
+            <span style={{ color: quarantinedSources > 0 ? "#fca5a5" : "#94a3b8", fontSize: 12, fontWeight: 800 }}>
+              {language === "ar" ? `معزول مؤقتا ${quarantinedSources}` : `Quarantined ${quarantinedSources}`}
+            </span>
             <span style={{ color: "#94a3b8", fontSize: 12 }}>
               {language === "ar"
                 ? localizeSummaryText(feedStatus?.sourceMode || "", "ar", { kind: "label" })
@@ -292,6 +360,45 @@ export default function NewsPage({
           </div>
         ) : null}
       </section>
+
+      {smartAlerts.length > 0 ? (
+        <section style={{ ...panelStyle, padding: "12px 14px", marginBottom: 14, border: "1px solid rgba(248,113,113,0.35)", background: "linear-gradient(145deg, rgba(127,29,29,0.18), rgba(30,41,59,0.5))" }}>
+          <div style={{ color: "#fee2e2", fontWeight: 900, marginBottom: 10 }}>
+            {language === "ar" ? "مركز التنبيهات الذكية" : "Smart alerts center"}
+          </div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {smartAlerts.map((alert) => {
+              const isBreaking = alert.type === "breaking";
+              return (
+                <div key={alert.id} style={{ border: "1px solid rgba(248,113,113,0.35)", borderRadius: 10, background: "rgba(15,23,42,0.55)", padding: "9px 10px", display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <div style={{ minWidth: 220, flex: "1 1 240px" }}>
+                    <div style={{ color: "#fecaca", fontSize: 12, fontWeight: 900, marginBottom: 4 }}>{alert.title}</div>
+                    <div style={{ color: "#e2e8f0", fontSize: 13, lineHeight: 1.65 }}>{alert.message}</div>
+                  </div>
+                  <div style={{ display: "inline-flex", gap: 8 }}>
+                    {isBreaking ? (
+                      <button
+                        type="button"
+                        onClick={() => handleCardClick(alert.item)}
+                        style={{ border: "1px solid rgba(56,189,248,0.55)", background: "rgba(56,189,248,0.16)", color: "#bae6fd", borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
+                      >
+                        {language === "ar" ? "فتح الخبر" : "Open story"}
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => dismissAlert(alert.id)}
+                      style={{ border: "1px solid rgba(148,163,184,0.4)", background: "rgba(15,23,42,0.45)", color: "#cbd5e1", borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
+                    >
+                      {language === "ar" ? "إخفاء" : "Dismiss"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       {sourceQuality.length > 0 ? (
         <section style={{ ...panelStyle, padding: "12px 14px", marginBottom: 14 }}>
