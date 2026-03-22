@@ -687,6 +687,117 @@ function ReasoningChainPanel({ memoryDepth, patterns, forecastSupport }) {
   );
 }
 
+function TopRisksPanel({ patterns, forecastSupport }) {
+  const risks = [
+    patterns?.regionalPressure?.[0] ? {
+      id: `region-${patterns.regionalPressure[0].region}`,
+      label: patterns.regionalPressure[0].region,
+      detail: patterns.regionalPressure[0].label,
+      color: patterns.regionalPressure[0].pressure === "high" ? "#ef4444" : patterns.regionalPressure[0].pressure === "medium" ? "#f59e0b" : "#22c55e",
+    } : null,
+    forecastSupport?.strongestSignals?.[0] ? {
+      id: `signal-${forecastSupport.strongestSignals[0].signal}`,
+      label: forecastSupport.strongestSignals[0].signal,
+      detail: `${forecastSupport.strongestSignals[0].count}×` ,
+      color: "#38bdf8",
+    } : null,
+    forecastSupport?.contradiction ? {
+      id: "contradiction",
+      label: "مستوى التناقض",
+      detail: forecastSupport.contradiction.label,
+      color: forecastSupport.contradiction.color,
+    } : null,
+  ].filter(Boolean);
+
+  return (
+    <div style={{ ...CARD, padding: "18px 20px" }}>
+      <div style={{ ...ACCENT_LINE, background: "linear-gradient(90deg,transparent,#ef4444,#f59e0b,transparent)" }} />
+      <div style={{ ...SECTION_TITLE, color: "#f87171", fontSize: "12px" }}>
+        <span>🚨</span> أعلى المخاطر المكتشفة
+      </div>
+      <div style={SUBTITLE}>Top Risks Detected</div>
+      <div style={{ display: "grid", gap: 8 }}>
+        {risks.length === 0 ? (
+          <div style={{ fontSize: 11, color: "#64748b" }}>لا توجد مخاطر بارزة بما يكفي بعد.</div>
+        ) : risks.map((risk) => (
+          <div key={risk.id} style={{ border: `1px solid ${risk.color}25`, background: `${risk.color}10`, borderRadius: 10, padding: "10px 12px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 800, color: risk.color }}>{risk.label}</span>
+              <span style={{ fontSize: 10, color: "#94a3b8" }}>{risk.detail}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ConfidenceExplanationPanel({ forecastSupport, auditMetrics, syncStatus }) {
+  const entries = [
+    { label: "Forecast readiness", value: forecastSupport?.forecastReadiness, color: "#60a5fa" },
+    { label: "Pattern detection", value: auditMetrics?.pattern_detection, color: "#f59e0b" },
+    { label: "Reasoning quality", value: auditMetrics?.reasoning_quality, color: "#22c55e" },
+    { label: "Server sync", value: syncStatus?.ok ? 100 : 35, color: syncStatus?.ok ? "#22c55e" : "#ef4444" },
+  ].filter((entry) => Number.isFinite(Number(entry.value)));
+
+  return (
+    <div style={{ ...CARD, padding: "18px 20px" }}>
+      <div style={{ ...ACCENT_LINE, background: "linear-gradient(90deg,transparent,#60a5fa,#22c55e,transparent)" }} />
+      <div style={{ ...SECTION_TITLE, color: "#60a5fa", fontSize: "12px" }}>
+        <span>🧩</span> تفسير الثقة
+      </div>
+      <div style={SUBTITLE}>Confidence Explanation</div>
+      <div style={{ display: "grid", gap: 10 }}>
+        {entries.map((entry) => (
+          <div key={entry.label}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>
+              <span>{entry.label}</span>
+              <span style={{ color: entry.color, fontWeight: 800 }}>{entry.value}%</span>
+            </div>
+            <GlowBar pct={entry.value} color={entry.color} height={4} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MonitoredEntitiesPanel({ memoryDepth }) {
+  return (
+    <div style={{ ...CARD, padding: "18px 20px" }}>
+      <div style={{ ...ACCENT_LINE, background: "linear-gradient(90deg,transparent,#a78bfa,#38bdf8,transparent)" }} />
+      <div style={{ ...SECTION_TITLE, color: "#a78bfa", fontSize: "12px" }}>
+        <span>🛰</span> الكيانات الأعلى مراقبة
+      </div>
+      <div style={SUBTITLE}>Top Entities Monitored</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {(memoryDepth?.topEntities || []).slice(0, 10).map((entity) => (
+          <Tag key={entity.key} label={`${entity.key} (${entity.count})`} color="#a78bfa" />
+        ))}
+        {(!memoryDepth?.topEntities || memoryDepth.topEntities.length === 0) ? <div style={{ fontSize: 11, color: "#64748b" }}>لا توجد كيانات بارزة بعد.</div> : null}
+      </div>
+    </div>
+  );
+}
+
+function DeveloperAuditPanel({ auditMetrics }) {
+  if (!auditMetrics) return null;
+  return (
+    <div style={{ ...CARD, padding: "18px 20px" }}>
+      <div style={{ ...ACCENT_LINE, background: "linear-gradient(90deg,transparent,#f3d38a,#38bdf8,transparent)" }} />
+      <div style={{ ...SECTION_TITLE, color: "#f3d38a", fontSize: "12px" }}>
+        <span>🛠</span> Agent Strength Audit
+      </div>
+      <div style={SUBTITLE}>Developer / Debug Metrics</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10 }}>
+        {Object.entries(auditMetrics).map(([key, value]) => (
+          <StatBox key={key} value={`${value}%`} label={key} color="#f3d38a" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Master component ──────────────────────────────────────────────────────────
 export default function AgentDashboard({ refreshKey = 0 }) {
   const [scoreData,       setScoreData]       = useState(null);
@@ -695,6 +806,9 @@ export default function AgentDashboard({ refreshKey = 0 }) {
   const [forecastSupport, setForecastSupport] = useState(null);
   const [feedbackStats,   setFeedbackStats]   = useState(null);
   const [statusTime,      setStatusTime]      = useState(() => formatDubaiTime());
+  const [syncStatus,      setSyncStatus]      = useState({ ok: false, lastSyncAt: null });
+  const [auditMetrics,    setAuditMetrics]    = useState(null);
+  const [showDeveloperAudit, setShowDeveloperAudit] = useState(false);
 
   const refresh = useCallback(() => {
     try {
@@ -711,6 +825,34 @@ export default function AgentDashboard({ refreshKey = 0 }) {
 
   useEffect(() => {
     refresh();
+  }, [refreshKey, refresh]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const sync = async () => {
+      const [serverSync, auditResponse] = await Promise.allSettled([
+        agentMemory.syncFromServer(true),
+        fetch("/api/agent-strength-audit", { headers: { Accept: "application/json" } }).then((res) => res.ok ? res.json() : null),
+      ]);
+
+      if (cancelled) return;
+
+      if (serverSync.status === "fulfilled") {
+        setSyncStatus(agentMemory.getServerSyncStatus());
+      }
+
+      if (auditResponse.status === "fulfilled" && auditResponse.value?.scores) {
+        setAuditMetrics(auditResponse.value.scores);
+      }
+
+      setShowDeveloperAudit(typeof window !== "undefined" && window.location.search.includes("debug=1"));
+      refresh();
+    };
+
+    sync();
+    return () => {
+      cancelled = true;
+    };
   }, [refreshKey, refresh]);
 
   useEffect(() => {
@@ -764,12 +906,13 @@ export default function AgentDashboard({ refreshKey = 0 }) {
         marginBottom: "16px",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px", color: "#22c55e", fontSize: "11px", fontWeight: 800, letterSpacing: "1.2px" }}>
-          <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 10px #22c55e" }} />
-          <span>ACTIVE</span>
+          <span style={{ width: 9, height: 9, borderRadius: "50%", background: syncStatus.ok ? "#22c55e" : "#f59e0b", boxShadow: `0 0 10px ${syncStatus.ok ? "#22c55e" : "#f59e0b"}` }} />
+          <span>{syncStatus.ok ? "ACTIVE" : "DEGRADED"}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "18px", flexWrap: "wrap" }}>
           <span style={{ fontSize: "11px", color: "#94a3b8" }}>آخر تحديث: <strong style={{ color: "#f3d38a" }}>{statusTime}</strong></span>
           <span style={{ fontSize: "11px", color: "#94a3b8" }}>عدد الإشارات النشطة: <strong style={{ color: "#38bdf8" }}>{activeSignalsCount}</strong></span>
+          <span style={{ fontSize: "11px", color: "#94a3b8" }}>Sync: <strong style={{ color: syncStatus.ok ? "#22c55e" : "#f59e0b" }}>{syncStatus.ok ? "server-backed" : "local fallback"}</strong></span>
         </div>
       </div>
 
@@ -817,11 +960,23 @@ export default function AgentDashboard({ refreshKey = 0 }) {
         <ReasoningChainPanel memoryDepth={memoryDepth} patterns={patterns} forecastSupport={forecastSupport} />
       </div>
 
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "16px", marginTop: "20px" }}>
+        <TopRisksPanel patterns={patterns} forecastSupport={forecastSupport} />
+        <MonitoredEntitiesPanel memoryDepth={memoryDepth} />
+        <ConfidenceExplanationPanel forecastSupport={forecastSupport} auditMetrics={auditMetrics} syncStatus={syncStatus} />
+      </div>
+
       {/* Secondary panels */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px", marginTop: "26px" }}>
         <RegionalPressurePanel patterns={patterns} />
         <ClusterPanel patterns={patterns} />
       </div>
+
+      {showDeveloperAudit ? (
+        <div style={{ marginTop: "20px" }}>
+          <DeveloperAuditPanel auditMetrics={auditMetrics} />
+        </div>
+      ) : null}
 
       {/* Safety disclaimer */}
       <div style={{

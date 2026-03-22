@@ -25,12 +25,13 @@ const LivePage = lazy(() => import("./pages/LivePage"));
 
 export default function App() {
   const { t, direction, language } = useI18n();
-  const { currentPath, navigate } = useCurrentPath("/");
+  const { currentPath, currentRoute, navigate } = useCurrentPath("/");
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalArticle, setModalArticle] = useState(null);
   const [worldEyeOpen, setWorldEyeOpen] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [routeLoading, setRouteLoading] = useState(false);
 
   const {
     categories,
@@ -69,6 +70,37 @@ export default function App() {
     startGlobalEventsEngine();
     return () => stopGlobalEventsEngine();
   }, []);
+
+  useEffect(() => {
+    setRouteLoading(true);
+    const timer = window.setTimeout(() => setRouteLoading(false), 260);
+    return () => window.clearTimeout(timer);
+  }, [currentPath]);
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (!event.altKey) return;
+      const keyRouteMap = {
+        "1": "/",
+        "2": "/world-state",
+        "3": "/news",
+        "4": "/events",
+        "5": "/radar",
+        "6": "/analysis-center",
+        "7": "/link-center",
+        "8": "/forecast",
+        "9": "/agent",
+        "0": "/live",
+      };
+      const nextRoute = keyRouteMap[event.key];
+      if (!nextRoute) return;
+      event.preventDefault();
+      navigate(nextRoute);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [navigate]);
 
   const handleCardClick = (article) => {
     setModalArticle(article);
@@ -141,6 +173,8 @@ export default function App() {
             lastUpdated={lastUpdated}
             intelMetrics={intelMetrics}
             refreshKey={intelRefreshKey}
+            displayedNews={displayedNews}
+            loading={loading}
           />
         );
     }
@@ -231,6 +265,28 @@ export default function App() {
         </div>
       </header>
 
+      <div className="app-ops-strip">
+        <div className="app-ops-strip__inner">
+          <div className="app-ops-strip__group">
+            <span className="app-ops-strip__dot" />
+            <span>{language === "ar" ? "النظام تشغيلي" : "System operational"}</span>
+          </div>
+          <div className="app-ops-strip__group">
+            <span>{language === "ar" ? "المسار الحالي" : "Current route"}:</span>
+            <strong>{language === "ar" ? currentRoute.titleAr : currentRoute.titleEn}</strong>
+          </div>
+          <div className="app-ops-strip__group">
+            <span>{language === "ar" ? "آخر تحديث" : "Last update"}:</span>
+            <strong>{lastUpdated}</strong>
+          </div>
+          <div className="app-ops-strip__group">
+            <span>{language === "ar" ? "اختصارات" : "Shortcuts"}:</span>
+            <strong>Alt+1..0</strong>
+          </div>
+        </div>
+        <div className={routeLoading ? "app-route-progress active" : "app-route-progress"} />
+      </div>
+
       <TopSectionNav currentPath={currentPath} navigate={navigate} language={language} />
 
       <BreakingNewsTicker headlines={tickerHeadlines} />
@@ -238,7 +294,7 @@ export default function App() {
       {worldEyeOpen ? <WorldEyeMode onClose={() => setWorldEyeOpen(false)} /> : null}
 
       <main>
-        <AppSectionBoundary>
+        <AppSectionBoundary resetKey={currentPath}>
           <Suspense fallback={routeFallback}>{renderPage()}</Suspense>
         </AppSectionBoundary>
       </main>

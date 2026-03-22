@@ -131,7 +131,7 @@ html {
 
 .app-sticky-nav-wrap {
   position: sticky;
-  top: 76px;
+  top: 132px;
   z-index: 96;
   padding: 10px 16px 0;
   background: linear-gradient(180deg, rgba(6,10,16,0.9), rgba(6,10,16,0.68), transparent);
@@ -160,6 +160,81 @@ html {
 
 .app-sticky-nav-scroll > * {
   scroll-snap-align: center;
+}
+
+.app-ops-strip {
+  position: sticky;
+  top: 76px;
+  z-index: 97;
+  padding: 8px 16px 0;
+  background: linear-gradient(180deg, rgba(6,10,16,0.82), rgba(6,10,16,0.42), transparent);
+  backdrop-filter: blur(10px);
+}
+
+.app-ops-strip__inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 16px;
+  padding: 10px 14px;
+  background: linear-gradient(160deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.01) 100%);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+.app-ops-strip__group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #94a3b8;
+  font-size: 11px;
+  letter-spacing: 0.3px;
+}
+
+.app-ops-strip__group strong {
+  color: #f8fafc;
+  font-weight: 800;
+}
+
+.app-ops-strip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 12px rgba(34,197,94,0.9);
+}
+
+.app-route-progress {
+  max-width: 1400px;
+  margin: 6px auto 0;
+  height: 2px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.04);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.app-route-progress::after {
+  content: "";
+  display: block;
+  width: 35%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(56,189,248,0.05), rgba(56,189,248,0.9), rgba(243,211,138,0.75));
+  transform: translateX(-120%);
+}
+
+.app-route-progress.active {
+  opacity: 1;
+}
+
+.app-route-progress.active::after {
+  animation: app-route-progress 0.7s ease forwards;
 }
 
 .agent-dashboard-grid {
@@ -310,6 +385,11 @@ html {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes app-route-progress {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(320%); }
+}
+
 /* ── Utility classes ────────────────────────────────────────── */
 .nr-card-enter {
   animation: nr-fadeSlideUp 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) both;
@@ -360,9 +440,51 @@ html {
   .nr-card-enter,
   .nr-animate-bar,
   .nr-animate-number,
+  .app-route-progress.active::after {
   .gradient-text {
     animation: none !important;
   }
+
+@media (max-width: 1024px) {
+  .app-ops-strip,
+  .app-sticky-nav-wrap {
+    top: 72px;
+  }
+
+  .app-sticky-nav-wrap {
+    top: 124px;
+  }
+
+  .agent-dashboard-grid-primary,
+  .agent-dashboard-grid-secondary,
+  .overview-top-grid,
+  .overview-exec-grid,
+  .world-state-core-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-ops-strip {
+    padding-inline: 12px;
+  }
+
+  .app-sticky-nav-wrap {
+    top: 148px;
+  }
+
+  .app-ops-strip__inner {
+    padding: 10px 12px;
+  }
+
+  .top-section-nav__item {
+    padding-inline: 14px;
+  }
+
+  .top-section-nav__label {
+    font-size: 12px;
+  }
+}
   .nr-card-hover:hover {
     transform: none !important;
     box-shadow: none !important;

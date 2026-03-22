@@ -168,11 +168,16 @@ function applyApiHeaders(res, methods = "GET, OPTIONS") {
 }
 
 function internalApiBase(req) {
+  if (process.env.INTERNAL_API_BASE_URL) {
+    return String(process.env.INTERNAL_API_BASE_URL).replace(/\/+$/, "");
+  }
+
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`;
   }
 
-  const host = req?.headers?.host || "localhost:3000";
+  const rawHost = String(req?.headers?.host || "localhost:3000").trim().toLowerCase();
+  const host = /^[a-z0-9.-]+(?::\d+)?$/i.test(rawHost) ? rawHost : "localhost:3000";
   const isLocal = /^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(host);
   const proto = isLocal ? "http" : "https";
   return `${proto}://${host}`;
@@ -613,9 +618,7 @@ function compilePayload({ events, aircraft, newsItems, intelItems, xItems }) {
     return new Date(b.timestamp || b.time).getTime() - new Date(a.timestamp || a.time).getTime();
   });
 
-  const nonEmptySignals = ensuredSignals.length > 0
-    ? ensureMinimumSignals(ensuredSignals, aircraft)
-    : MINIMAL_FALLBACK_ITEMS.map((item, idx) => {
+  const mappedFallbackSignals = MINIMAL_FALLBACK_ITEMS.map((item, idx) => {
         const mentions = detectMentions(item);
         const country = resolvePrimaryCountry(item, mentions) || COUNTRY_HINTS.find((entry) => entry.id === "sa");
         const timestamp = toIsoTime(item.time);
@@ -639,6 +642,10 @@ function compilePayload({ events, aircraft, newsItems, intelItems, xItems }) {
           entities: deriveEntities(item, mentions)
         };
       });
+
+  const nonEmptySignals = ensuredSignals.length >= 10
+    ? ensuredSignals
+    : [...ensuredSignals, ...mappedFallbackSignals].slice(0, Math.max(10, ensuredSignals.length || mappedFallbackSignals.length));
 
   const byCountry = new Map();
   nonEmptySignals.forEach((signal) => {

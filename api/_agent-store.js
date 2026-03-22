@@ -269,6 +269,8 @@ export function computeAgentAuditFromSnapshot(snapshot, benchmarkDataset = []) {
   const memory = snapshot?.memory || {};
   const items = Array.isArray(memory.items) ? memory.items : [];
   const feedback = Array.isArray(snapshot?.feedback?.recent) ? snapshot.feedback.recent : [];
+  const relationGraph = Array.isArray(memory.relationGraph) ? memory.relationGraph : [];
+  const reasoningChain = snapshot?.reasoningChain || {};
 
   let classificationHits = 0;
   let classificationTotal = 0;
@@ -306,12 +308,24 @@ export function computeAgentAuditFromSnapshot(snapshot, benchmarkDataset = []) {
     return Number.isFinite(age) && age < 24 * 60 * 60 * 1000;
   }).length;
   const resilience = Math.min(100, Math.round(25 + Math.min(35, recentItems / 3) + Math.min(20, uniqueSources * 2) + (resolved.length >= 5 ? 20 : resolved.length * 2)));
+  const reasoningSignals = [reasoningChain.event_detected, reasoningChain.linked_signals, reasoningChain.inferred_impact].filter(Boolean).length;
+  const reasoningConfidence = Number(reasoningChain.confidence || 0);
+  const reasoningQuality = Math.min(
+    100,
+    Math.round(
+      20 +
+      Math.min(30, relationGraph.length * 2) +
+      Math.min(25, reasoningSignals * 12) +
+      Math.min(25, reasoningConfidence * 0.25)
+    )
+  );
 
   return {
     classification_accuracy: classificationAccuracy,
     pattern_detection: patternDetection,
     forecast_hit_rate: forecastHitRate,
     memory_quality: memoryQuality,
-    resilience: resilience
+    resilience: resilience,
+    reasoning_quality: reasoningQuality
   };
 }

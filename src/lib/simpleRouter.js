@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 export const SECTION_ROUTES = [
-  { id: "overview", path: "/", icon: "◉", titleAr: "الرئيسية", titleEn: "Overview", descriptionAr: "ملخص سريع لكل المنصة", descriptionEn: "Compact platform overview" },
+  { id: "overview", path: "/", icon: "◉", titleAr: "الرئيسية", titleEn: "Home", descriptionAr: "ملخص تنفيذي سريع للمنصة", descriptionEn: "Executive platform home" },
   { id: "world", path: "/world-state", icon: "🌐", titleAr: "حالة العالم", titleEn: "World State", descriptionAr: "الصورة العامة والضغط العالمي", descriptionEn: "Global status and pressure" },
   { id: "news", path: "/news", icon: "📰", titleAr: "الأخبار", titleEn: "News", descriptionAr: "تدفق الأخبار والرياضة", descriptionEn: "News and sports feed" },
   { id: "events", path: "/events", icon: "🌍", titleAr: "الأحداث العالمية", titleEn: "Global Events", descriptionAr: "الأحداث الحية والتسلسل", descriptionEn: "Live events and timelines" },

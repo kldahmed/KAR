@@ -17,6 +17,12 @@ export default class AppSectionBoundary extends React.Component {
     console.error("Section error:", error, info);
   }
 
+  componentDidUpdate(prevProps) {
+    if (prevProps.resetKey !== this.props.resetKey && this.state.hasError) {
+      this.setState({ hasError: false });
+    }
+  }
+
   render() {
     if (this.state.hasError) {
       const t = this.context?.t;

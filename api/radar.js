@@ -1,56 +1,55 @@
-function applyApiHeaders(res, methods = "GET, OPTIONS") {
-	res.setHeader("Content-Type", "application/json; charset=utf-8");
-	res.setHeader("Access-Control-Allow-Origin", "*");
-	res.setHeader("Access-Control-Allow-Methods", methods);
-	res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+import { applyApiHeaders, handlePreflight, rejectUnsupportedMethod, withTimeout } from "./_api-utils.js";
+
+function buildFallbackAircraft() {
+	return [
+		{ id: "fallback-1", lat: 25.2048, lng: 55.2708, callsign: "GULF-OPS-1", altitude: 32500 },
+		{ id: "fallback-2", lat: 24.4539, lng: 54.3773, callsign: "UAE-AIR-2", altitude: 28750 },
+		{ id: "fallback-3", lat: 21.4858, lng: 39.1925, callsign: "REDSEA-3", altitude: 30100 },
+	];
 }
 
-export default async function handler(req,res){
+export default async function handler(req, res) {
+	applyApiHeaders(req, res, "GET, OPTIONS");
+	if (handlePreflight(req, res)) return;
+	if (rejectUnsupportedMethod(req, res, "GET")) return;
 
-applyApiHeaders(res);
-if (req.method === "OPTIONS") return res.status(200).end();
-if (req.method !== "GET") {
-return res.status(405).json({ error: "Method not allowed" });
-}
+	const timeout = withTimeout(9000);
 
-try{
+	try {
+		const response = await fetch("https://opensky-network.org/api/states/all", {
+			signal: timeout.signal,
+			headers: { "User-Agent": "kar-radar/1.0", Accept: "application/json" }
+		});
 
-const r = await fetch(
-"https://opensky-network.org/api/states/all"
-);
+		if (!response.ok) {
+			return res.status(200).json({ aircraft: buildFallbackAircraft(), fallback: true });
+		}
 
-if (!r.ok) {
-return res.status(200).json({ aircraft: [] });
-}
+		let data = null;
+		try {
+			data = await response.json();
+		} catch {
+			return res.status(200).json({ aircraft: buildFallbackAircraft(), fallback: true });
+		}
 
-const data = await r.json();
+		const aircraft = (Array.isArray(data?.states) ? data.states : [])
+			.filter((state) => state && state[5] && state[6] && state[7] > 5000 && state[5] > 25 && state[5] < 65 && state[6] > 10 && state[6] < 40)
+			.slice(0, 80)
+			.map((state, index) => ({
+				id: `opensky-${index}`,
+				lat: state[6],
+				lng: state[5],
+				callsign: (state[1] || "").trim() || `TRACK-${index + 1}`,
+				altitude: state[7]
+			}));
 
-const aircraft = (data.states || [])
-.filter(a => 
-a[5] && 
-a[6] && 
-a[7] > 5000 &&      // ارتفاع مهم
-a[5] > 25 &&        // شرق المتوسط
-a[5] < 65 &&        // الخليج
-a[6] > 10 &&        // شمال أفريقيا
-a[6] < 40           // تركيا
-)
-.slice(0,80)
-.map(a=>({
-
-lat:a[6],
-lng:a[5],
-callsign:(a[1] || "").trim(),
-altitude:a[7]
-
-}));
-
-res.status(200).json({aircraft});
-
-}catch{
-
-res.status(200).json({aircraft:[]});
-
-}
-
+		return res.status(200).json({
+			aircraft: aircraft.length > 0 ? aircraft : buildFallbackAircraft(),
+			fallback: aircraft.length === 0
+		});
+	} catch {
+		return res.status(200).json({ aircraft: buildFallbackAircraft(), fallback: true });
+	} finally {
+		timeout.clear();
+	}
 }
