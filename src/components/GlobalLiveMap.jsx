@@ -873,7 +873,7 @@ export default function GlobalLiveMap({ featuredAlert = null }) {
                   <span>{language === "ar" ? "الدرجة" : "Importance"}: {selectedSignal.importanceScore}</span>
                   <span>{language === "ar" ? "الثقة" : "Confidence"}: {selectedSignal.confidenceScore}%</span>
                   <span>{language === "ar" ? "الوقت" : "Timestamp"}: {formatDateTime(selectedSignal.timestamp)}</span>
-                  <span>{language === "ar" ? "الموقع" : "Location"}: {selectedSignal.country || selectedSignal.region || "Global"}</span>
+                  <span>{language === "ar" ? "الموقع" : "Location"}: {selectedSignal.country || selectedSignal.region || (language === "ar" ? "عالمي" : "Global")}</span>
                 </div>
                 <div className="glm-detail-entities">
                   <div>{language === "ar" ? "كيانات مرتبطة" : "Related entities"}</div>

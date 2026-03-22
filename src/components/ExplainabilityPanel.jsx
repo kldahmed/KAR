@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { getWorldState, subscribeWorldState } from "../lib/worldStateEngine";
 import { useI18n } from "../i18n/I18nProvider";
+import { localizeSummaryText } from "../lib/i18n/summaryLocalizer";
 
 const P = {
   bg: "#070b11",
@@ -88,13 +89,19 @@ function generateExplanations(ws, isAr) {
 
   // Explain strongest event
   if (ws.strongestEvent) {
+    const strongestTitle = isAr
+      ? localizeSummaryText(ws.strongestEvent.title || "", "ar", { kind: "title", category: ws.strongestEvent.category, source: ws.strongestEvent.source }) || "حدث قيد المتابعة"
+      : ws.strongestEvent.title;
+    const strongestRegion = isAr
+      ? localizeSummaryText(ws.strongestEvent.region || "", "ar", { kind: "label" }) || "—"
+      : ws.strongestEvent.region;
     explanations.push({
       category: isAr ? "أقوى حدث" : "Strongest Event",
       icon: "⚡",
       color: P.red,
-      what: ws.strongestEvent.title,
+      what: strongestTitle,
       why: isAr
-        ? `شدة: ${ws.strongestEvent.severity || "—"} · ثقة: ${ws.strongestEvent.confidence || "—"}% · منطقة: ${ws.strongestEvent.region || "—"}`
+        ? `شدة: ${ws.strongestEvent.severity || "—"} · ثقة: ${ws.strongestEvent.confidence || "—"}% · منطقة: ${strongestRegion || "—"}`
         : `Severity: ${ws.strongestEvent.severity || "—"} · Confidence: ${ws.strongestEvent.confidence || "—"}% · Region: ${ws.strongestEvent.region || "—"}`,
       next: isAr
         ? "يؤثر على الاستقرار الإقليمي وقد يولّد أحداثاً متتابعة"
@@ -105,13 +112,16 @@ function generateExplanations(ws, isAr) {
   // Explain most active region
   if (ws.activeRegion && ws.activeRegion.region !== "—") {
     const regionPressure = (ws.regionalPressures || []).find(r => r.region === ws.activeRegion.region);
+    const activeRegionLabel = isAr
+      ? localizeSummaryText(ws.activeRegion.region || "", "ar", { kind: "label" }) || "المنطقة"
+      : ws.activeRegion.region;
     explanations.push({
       category: isAr ? "المنطقة الأنشط" : "Most Active Region",
       icon: "📍",
       color: P.amber,
       what: isAr
-        ? `${ws.activeRegion.region} — ضغط: ${regionPressure?.pressure || 0}%`
-        : `${ws.activeRegion.region} — Pressure: ${regionPressure?.pressure || 0}%`,
+        ? `${activeRegionLabel} — ضغط: ${regionPressure?.pressure || 0}%`
+        : `${activeRegionLabel} — Pressure: ${regionPressure?.pressure || 0}%`,
       why: isAr
         ? `${regionPressure?.eventCount || 0} حدث في هذه المنطقة مع تصاعد في الإشارات`
         : `${regionPressure?.eventCount || 0} events in this region with rising signals`,

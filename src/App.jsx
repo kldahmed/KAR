@@ -14,6 +14,7 @@ import { useDashboardData } from "./lib/useDashboardData";
 import AppSectionBoundary from "./components/AppSectionBoundary";
 import { useExperienceMode } from "./lib/experienceMode";
 import { ExperienceModeSwitch } from "./pages/shared/pagePrimitives";
+import { localizeSummaryText } from "./lib/i18n/summaryLocalizer";
 
 const OverviewPage = lazy(() => import("./pages/OverviewPage"));
 const WorldStatePage = lazy(() => import("./pages/WorldStatePage"));
@@ -136,7 +137,13 @@ export default function App() {
         const breaking = Array.isArray(payload?.breaking) ? payload.breaking : [];
         setLiveBreakingHeadlines(
           breaking
-            .map((item) => String(item?.title || "").trim())
+            .map((item) => {
+              const rawTitle = String(item?.title || "").trim();
+              if (!rawTitle) return "";
+              return language === "ar"
+                ? localizeSummaryText(rawTitle, "ar", { kind: "title", category: item?.category, source: item?.source })
+                : rawTitle;
+            })
             .filter(Boolean)
         );
         const breakingCount = Number(payload?.stats?.breakingCount || breaking.length || 0);
@@ -182,11 +189,17 @@ export default function App() {
       setLiveBreakingHeadlines((current) => {
         if (current.length > 0) return current;
         return feedStatus.breaking
-          .map((item) => String(item?.title || "").trim())
+          .map((item) => {
+            const rawTitle = String(item?.title || "").trim();
+            if (!rawTitle) return "";
+            return language === "ar"
+              ? localizeSummaryText(rawTitle, "ar", { kind: "title", category: item?.category, source: item?.source })
+              : rawTitle;
+          })
           .filter(Boolean);
       });
     }
-  }, [feedStatus]);
+  }, [feedStatus, language]);
 
   useEffect(() => {
     if (feedStatus?.featuredAlert?.id) {

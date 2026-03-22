@@ -115,11 +115,11 @@ export default function WorldStatePage({ language, mode = "simplified", featured
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
             <div style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: 12 }}>
               <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>{language === "ar" ? "المناطق الأكثر تأثراً" : "Top regions affected"}</div>
-              {safeArray(summary.topRegions).map((item) => <div key={item.region} style={{ color: "#e2e8f0", fontSize: 13, marginBottom: 6 }}>{item.region} <strong style={{ color: "#38bdf8" }}>{item.count}</strong></div>)}
+              {safeArray(summary.topRegions).map((item) => <div key={item.region} style={{ color: "#e2e8f0", fontSize: 13, marginBottom: 6 }}>{language === "ar" ? localizeSummaryText(item.region || "", "ar", { kind: "label" }) || "عالمي" : item.region} <strong style={{ color: "#38bdf8" }}>{item.count}</strong></div>)}
             </div>
             <div style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: 12 }}>
               <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>{language === "ar" ? "الفئات المهيمنة" : "Top categories"}</div>
-              {safeArray(summary.topCategories).map((item) => <div key={item.category} style={{ color: "#e2e8f0", fontSize: 13, marginBottom: 6 }}>{item.category} <strong style={{ color: "#22c55e" }}>{item.count}</strong></div>)}
+              {safeArray(summary.topCategories).map((item) => <div key={item.category} style={{ color: "#e2e8f0", fontSize: 13, marginBottom: 6 }}>{language === "ar" ? localizeCategoryLabel(item.category, "ar") : item.category} <strong style={{ color: "#22c55e"}>{item.count}</strong></div>)}
             </div>
             <div style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: 12 }}>
               <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>{language === "ar" ? "محركات المخاطر" : "Top risk drivers"}</div>
@@ -226,9 +226,9 @@ export default function WorldStatePage({ language, mode = "simplified", featured
               </div>
               <div style={{ color: "#94a3b8", fontSize: 12, lineHeight: 1.7 }}>{item.summary || (language === "ar" ? "لا توجد خلاصة إضافية" : "No additional summary")}</div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11, color: "#64748b" }}>
-                <span>{item.source}</span>
+                <span>{language === "ar" ? localizeSourceLabel(item.source, "ar") : item.source}</span>
                 <span>{item.region}</span>
-                <span>{item.category}</span>
+                <span>{language === "ar" ? localizeCategoryLabel(item.category, "ar") : item.category}</span>
                 <span>{item.timestamp}</span>
               </div>
             </div>
@@ -259,7 +259,7 @@ export default function WorldStatePage({ language, mode = "simplified", featured
             emptyText={language === "ar" ? "لا توجد روابط كافية" : "No sufficient links yet"}
             renderItem={(item) => (
               <div key={item.id} style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 12 }}>
-                <div style={{ color: "#f8fafc", fontWeight: 800, fontSize: 13, marginBottom: 6 }}>{item.source} ↔ {item.target}</div>
+                <div style={{ color: "#f8fafc", fontWeight: 800, fontSize: 13, marginBottom: 6 }}>{language === "ar" ? localizeSourceLabel(item.source, "ar") : item.source} ↔ {language === "ar" ? localizeSourceLabel(item.target, "ar") : item.target}</div>
                 <div style={{ color: "#94a3b8", fontSize: 12 }}>{language === "ar" ? `${item.linkedEventCount} مؤشرات مرتبطة · قوة الربط ${Math.round((item.strength || 0) * 100)}%` : `${item.linkedEventCount} correlated signals · strength ${Math.round((item.strength || 0) * 100)}%`}</div>
               </div>
             )}
@@ -270,12 +270,12 @@ export default function WorldStatePage({ language, mode = "simplified", featured
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 18 }}>
         <ListPanel
           title={language === "ar" ? "الأحداث الملتقطة" : "Captured events"}
-          subtitle={language === "ar" ? "من /api/global-events مع fallback آمن" : "From /api/global-events with graceful fallback"}
+          subtitle={language === "ar" ? "من مسار الأحداث العالمية مع مسار احتياطي آمن" : "From /api/global-events with graceful fallback"}
           items={safeArray(events).slice(0, isAdvanced ? 8 : 4)}
           emptyText={language === "ar" ? "لا توجد أحداث متاحة" : "No events available"}
           renderItem={(item, index) => (
             <div key={item.id || `event-${index}`} style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 12 }}>
-              <div style={{ color: "#f8fafc", fontWeight: 800, fontSize: 13, marginBottom: 6 }}>{item.title || item.label || (language === "ar" ? "حدث غير مسمى" : "Untitled event")}</div>
+              <div style={{ color: "#f8fafc", fontWeight: 800, fontSize: 13, marginBottom: 6 }}>{language === "ar" ? localizeSummaryText(item.title || item.label || "", "ar", { kind: "title", category: item.category, source: item.source }) || "حدث غير مسمى" : item.title || item.label || "Untitled event"}</div>
               <div style={{ color: "#94a3b8", fontSize: 12, lineHeight: 1.7 }}>{language === "ar" ? localizeSummaryText(item.summary || item.explanation || item.description || "", "ar", { kind: "summary", category: item.category, source: item.source }) || "—" : item.summary || item.explanation || item.description || "—"}</div>
             </div>
           )}
@@ -283,7 +283,7 @@ export default function WorldStatePage({ language, mode = "simplified", featured
 
         <ListPanel
           title={language === "ar" ? "المسارات الجوية" : "Aircraft tracks"}
-          subtitle={language === "ar" ? "من /api/radar عند توفرها" : "From /api/radar when available"}
+          subtitle={language === "ar" ? "من مسار الرادار عند توفر البيانات" : "From /api/radar when available"}
           items={safeArray(aircraft).slice(0, isAdvanced ? 8 : 4)}
           emptyText={language === "ar" ? "لا توجد مسارات جوية متاحة" : "No aircraft tracks available"}
           renderItem={(item, index) => (

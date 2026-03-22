@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { getWorldState, subscribeWorldState } from "../lib/worldStateEngine";
 import { useI18n } from "../i18n/I18nProvider";
+import { localizeSummaryText } from "../lib/i18n/summaryLocalizer";
 
 const P = {
   bg: "#070b11",
@@ -73,11 +74,14 @@ function generateLiveNarrative(ws, isAr) {
 
   // Most active region
   if (ws.activeRegion && ws.activeRegion.region !== "—") {
+    const localizedRegion = isAr
+      ? localizeSummaryText(ws.activeRegion.region || "", "ar", { kind: "label" }) || "المنطقة"
+      : ws.activeRegion.region;
     lines.push({
       icon: "📍",
       text: isAr
-        ? `المنطقة الأكثر نشاطاً الآن: ${ws.activeRegion.region} — ${ws.activeRegion.count || ws.activeRegion.pressure || 0} إشارة.`
-        : `Most active region: ${ws.activeRegion.region} — ${ws.activeRegion.count || ws.activeRegion.pressure || 0} signals.`,
+        ? `المنطقة الأكثر نشاطاً الآن: ${localizedRegion} — ${ws.activeRegion.count || ws.activeRegion.pressure || 0} إشارة.`
+        : `Most active region: ${localizedRegion} — ${ws.activeRegion.count || ws.activeRegion.pressure || 0} signals.`,
       severity: "info"
     });
   }
@@ -96,11 +100,14 @@ function generateLiveNarrative(ws, isAr) {
 
   // Strongest event
   if (ws.strongestEvent) {
+    const strongestTitle = isAr
+      ? localizeSummaryText(ws.strongestEvent.title || "", "ar", { kind: "title", category: ws.strongestEvent.category, source: ws.strongestEvent.source }) || "حدث قيد المتابعة"
+      : ws.strongestEvent.title;
     lines.push({
       icon: "⚡",
       text: isAr
-        ? `أقوى حدث مرصود: "${ws.strongestEvent.title}" — شدة ${ws.strongestEvent.severity || "عالية"}.`
-        : `Strongest tracked event: "${ws.strongestEvent.title}" — severity ${ws.strongestEvent.severity || "high"}.`,
+        ? `أقوى حدث مرصود: "${strongestTitle}" — شدة ${ws.strongestEvent.severity || "عالية"}.`
+        : `Strongest tracked event: "${strongestTitle}" — severity ${ws.strongestEvent.severity || "high"}.`,
       severity: "high"
     });
   }

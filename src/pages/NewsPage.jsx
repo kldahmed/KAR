@@ -1,6 +1,6 @@
 import React, { lazy, useEffect, useMemo, useState } from "react";
 import NewsCard from "../components/NewsCard";
-import { localizeSourceLabel } from "../lib/i18n/summaryLocalizer";
+import { localizeSourceLabel, localizeSummaryText } from "../lib/i18n/summaryLocalizer";
 import { LazySection, PageHero, PageTakeaways, pageShell, panelStyle } from "./shared/pagePrimitives";
 
 const SportsLiveChannels = lazy(() => import("../components/SportsLiveChannels"));
@@ -241,7 +241,7 @@ export default function NewsPage({
             </div>
             <div style={{ color: "#aebccd", fontSize: 13, lineHeight: 1.75 }}>
               {language === "ar"
-                ? "يتم دمج RSS المفتوح، Google News، والمصادر التحليلية المساندة مع إزالة التكرار وترجيح الأخبار العاجلة تلقائياً."
+                ? "يتم دمج خلاصات الأخبار المفتوحة، أخبار غوغل، والمصادر التحليلية المساندة مع إزالة التكرار وترجيح الأخبار العاجلة تلقائياً."
                 : "Open RSS, Google News, and supplemental intelligence sources are merged with deduplication and automatic breaking-priority ranking."}
             </div>
           </div>
@@ -262,7 +262,9 @@ export default function NewsPage({
               {language === "ar" ? `عاجل الآن ${breakingCount}` : `Breaking now ${breakingCount}`}
             </span>
             <span style={{ color: "#94a3b8", fontSize: 12 }}>
-              {feedStatus?.sourceMode || ""}
+              {language === "ar"
+                ? localizeSummaryText(feedStatus?.sourceMode || "", "ar", { kind: "label" })
+                : (feedStatus?.sourceMode || "")}
             </span>
           </div>
         ) : null}

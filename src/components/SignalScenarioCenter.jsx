@@ -460,7 +460,7 @@ function MemoryStrip({ stats }) {
     { label: "مناطق",   value: stats.regions,   color: C.gold },
     { label: "كيانات",  value: stats.entities,  color: C.purple },
     { label: "إشارات",  value: stats.signals,   color: "#fb923c" },
-    { label: "نشطة/6h", value: stats.recent,    color: C.green },
+    { label: "نشطة/6س", value: stats.recent,    color: C.green },
   ];
 
   return (
