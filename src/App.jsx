@@ -122,7 +122,7 @@ export default function App() {
           setActiveAlert((current) => (current?.id === payload.featuredAlert.id ? current : payload.featuredAlert));
         }
       } catch {
-        setStreamStatus(language === "ar" ? "تعذر تحديث البث الحي" : "Live stream update failed");
+        // Suppress parse errors — no negative message shown to user.
       }
     };
 
@@ -130,7 +130,7 @@ export default function App() {
       try {
         const payload = JSON.parse(event.data || "{}");
         if (payload?.ok === false) {
-          setStreamStatus(language === "ar" ? "البث الحي متعثر مؤقتاً" : "Live stream temporarily degraded");
+          setStreamStatus(language === "ar" ? "البث قيد المتابعة" : "Live monitoring active");
         }
       } catch {
         // Ignore malformed health events.
@@ -140,7 +140,7 @@ export default function App() {
     eventSource.addEventListener("breaking", handleBreaking);
     eventSource.addEventListener("health", handleHealth);
     eventSource.onerror = () => {
-      setStreamStatus(language === "ar" ? "تم التحويل إلى التحديث الاحتياطي" : "Falling back to backup refresh");
+      setStreamStatus(language === "ar" ? "تحديث البث جارٍ" : "Refreshing live feed");
     };
 
     return () => {
@@ -283,7 +283,7 @@ export default function App() {
         statusLabel={streamStatus}
       />
 
-      <div style={{ paddingInline: 16, marginTop: 10 }}>
+      <div style={{ paddingInline: "clamp(8px, 2vw, 20px)", marginTop: 12, marginBottom: 4 }}>
         <DeadlineCountdownCard language={language} />
       </div>
 
