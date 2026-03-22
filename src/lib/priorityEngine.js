@@ -68,6 +68,59 @@ function urgencyScore(urgency) {
   return 2;
 }
 
+function contextScore(article, context = {}) {
+  const text = `${article?.title || ""} ${article?.summary || ""}`.toLowerCase();
+  const category = String(article?.category || "").toLowerCase();
+  const requestedCategory = String(context?.category || "all").toLowerCase();
+  const source = String(article?.source || "").toLowerCase();
+  const sourceFilters = Array.isArray(context?.sourceFilters)
+    ? context.sourceFilters.map((v) => String(v || "").toLowerCase())
+    : [];
+
+  const gulfCountryHits = [
+    "uae", "emirates", "dubai", "abu dhabi", "saudi", "qatar", "kuwait", "bahrain", "oman",
+    "الإمارات", "دبي", "أبوظبي", "السعودية", "قطر", "الكويت", "البحرين", "عمان", "الخليج",
+  ].filter((k) => text.includes(k)).length;
+
+  const sectorHits = {
+    economy: ["oil", "gas", "inflation", "market", "stocks", "نفط", "غاز", "تضخم", "أسواق", "اقتصاد"].filter((k) => text.includes(k)).length,
+    military: ["attack", "strike", "missile", "drone", "war", "هجوم", "غارة", "صاروخ", "مسيرة", "حرب"].filter((k) => text.includes(k)).length,
+    politics: ["government", "minister", "president", "election", "diplomatic", "حكومة", "وزير", "رئيس", "انتخابات", "دبلوماسية"].filter((k) => text.includes(k)).length,
+    sports: ["match", "goal", "league", "transfer", "مباراة", "دوري", "انتقال", "هدف"].filter((k) => text.includes(k)).length,
+  };
+
+  let score = 0;
+
+  // Country/region-aware boost.
+  score += Math.min(8, gulfCountryHits * 2);
+
+  // Sector-aware boost based on selected category.
+  if (requestedCategory in sectorHits) {
+    score += Math.min(12, sectorHits[requestedCategory] * 3);
+    if (category === requestedCategory) score += 6;
+  } else if (requestedCategory === "regional") {
+    score += Math.min(10, gulfCountryHits * 2 + sectorHits.military + sectorHits.politics);
+  } else if (requestedCategory === "all") {
+    score += Math.min(6, sectorHits.economy + sectorHits.military + sectorHits.politics);
+  }
+
+  // Severity-aware lift.
+  if (String(article?.urgency || "") === "high") score += 10;
+  else if (String(article?.urgency || "") === "medium") score += 4;
+
+  // If user chose source filters, reward direct source match.
+  if (sourceFilters.length > 0 && sourceFilters.some((needle) => source.includes(needle))) {
+    score += 5;
+  }
+
+  // News page gets a slight relevance bonus to surface fresher top cards.
+  if (context?.currentPath === "/news") {
+    score += 2;
+  }
+
+  return Math.min(30, score);
+}
+
 /**
  * Score a single intelligence item.
  * Returns 0–100 priority score.
@@ -127,7 +180,7 @@ export function prioritizeItems(items) {
  * Score raw news articles (not yet intelligence objects).
  * Uses article fields directly.
  */
-export function scoreArticle(article) {
+export function scoreArticle(article, context = {}) {
   const urgency  = article.urgency || "low";
   const source   = article.source || "";
   const time     = article.time || article.timestamp || "";
@@ -150,6 +203,7 @@ export function scoreArticle(article) {
   score += Math.min(8,  econHits * 2);
   score += Math.min(8,  meHits * 2);
   score += Math.min(6,  uaeHits * 3);
+  score += contextScore(article, context);
 
   return Math.min(100, score);
 }
@@ -157,8 +211,8 @@ export function scoreArticle(article) {
 /**
  * Sort raw articles by priority score.
  */
-export function sortArticlesByPriority(articles) {
+export function sortArticlesByPriority(articles, context = {}) {
   return [...articles]
-    .map(a => ({ ...a, _priority: scoreArticle(a) }))
+    .map(a => ({ ...a, _priority: scoreArticle(a, context) }))
     .sort((a, b) => b._priority - a._priority);
 }

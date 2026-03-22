@@ -231,8 +231,13 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
       const requestedCategory = experienceMode === "advanced" ? cat : (PUBLIC_BLOCKED_CATEGORIES.has(cat) ? "all" : cat);
       const cacheKey = buildDashboardCacheKey({ cat: requestedCategory, sportsCompetition, experienceMode, language, sourceFilterKey });
       const cachedNews = readDashboardCache(cacheKey);
+      const rankingContext = {
+        category: requestedCategory,
+        sourceFilters,
+        currentPath,
+      };
       if (cachedNews && requestId === newsRequestSeqRef.current) {
-        setNews(sortArticlesByPriority(cachedNews));
+        setNews(sortArticlesByPriority(cachedNews, rankingContext));
       }
 
       setLoading(!cachedNews);
@@ -303,12 +308,12 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
           featuredAlert: liveIntakePayload?.featuredAlert ? localizeDisplayItem(liveIntakePayload.featuredAlert, language) : null,
         });
         writeDashboardCache(cacheKey, filteredNews);
-        setNews(sortArticlesByPriority(filteredNews));
+        setNews(sortArticlesByPriority(filteredNews, rankingContext));
         setError("");
       } catch {
         if (cancelled || requestId !== newsRequestSeqRef.current) return;
         if (cachedNews) {
-          setNews(sortArticlesByPriority(cachedNews));
+          setNews(sortArticlesByPriority(cachedNews, rankingContext));
           setError(language === "ar" ? "تم عرض نسخة احتياطية مؤقتة من آخر تحديث ناجح" : "Showing cached snapshot from the most recent successful update");
         } else {
           setNews([]);

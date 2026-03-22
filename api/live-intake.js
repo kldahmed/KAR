@@ -30,6 +30,13 @@ function matchesSourceFilters(source = "", sourceFilters = []) {
   return sourceFilters.some((item) => haystack.includes(String(item).toLowerCase()));
 }
 
+function makeDedupeKey(item) {
+  return String(item?.url && item.url !== "#" ? item.url : item?.title || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function normalizeItemsFromPayload(feedId, payload) {
   const items = Array.isArray(payload?.news)
     ? payload.news
@@ -155,42 +162,126 @@ export default async function handler(req, res) {
 
   const results = await Promise.allSettled(
     feedUrls.map(async (feed) => {
+      const startedAt = Date.now();
       const payload = await fetchInternalJson(feed.url);
       return {
         id: feed.id,
         items: normalizeItemsFromPayload(feed.id, payload),
         source: payload?.source || payload?.sourceMode || feed.id,
         updated: payload?.updated || new Date().toISOString(),
+        latencyMs: Date.now() - startedAt,
         ok: true,
       };
     })
   );
 
-  const health = [];
+  const healthDraft = [];
   let mergedItems = [];
 
   results.forEach((result, index) => {
     const feed = feedUrls[index];
     if (result.status === "fulfilled") {
       mergedItems.push(...result.value.items);
-      health.push({
+      healthDraft.push({
         id: feed.id,
         ok: true,
         count: result.value.items.length,
         source: result.value.source,
         updated: result.value.updated,
+        latencyMs: result.value.latencyMs,
+        _items: result.value.items,
       });
       return;
     }
 
-    health.push({
+    healthDraft.push({
       id: feed.id,
       ok: false,
       count: 0,
       source: feed.id,
       error: result.reason?.message || "fetch_failed",
       updated: null,
+      latencyMs: null,
+      qualityScore: 0,
     });
+  });
+
+  const keyFrequency = new Map();
+  mergedItems.forEach((item) => {
+    const key = makeDedupeKey(item);
+    if (!key) return;
+    keyFrequency.set(key, Number(keyFrequency.get(key) || 0) + 1);
+  });
+
+  const health = healthDraft.map((entry) => {
+    if (!entry.ok) {
+      return {
+        id: entry.id,
+        ok: false,
+        count: 0,
+        source: entry.source,
+        error: entry.error,
+        updated: entry.updated,
+        latencyMs: entry.latencyMs,
+        qualityScore: 0,
+        metrics: {
+          duplicateRate: 1,
+          mediaRichness: 0,
+          freshness: 0,
+          uniqueRate: 0,
+        },
+      };
+    }
+
+    const items = Array.isArray(entry._items) ? entry._items : [];
+    const count = items.length || 0;
+    const duplicateHits = items.reduce((sum, item) => {
+      const key = makeDedupeKey(item);
+      if (!key) return sum;
+      return sum + (Number(keyFrequency.get(key) || 0) > 1 ? 1 : 0);
+    }, 0);
+    const mediaHits = items.filter((item) => item?.image || item?.videoUrl || item?.hasVideo).length;
+    const freshnessRaw = items.reduce((sum, item) => sum + weightFreshness(item?.time), 0);
+
+    const duplicateRate = count > 0 ? duplicateHits / count : 1;
+    const uniqueRate = count > 0 ? 1 - duplicateRate : 0;
+    const mediaRichness = count > 0 ? mediaHits / count : 0;
+    const freshness = count > 0 ? freshnessRaw / (count * 24) : 0;
+
+    const latencyScore =
+      typeof entry.latencyMs !== "number"
+        ? 0
+        : entry.latencyMs <= 1200
+          ? 20
+          : entry.latencyMs <= 2500
+            ? 14
+            : entry.latencyMs <= 5000
+              ? 8
+              : 3;
+
+    const qualityScore = Math.round(
+      30 + // availability bonus (ok=true)
+      latencyScore +
+      uniqueRate * 25 +
+      mediaRichness * 15 +
+      freshness * 10
+    );
+
+    return {
+      id: entry.id,
+      ok: true,
+      count,
+      source: entry.source,
+      updated: entry.updated,
+      latencyMs: entry.latencyMs,
+      qualityScore: Math.min(100, Math.max(0, qualityScore)),
+      metrics: {
+        duplicateRate,
+        mediaRichness,
+        freshness,
+        uniqueRate,
+      },
+    };
   });
 
   mergedItems = mergedItems.filter((item) => matchesSourceFilters(item.source, sourceFilters));
@@ -198,6 +289,11 @@ export default async function handler(req, res) {
   const breakingItems = mergedItems.filter((item) => item.urgency === "high" || item.isBreaking).slice(0, 12);
   const featuredAlert = selectFeaturedAlert(mergedItems);
   const healthySources = health.filter((entry) => entry.ok).length;
+  const averageQuality = health.length > 0
+    ? Math.round(health.reduce((sum, entry) => sum + Number(entry.qualityScore || 0), 0) / health.length)
+    : 0;
+  const topQualitySource = [...health]
+    .sort((a, b) => Number(b.qualityScore || 0) - Number(a.qualityScore || 0))[0]?.id || "";
 
   const payload = {
     news: mergedItems,
@@ -211,6 +307,8 @@ export default async function handler(req, res) {
       breakingCount: breakingItems.length,
       healthySources,
       totalSources: health.length,
+      averageQuality,
+      topQualitySource,
     },
     breaking: breakingItems,
     featuredAlert,

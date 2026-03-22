@@ -209,6 +209,29 @@ export default function NewsPage({
   const healthySources = feedStatus?.stats?.healthySources || 0;
   const totalSources = feedStatus?.stats?.totalSources || 0;
   const breakingCount = feedStatus?.stats?.breakingCount || 0;
+  const avgQuality = Number(feedStatus?.stats?.averageQuality || 0);
+
+  const sourceQuality = useMemo(() => {
+    const list = Array.isArray(feedStatus?.health) ? feedStatus.health : [];
+    return [...list]
+      .sort((a, b) => Number(b?.qualityScore || 0) - Number(a?.qualityScore || 0))
+      .slice(0, 6);
+  }, [feedStatus?.health]);
+
+  const mediaTimeline = useMemo(() => {
+    return (filteredNews || [])
+      .filter((item) => item?.videoUrl || item?.image)
+      .sort((a, b) => {
+        const av = a?.videoUrl ? 1 : 0;
+        const bv = b?.videoUrl ? 1 : 0;
+        if (av !== bv) return bv - av;
+        const at = new Date(a?.time || 0).getTime() || 0;
+        const bt = new Date(b?.time || 0).getTime() || 0;
+        return bt - at;
+      })
+      .slice(0, 16);
+  }, [filteredNews]);
+
   const takeaways = [
     language === "ar"
       ? `الخبر الأهم: ${topStories[0]?.title || "غير متاح"}`
@@ -269,6 +292,81 @@ export default function NewsPage({
           </div>
         ) : null}
       </section>
+
+      {sourceQuality.length > 0 ? (
+        <section style={{ ...panelStyle, padding: "12px 14px", marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+            <div style={{ color: "#f8fafc", fontWeight: 800 }}>
+              {language === "ar" ? "جودة المصادر اللحظية" : "Live source quality"}
+            </div>
+            <div style={{ color: "#67e8f9", fontSize: 12, fontWeight: 800 }}>
+              {language === "ar" ? `متوسط الجودة ${avgQuality}/100` : `Average quality ${avgQuality}/100`}
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
+            {sourceQuality.map((entry) => {
+              const quality = Math.max(0, Math.min(100, Number(entry?.qualityScore || 0)));
+              const color = quality >= 75 ? "#22c55e" : quality >= 50 ? "#f59e0b" : "#f87171";
+              return (
+                <div key={entry.id} style={{ border: "1px solid rgba(148,163,184,0.18)", borderRadius: 10, padding: "8px 10px", background: "rgba(15,23,42,0.45)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+                    <span style={{ color: "#e2e8f0", fontSize: 12, fontWeight: 700 }}>{entry.id}</span>
+                    <span style={{ color, fontSize: 12, fontWeight: 800 }}>{quality}</span>
+                  </div>
+                  <div style={{ height: 6, borderRadius: 999, background: "rgba(148,163,184,0.2)", overflow: "hidden", marginBottom: 6 }}>
+                    <div style={{ width: `${quality}%`, height: "100%", background: color }} />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, color: "#94a3b8", fontSize: 11 }}>
+                    <span>{language === "ar" ? "زمن" : "Latency"}: {entry?.latencyMs ?? "-"}ms</span>
+                    <span>{language === "ar" ? "مواد" : "Media"}: {Math.round(Number(entry?.metrics?.mediaRichness || 0) * 100)}%</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {mediaTimeline.length > 0 ? (
+        <section style={{ ...panelStyle, padding: "12px 14px", marginBottom: 14 }}>
+          <div style={{ color: "#f8fafc", fontWeight: 800, marginBottom: 10 }}>
+            {language === "ar" ? "الخط الزمني للوسائط (فيديو + صور)" : "Media timeline (video + photo)"}
+          </div>
+          <div style={{ display: "grid", gridAutoFlow: "column", gridAutoColumns: "minmax(210px, 210px)", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
+            {mediaTimeline.map((item, idx) => (
+              <button
+                key={item.id || idx}
+                type="button"
+                onClick={() => handleCardClick(item)}
+                style={{ textAlign: "start", border: "1px solid rgba(148,163,184,0.22)", borderRadius: 12, background: "rgba(15,23,42,0.5)", color: "#e2e8f0", cursor: "pointer", overflow: "hidden", padding: 0 }}
+              >
+                <div style={{ position: "relative", height: 118, background: "#0f172a" }}>
+                  {item.image ? (
+                    <img
+                      src={item.image}
+                      alt={item.title || "media"}
+                      style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#64748b", fontSize: 13 }}>
+                      {language === "ar" ? "بدون صورة" : "No image"}
+                    </div>
+                  )}
+                  <span style={{ position: "absolute", top: 8, insetInlineStart: 8, borderRadius: 999, background: item.videoUrl ? "rgba(239,68,68,0.84)" : "rgba(56,189,248,0.84)", color: "#fff", fontSize: 10, fontWeight: 800, padding: "4px 8px" }}>
+                    {item.videoUrl ? (language === "ar" ? "فيديو" : "Video") : (language === "ar" ? "صورة" : "Photo")}
+                  </span>
+                </div>
+                <div style={{ padding: "8px 10px" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.5, minHeight: 36, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                    {item.title}
+                  </div>
+                  <div style={{ marginTop: 6, color: "#94a3b8", fontSize: 11 }}>{item.source || "-"}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
         {categories.map((item) => (
