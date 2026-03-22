@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { SECTION_ROUTES } from "../lib/simpleRouter";
 import SourceLogoStrip from "../components/SourceLogoStrip";
 import {
@@ -21,6 +21,8 @@ export default function OverviewPage({
   displayedNews,
   loading,
 }) {
+  const [showVideoLayer, setShowVideoLayer] = useState(true);
+
   const inferRegion = (item) => {
     const haystack = `${item?.title || ""} ${item?.summary || ""}`.toLowerCase();
     if (/middle east|gaza|israel|iran|saudi|uae|الشرق الأوسط|غزة|إيران|الإمارات/.test(haystack)) return language === "ar" ? "الشرق الأوسط" : "Middle East";
@@ -140,7 +142,26 @@ export default function OverviewPage({
       <section className="overview-motion-deck" style={{ ...panelStyle, padding: "14px", marginBottom: 18 }}>
         <div className="overview-motion-deck__grid">
           <div className="overview-motion-deck__media overview-motion-deck__media--primary">
-            <img src="/media/ops-motion-poster.svg" alt={language === "ar" ? "لوحة تشغيل ديناميكية" : "Dynamic operation poster"} loading="lazy" />
+            {showVideoLayer ? (
+              <video
+                className="overview-motion-deck__video"
+                autoPlay
+                muted
+                loop
+                playsInline
+                poster="/media/ops-motion-poster.svg"
+                onError={() => setShowVideoLayer(false)}
+              >
+                <source src="/media/command-surface.webm" type="video/webm" />
+                <source src="/media/command-surface.mp4" type="video/mp4" />
+              </video>
+            ) : null}
+            <img
+              src="/media/ops-motion-poster.svg"
+              alt={language === "ar" ? "لوحة تشغيل ديناميكية" : "Dynamic operation poster"}
+              loading="lazy"
+              className={showVideoLayer ? "overview-motion-deck__fallback-poster" : ""}
+            />
             <div className="overview-motion-deck__media-glow" />
           </div>
           <div className="overview-motion-deck__media overview-motion-deck__media--secondary">
@@ -158,7 +179,11 @@ export default function OverviewPage({
         </div>
       </section>
 
-      <SourceLogoStrip language={language} news={displayedNews} />
+      <SourceLogoStrip
+        language={language}
+        news={displayedNews}
+        onSourceClick={() => navigate("/news")}
+      />
 
       <section className="overview-cinematic-hero" style={{ ...panelStyle, padding: "28px 28px 26px", marginBottom: 18, overflow: "hidden", position: "relative", background: "radial-gradient(circle at top left, rgba(103,232,249,0.14), transparent 30%), radial-gradient(circle at 88% 18%, rgba(244,201,123,0.13), transparent 22%), linear-gradient(135deg, rgba(10,18,30,0.96), rgba(7,13,21,0.9))" }}>
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(125deg, transparent 0%, rgba(255,255,255,0.03) 42%, transparent 58%)", pointerEvents: "none" }} />

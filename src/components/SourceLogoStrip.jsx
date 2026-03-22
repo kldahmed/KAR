@@ -21,7 +21,7 @@ function sourceShortName(name) {
   return `${parts[0][0] || ""}${parts[1][0] || ""}${parts[2]?.[0] || ""}`.toUpperCase();
 }
 
-export default function SourceLogoStrip({ language = "ar", news = [] }) {
+export default function SourceLogoStrip({ language = "ar", news = [], onSourceClick }) {
   const topSources = useMemo(() => {
     const counts = new Map();
     (Array.isArray(news) ? news : []).forEach((item) => {
@@ -49,10 +49,17 @@ export default function SourceLogoStrip({ language = "ar", news = [] }) {
 
       <div className="source-logo-strip__track" role="list">
         {stripItems.map((source, index) => (
-          <div key={`${source}-${index}`} className="source-logo-strip__item" role="listitem">
+          <button
+            key={`${source}-${index}`}
+            type="button"
+            className="source-logo-strip__item"
+            role="listitem"
+            onClick={() => onSourceClick?.(source)}
+            title={language === "ar" ? `افتح أخبار ${source}` : `Open ${source} news`}
+          >
             <span className="source-logo-strip__badge">{sourceShortName(source)}</span>
             <span className="source-logo-strip__name">{source}</span>
-          </div>
+          </button>
         ))}
       </div>
     </section>

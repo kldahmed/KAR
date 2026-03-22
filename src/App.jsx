@@ -407,10 +407,12 @@ export default function App() {
 
       {worldEyeOpen ? <WorldEyeMode onClose={() => setWorldEyeOpen(false)} /> : null}
 
-      <main>
-        <AppSectionBoundary resetKey={currentPath}>
-          <Suspense fallback={routeFallback}>{renderPage()}</Suspense>
-        </AppSectionBoundary>
+      <main className="app-main-stage">
+        <div key={currentPath} className={routeLoading ? "app-page-scene is-loading" : "app-page-scene"}>
+          <AppSectionBoundary resetKey={currentPath}>
+            <Suspense fallback={routeFallback}>{renderPage()}</Suspense>
+          </AppSectionBoundary>
+        </div>
       </main>
 
       {showBackToTop ? (
