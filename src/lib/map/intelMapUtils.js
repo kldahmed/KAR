@@ -80,12 +80,18 @@ function urgencyFromRecency(timestampMs) {
   return "low";
 }
 
+import { localizeCategoryLabel, localizeSourceLabel, localizeSummaryText } from "../i18n/summaryLocalizer";
+
 export function normalizeSignals(sourceSignals, countryNodeById, language) {
   const mapped = (Array.isArray(sourceSignals) ? sourceSignals : [])
     .map((signal, idx) => {
       const id = String(signal?.id || signal?.uid || `sig-${idx}`);
-      const title = signal?.title || signal?.headline || signal?.event || (language === "ar" ? "إشارة بدون عنوان" : "Untitled signal");
-      const category = normalizeCategory(signal?.category);
+      const title = language === "ar"
+        ? localizeSummaryText(signal?.title || signal?.headline || signal?.event || "", "ar", { kind: "title", category: signal?.category, source: signal?.source }) || "إشارة بدون عنوان"
+        : signal?.title || signal?.headline || signal?.event || "Untitled signal";
+      const category = language === "ar"
+        ? localizeCategoryLabel(normalizeCategory(signal?.category), "ar")
+        : normalizeCategory(signal?.category);
 
       let lat = Number(signal?.lat ?? signal?.latitude);
       let lng = Number(signal?.lng ?? signal?.lon ?? signal?.longitude);
@@ -119,16 +125,22 @@ export function normalizeSignals(sourceSignals, countryNodeById, language) {
       return {
         id,
         title,
-        summary: signal?.summary || signal?.description || "",
-        description: signal?.description || signal?.summary || "",
+        summary: language === "ar"
+          ? localizeSummaryText(signal?.summary || signal?.description || "", "ar", { kind: "summary", category: signal?.category, source: signal?.source })
+          : signal?.summary || signal?.description || "",
+        description: language === "ar"
+          ? localizeSummaryText(signal?.description || signal?.summary || "", "ar", { kind: "summary", category: signal?.category, source: signal?.source })
+          : signal?.description || signal?.summary || "",
         category,
         country: signal?.country || "",
-        region: signal?.region || signal?.zones?.[0] || signal?.country || "Global",
+        region: language === "ar"
+          ? localizeSummaryText(signal?.region || signal?.zones?.[0] || signal?.country || "عالمي", "ar", { kind: "label" })
+          : signal?.region || signal?.zones?.[0] || signal?.country || "Global",
         lat,
         lng,
         timestamp,
         timestampMs,
-        source: signal?.source || "system",
+        source: language === "ar" ? localizeSourceLabel(signal?.source || "system", "ar") : signal?.source || "system",
         importanceScore,
         severity,
         confidenceScore,

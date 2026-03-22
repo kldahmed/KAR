@@ -5,7 +5,7 @@ import { getIntelligenceMetrics } from "./intelligenceEngine";
 import { sortArticlesByPriority } from "./priorityEngine";
 import { ingestBatch } from "./agent/ingestionAgent";
 import { invalidateWorldState } from "./worldStateEngine";
-import { localizeSummaryText } from "./i18n/summaryLocalizer";
+import { localizeDisplayItem, localizeSummaryText } from "./i18n/summaryLocalizer";
 
 const DEMO_NEWS = [
   {
@@ -104,13 +104,10 @@ function isValidArticle(item) {
 }
 
 function normalizeNewsItem(item, language) {
-  const title = localizeSummaryText(item.title || "", language);
-  const summary = localizeSummaryText(item.summary || "", language);
+  const localized = localizeDisplayItem(item, language);
   return {
-    ...item,
-    title,
-    summary,
-    category: String(item.category || "all").toLowerCase(),
+    ...localized,
+    category: String(localized.category || item.category || "all").toLowerCase(),
   };
 }
 
@@ -277,6 +274,7 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
             .filter(isValidArticle)
             .slice(0, 120)
             .map((item) => normalizeNewsItem(item, language))
+            .filter((item) => (language === "ar" ? item?.isArabicReady !== false : true))
         ));
 
         const filteredNews = cat === "sports"
@@ -294,11 +292,15 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
 
         if (cancelled || requestId !== newsRequestSeqRef.current) return;
         setFeedStatus({
-          sourceMode: liveIntakePayload?.sourceMode || "",
+          sourceMode: language === "ar"
+            ? localizeSummaryText(liveIntakePayload?.sourceMode || "", "ar", { kind: "label" })
+            : liveIntakePayload?.sourceMode || "",
           health: Array.isArray(liveIntakePayload?.health) ? liveIntakePayload.health : [],
           stats: liveIntakePayload?.stats || null,
-          breaking: Array.isArray(liveIntakePayload?.breaking) ? liveIntakePayload.breaking : [],
-          featuredAlert: liveIntakePayload?.featuredAlert || null,
+          breaking: Array.isArray(liveIntakePayload?.breaking)
+            ? liveIntakePayload.breaking.map((item) => localizeDisplayItem(item, language)).filter((item) => (language === "ar" ? item?.isArabicReady !== false : true))
+            : [],
+          featuredAlert: liveIntakePayload?.featuredAlert ? localizeDisplayItem(liveIntakePayload.featuredAlert, language) : null,
         });
         writeDashboardCache(cacheKey, filteredNews);
         setNews(sortArticlesByPriority(filteredNews));

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { URGENCY_MAP, formatDisplayTime } from "../AppHelpers";
 import { useI18n } from "../i18n/I18nProvider";
+import { localizeSourceLabel } from "../lib/i18n/summaryLocalizer";
 
 const SOURCE_BADGES = {
   "BBC": { label: "BBC", color: "#1a1a1a", logo: "🌐" },
@@ -16,7 +17,7 @@ const RELIABILITY = {
 };
 
 function getSourceBadge(source) {
-  if (!source) return { label: "Unknown", color: "#444", logo: "❓" };
+  if (!source) return { label: "مصدر غير محدد", color: "#444", logo: "❓" };
   if (source.includes("BBC")) return SOURCE_BADGES["BBC"];
   if (source.includes("Reuters")) return SOURCE_BADGES["Reuters"];
   if (source.includes("Google")) return SOURCE_BADGES["Google News"];
@@ -41,12 +42,12 @@ export default function NewsCard({
   urgency = "low",
   onClick
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const safeTitle = typeof title === "string" ? title : t("news.unknown");
   const safeSummary = typeof summary === "string" ? summary : "";
-  const safeSource = typeof source === "string" ? source : "";
+  const safeSource = typeof source === "string" ? localizeSourceLabel(source, language) : localizeSourceLabel("", language);
   const rawTime = typeof time === "string" ? time : "";
-  const safeTime = rawTime ? (formatDisplayTime(rawTime) || rawTime) : "";
+  const safeTime = rawTime ? (formatDisplayTime(rawTime, language === "en" ? "en" : "ar") || rawTime) : "";
   const badge = getSourceBadge(safeSource);
   const urgencyColor = URGENCY_MAP[urgency]?.color || "#38bdf8";
   const reliability = getReliability(safeSource);

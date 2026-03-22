@@ -15,6 +15,8 @@
  * Events are ranked by urgency, impact, and signal density.
  */
 
+import { localizeSourceLabel, localizeSummaryText } from "./i18n/summaryLocalizer";
+
 // ── Constants ──────────────────────────────────────────────────────────────────
 const POLL_INTERVAL    = 20_000;   // 20s polling
 const MERGE_WINDOW_MS  = 12 * 60 * 60 * 1000; // 12h event lifetime
@@ -452,8 +454,8 @@ async function fetchAllSignals() {
       for (const item of (result.value.news || []).slice(0, 50)) {
         signals.push({
           id: item.id || item.url || `news-${Date.now()}-${Math.random()}`,
-          text: `${item.title || ""} ${item.summary || ""}`,
-          source: item.source || "News",
+          text: localizeSummaryText(`${item.title || ""} ${item.summary || ""}`, "ar", { kind: "summary", category: item.category, source: item.source }),
+          source: localizeSourceLabel(item.source || "News", "ar"),
           sourceType: item.urgency === "high" ? "breaking" : "news",
           time: item.time || item.publishedAt || new Date().toISOString(),
           impactScore: item.urgency === "high" ? 80 : item.urgency === "medium" ? 55 : 35,
@@ -468,8 +470,8 @@ async function fetchAllSignals() {
     for (const post of (xResult.value.posts || []).slice(0, 60)) {
       signals.push({
         id: post.id || `x-${Date.now()}-${Math.random()}`,
-        text: post.translated || post.text || "",
-        source: post.authorName || "𝕏",
+        text: localizeSummaryText(post.translated || post.text || "", "ar", { kind: "summary", category: post.category, source: post.authorName }),
+        source: localizeSourceLabel(post.authorName || "إكس", "ar"),
         sourceType: "x_signal",
         time: post.createdAt || new Date().toISOString(),
         impactScore: post.impactScore || 30,
@@ -483,8 +485,8 @@ async function fetchAllSignals() {
     for (const item of (sportsResult.value.news || []).slice(0, 30)) {
       signals.push({
         id: item.id || `sport-${Date.now()}-${Math.random()}`,
-        text: `${item.title || ""} ${item.summary || ""}`,
-        source: item.source || "Sports",
+        text: localizeSummaryText(`${item.title || ""} ${item.summary || ""}`, "ar", { kind: "summary", category: item.category || "sports", source: item.source }),
+        source: localizeSourceLabel(item.source || "رياضة", "ar"),
         sourceType: "sports",
         time: item.time || new Date().toISOString(),
         impactScore: 30,
@@ -498,8 +500,8 @@ async function fetchAllSignals() {
     for (const item of (liveResult.value.events || []).slice(0, 40)) {
       signals.push({
         id: item.id || `live-${Date.now()}-${Math.random()}`,
-        text: `${item.title || ""} ${item.summary || ""}`,
-        source: item.source || "Live",
+        text: localizeSummaryText(`${item.title || ""} ${item.summary || ""}`, "ar", { kind: "summary", category: item.category, source: item.source }),
+        source: localizeSourceLabel(item.source || "مباشر", "ar"),
         sourceType: item.urgency === "high" ? "breaking" : "live",
         time: item.time || new Date().toISOString(),
         impactScore: item.urgency === "high" ? 75 : 45,

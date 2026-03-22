@@ -98,6 +98,8 @@ function inferCountry(signal) {
   return COUNTRY_INDEX.find((entry) => entry.id === regionMatch.fallbackCountryId) || null;
 }
 
+import { localizeCategoryLabel, localizeDisplayItem, localizeSourceLabel, localizeSummaryText } from "../i18n/summaryLocalizer";
+
 function deriveEntities(signal) {
   const body = normalizeText(`${signal.title || ""} ${signal.summary || ""} ${signal.region || ""}`);
   const countryEntities = COUNTRY_INDEX.filter((entry) => entry.patterns.some((pattern) => pattern.test(body))).map((entry) => entry.name);
@@ -109,8 +111,9 @@ function deriveEntities(signal) {
 }
 
 function baseSignal(source, item, index) {
-  const title = item.title || item.headline || item.label || item.translated || item.text || item.callsign || `${source}-${index}`;
-  const summary = item.summary || item.description || item.explanation || item.text || "";
+  const localizedItem = localizeDisplayItem({ ...item, source: item.source || item.authorName || item.author || source }, "ar");
+  const title = localizedItem.title || localizeSummaryText(item.title || item.headline || item.label || item.translated || item.text || item.callsign || `${source}-${index}`, "ar", { kind: "title", category: item.category, source });
+  const summary = localizedItem.summary || localizeSummaryText(item.summary || item.description || item.explanation || item.text || "", "ar", { kind: "summary", category: item.category, source });
   const region = item.region || "";
   const category = inferCategory(`${item.category || item.type || item.domain || item.queryDomain || ""} ${title} ${summary}`, item.category || item.type || item.domain || "news");
   const timestamp = toIsoTime(item.timestamp || item.time || item.updatedAt || item.createdAt || item.publishedAt);
@@ -118,8 +121,8 @@ function baseSignal(source, item, index) {
     id: item.id || `${source}-${index}`,
     title,
     summary,
-    category,
-    source: item.source || item.authorName || item.author || source,
+    category: localizeCategoryLabel(category, "ar"),
+    source: localizeSourceLabel(item.source || item.authorName || item.author || source, "ar"),
     region,
     timestamp,
     tags: safeArray(item.tags),
@@ -179,9 +182,9 @@ export function normalizeEndpointPayload(endpoint, payload) {
       events: [],
       signals: aircraft.map((item, index) => baseSignal("radar", {
         ...item,
-        title: `Aircraft track ${item.callsign || `Track ${index + 1}`}`,
-        summary: `Live radar track at altitude ${Math.round(Number(item.altitude || 0))} ft`,
-        region: Number(item.lng || item.lon || 0) > 42 ? "Middle East" : "Europe",
+        title: `مسار جوي ${item.callsign || `رقم ${index + 1}`}`,
+        summary: `مسار جوي مباشر على ارتفاع ${Math.round(Number(item.altitude || 0))} قدم`,
+        region: Number(item.lng || item.lon || 0) > 42 ? "الشرق الأوسط" : "أوروبا",
         category: "air",
       }, index)),
       links: [],

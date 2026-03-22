@@ -32,10 +32,9 @@ export function I18nProvider({ children }) {
   const value = useMemo(() => {
     const t = (key, vars) => {
       const table = translations[language] || translations.ar;
-      const fallback = translations.en;
       const candidate = getDeepValue(table, key);
-      const backup = getDeepValue(fallback, key);
-      const finalValue = candidate ?? backup ?? key;
+      const backup = language === "ar" ? undefined : getDeepValue(translations.en, key);
+      const finalValue = candidate ?? backup ?? (language === "ar" ? "" : key);
       return interpolate(finalValue, vars);
     };
 

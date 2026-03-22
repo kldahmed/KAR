@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { SECTION_ROUTES } from "../lib/simpleRouter";
+import { localizeCategoryLabel, localizeDisplayItem, localizeSourceLabel } from "../lib/i18n/summaryLocalizer";
 import {
   pageShell,
   panelStyle,
@@ -27,19 +28,23 @@ export default function OverviewPage({
   };
 
   const cards = SECTION_ROUTES.filter((route) => route.path !== "/" && (mode === "advanced" ? true : route.tier === "public" || route.id === "console"));
+  const localizedNews = useMemo(
+    () => (displayedNews || []).map((item) => (language === "ar" ? localizeDisplayItem(item, "ar") : item)),
+    [displayedNews, language]
+  );
   const topDevelopments = useMemo(
-    () => (displayedNews || []).slice(0, 3),
-    [displayedNews]
+    () => localizedNews.slice(0, 3),
+    [localizedNews]
   );
   const moduleShortcuts = cards.slice(0, 6);
   const hotspotRegions = useMemo(() => {
     const regionCount = new Map();
-    (displayedNews || []).slice(0, 24).forEach((item) => {
+    localizedNews.slice(0, 24).forEach((item) => {
       const region = inferRegion(item);
       regionCount.set(region, (regionCount.get(region) || 0) + 1);
     });
     return [...regionCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([region, count]) => ({ region, count }));
-  }, [displayedNews, language]);
+  }, [localizedNews, language]);
   const executiveSummary = useMemo(() => {
     const primaryRegion = hotspotRegions[0]?.region;
     const secondaryRegion = hotspotRegions[1]?.region;
@@ -146,8 +151,8 @@ export default function OverviewPage({
                       {item.summary || (language === "ar" ? "لا تتوفر خلاصة إضافية لهذا التطور حالياً." : "No additional summary is currently available for this development.")}
                     </div>
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11, color: "#8fa0b5" }}>
-                      <span>{item.source || (language === "ar" ? "مصدر مفتوح" : "Open source")}</span>
-                      <span>{item.category || (language === "ar" ? "عام" : "General")}</span>
+                      <span>{language === "ar" ? localizeSourceLabel(item.source, "ar") : (item.source || "Open source")}</span>
+                      <span>{language === "ar" ? localizeCategoryLabel(item.category, "ar") : (item.category || "General")}</span>
                       <span>{item.time || lastUpdated || "—"}</span>
                     </div>
                   </button>

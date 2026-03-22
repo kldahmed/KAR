@@ -1,5 +1,6 @@
 import React, { lazy, useEffect, useMemo, useState } from "react";
 import NewsCard from "../components/NewsCard";
+import { localizeSourceLabel } from "../lib/i18n/summaryLocalizer";
 import { LazySection, PageHero, PageTakeaways, pageShell, panelStyle } from "./shared/pagePrimitives";
 
 const SportsLiveChannels = lazy(() => import("../components/SportsLiveChannels"));
@@ -33,19 +34,19 @@ export default function NewsPage({
     {
       id: "trusted-wire",
       label: language === "ar" ? "موثوق سلكي" : "Trusted Wire",
-      sources: ["Reuters", "BBC", "AP", "NPR"],
+      sources: language === "ar" ? ["رويترز", "بي بي سي", "أسوشيتد برس", "إن بي آر"] : ["Reuters", "BBC", "AP", "NPR"],
       categoryHint: "all",
     },
     {
       id: "financial-watch",
       label: language === "ar" ? "مراقبة مالية" : "Financial Watch",
-      sources: ["CNBC", "Yahoo Finance", "World Bank", "Reuters"],
+      sources: language === "ar" ? ["سي إن بي سي", "ياهو فاينانس", "البنك الدولي", "رويترز"] : ["CNBC", "Yahoo Finance", "World Bank", "Reuters"],
       categoryHint: "economy",
     },
     {
       id: "regional-focus",
       label: language === "ar" ? "تركيز إقليمي" : "Regional Focus",
-      sources: ["Al Jazeera", "Sky News", "BBC", "Reuters"],
+      sources: language === "ar" ? ["الجزيرة", "سكاي نيوز", "بي بي سي", "رويترز"] : ["Al Jazeera", "Sky News", "BBC", "Reuters"],
       categoryHint: "regional",
     },
   ]), [language]);
@@ -198,7 +199,7 @@ export default function NewsPage({
     (displayedNews || []).forEach((item) => {
       const source = String(item?.source || "").trim();
       if (!source) return;
-      counts.set(source, (counts.get(source) || 0) + 1);
+      counts.set(language === "ar" ? localizeSourceLabel(source, "ar") : source, (counts.get(language === "ar" ? localizeSourceLabel(source, "ar") : source) || 0) + 1);
     });
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([source]) => source);
   }, [displayedNews]);

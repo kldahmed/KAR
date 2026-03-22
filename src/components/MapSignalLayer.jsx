@@ -213,7 +213,7 @@ export default function MapSignalLayer({
   selectedSignalId,
   selectedHotspotId,
 }) {
-  const { t, direction } = useI18n();
+  const { t, direction, language } = useI18n();
 
   const safeLinks = Array.isArray(linkLayer)
     ? linkLayer.filter((link) => isValidLatLngPair(link?.sourceCoordinates) && isValidLatLngPair(link?.targetCoordinates))
@@ -380,9 +380,9 @@ export default function MapSignalLayer({
         >
           <Tooltip direction="top" offset={[0, -8]} opacity={1}>
             <div style={{ padding: "4px 6px", fontSize: 11, maxWidth: 220, direction: "rtl" }}>
-              <div style={{ fontWeight: 800, marginBottom: 3 }}>Hotspot • {hotspot.count}</div>
+              <div style={{ fontWeight: 800, marginBottom: 3 }}>{language === "ar" ? `بؤرة ساخنة • ${hotspot.count}` : `Hotspot • ${hotspot.count}`}</div>
               <div style={{ color: "#94a3b8", fontSize: 10 }}>
-                {hotspot.region || "Global"} · {hotspot.topCategory || "mixed"}
+                {hotspot.region || (language === "ar" ? "عالمي" : "Global")} · {hotspot.topCategory || (language === "ar" ? "مختلط" : "mixed")}
               </div>
             </div>
           </Tooltip>

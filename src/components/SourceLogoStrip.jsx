@@ -1,21 +1,23 @@
 import React, { useMemo } from "react";
+import { localizeSourceLabel } from "../lib/i18n/summaryLocalizer";
 
 const FALLBACK_SOURCES = [
-  "Live Intake",
-  "Reuters",
-  "BBC",
-  "Al Jazeera",
-  "AP",
-  "Guardian",
-  "NPR",
-  "France24",
-  "DW",
-  "Sky News",
+  "التجميع المباشر",
+  "رويترز",
+  "بي بي سي",
+  "الجزيرة",
+  "أسوشيتد برس",
+  "الغارديان",
+  "إن بي آر",
+  "فرانس 24",
+  "دويتشه فيله",
+  "سكاي نيوز",
 ];
 
-function sourceShortName(name) {
+function sourceShortName(name, language = "ar") {
   const safe = String(name || "").trim();
-  if (!safe) return "SRC";
+  if (!safe) return language === "ar" ? "مص" : "SRC";
+  if (language === "ar") return safe.replace(/\s+/g, "").slice(0, 3);
   const parts = safe.split(/\s+/).filter(Boolean);
   if (parts.length === 1) return parts[0].slice(0, 3).toUpperCase();
   return `${parts[0][0] || ""}${parts[1][0] || ""}${parts[2]?.[0] || ""}`.toUpperCase();
@@ -33,10 +35,10 @@ export default function SourceLogoStrip({ language = "ar", news = [], onSourceCl
     const ranked = [...counts.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 12)
-      .map(([name]) => name);
+      .map(([name]) => (language === "ar" ? localizeSourceLabel(name, "ar") : name));
 
     return ranked.length > 0 ? ranked : FALLBACK_SOURCES;
-  }, [news]);
+  }, [language, news]);
 
   const stripItems = [...topSources, ...topSources];
 
@@ -57,7 +59,7 @@ export default function SourceLogoStrip({ language = "ar", news = [], onSourceCl
             onClick={() => onSourceClick?.(source)}
             title={language === "ar" ? `افتح أخبار ${source}` : `Open ${source} news`}
           >
-            <span className="source-logo-strip__badge">{sourceShortName(source)}</span>
+            <span className="source-logo-strip__badge">{sourceShortName(source, language)}</span>
             <span className="source-logo-strip__name">{source}</span>
           </button>
         ))}

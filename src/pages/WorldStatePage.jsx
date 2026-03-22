@@ -2,6 +2,7 @@ import React, { lazy } from "react";
 import { LazySection, PageHero, PageTakeaways, pageShell, panelStyle } from "./shared/pagePrimitives";
 import { safeArray } from "../lib/worldState/aggregation";
 import { useWorldStateData } from "../lib/worldState/useWorldStateData";
+import { localizeCategoryLabel, localizeSourceLabel, localizeSummaryText } from "../lib/i18n/summaryLocalizer";
 
 const GlobalPressureMap = lazy(() => import("../components/GlobalPressureMap"));
 const GlobalLiveMap = lazy(() => import("../components/GlobalLiveMap"));
@@ -200,8 +201,12 @@ export default function WorldStatePage({ language, mode = "simplified", featured
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
           {safeArray(sourceHealth).map((source) => (
             <div key={source.endpoint} style={{ border: `1px solid ${source.ok ? "rgba(34,197,94,0.22)" : "rgba(239,68,68,0.24)"}`, borderRadius: 12, padding: 12, background: source.ok ? "rgba(34,197,94,0.06)" : "rgba(127,29,29,0.14)" }}>
-              <div style={{ color: source.ok ? "#22c55e" : "#f87171", fontWeight: 800, fontSize: 12, marginBottom: 6 }}>{source.endpoint}</div>
-              <div style={{ fontSize: 11, color: "#cbd5e1" }}>signals: {source.signals} · events: {source.events} · aircraft: {source.aircraft}</div>
+              <div style={{ color: source.ok ? "#22c55e" : "#f87171", fontWeight: 800, fontSize: 12, marginBottom: 6 }}>{language === "ar" ? localizeSourceLabel(source.endpoint, "ar") : source.endpoint}</div>
+              <div style={{ fontSize: 11, color: "#cbd5e1" }}>
+                {language === "ar"
+                  ? `مؤشرات مهمة: ${source.signals} · أحداث: ${source.events} · مسارات جوية: ${source.aircraft}`
+                  : `signals: ${source.signals} · events: ${source.events} · aircraft: ${source.aircraft}`}
+              </div>
             </div>
           ))}
         </div>
@@ -240,9 +245,9 @@ export default function WorldStatePage({ language, mode = "simplified", featured
               <div key={item.id} style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, gap: 8 }}>
                   <div style={{ color: "#f8fafc", fontWeight: 800, fontSize: 13 }}>{item.name}</div>
-                  <div style={{ color: item.pressureLevel === "high" ? "#f87171" : item.pressureLevel === "medium" ? "#f59e0b" : "#22c55e", fontSize: 11, fontWeight: 800 }}>{item.pressureLevel}</div>
+                  <div style={{ color: item.pressureLevel === "high" ? "#f87171" : item.pressureLevel === "medium" ? "#f59e0b" : "#22c55e", fontSize: 11, fontWeight: 800 }}>{language === "ar" ? (item.pressureLevel === "high" ? "مرتفع" : item.pressureLevel === "medium" ? "متوسط" : "منخفض") : item.pressureLevel}</div>
                 </div>
-                <div style={{ color: "#94a3b8", fontSize: 12 }}>{item.signalCount} signals · {item.dominantCategory}</div>
+                <div style={{ color: "#94a3b8", fontSize: 12 }}>{language === "ar" ? `${item.signalCount} مؤشرات مهمة · ${localizeCategoryLabel(item.dominantCategory, "ar")}` : `${item.signalCount} signals · ${item.dominantCategory}`}</div>
               </div>
             )}
           />
@@ -255,7 +260,7 @@ export default function WorldStatePage({ language, mode = "simplified", featured
             renderItem={(item) => (
               <div key={item.id} style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 12 }}>
                 <div style={{ color: "#f8fafc", fontWeight: 800, fontSize: 13, marginBottom: 6 }}>{item.source} ↔ {item.target}</div>
-                <div style={{ color: "#94a3b8", fontSize: 12 }}>{item.linkedEventCount} correlated signals · strength {Math.round((item.strength || 0) * 100)}%</div>
+                <div style={{ color: "#94a3b8", fontSize: 12 }}>{language === "ar" ? `${item.linkedEventCount} مؤشرات مرتبطة · قوة الربط ${Math.round((item.strength || 0) * 100)}%` : `${item.linkedEventCount} correlated signals · strength ${Math.round((item.strength || 0) * 100)}%`}</div>
               </div>
             )}
           />
@@ -271,7 +276,7 @@ export default function WorldStatePage({ language, mode = "simplified", featured
           renderItem={(item, index) => (
             <div key={item.id || `event-${index}`} style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 12 }}>
               <div style={{ color: "#f8fafc", fontWeight: 800, fontSize: 13, marginBottom: 6 }}>{item.title || item.label || (language === "ar" ? "حدث غير مسمى" : "Untitled event")}</div>
-              <div style={{ color: "#94a3b8", fontSize: 12, lineHeight: 1.7 }}>{item.summary || item.explanation || item.description || "—"}</div>
+              <div style={{ color: "#94a3b8", fontSize: 12, lineHeight: 1.7 }}>{language === "ar" ? localizeSummaryText(item.summary || item.explanation || item.description || "", "ar", { kind: "summary", category: item.category, source: item.source }) || "—" : item.summary || item.explanation || item.description || "—"}</div>
             </div>
           )}
         />
@@ -283,8 +288,8 @@ export default function WorldStatePage({ language, mode = "simplified", featured
           emptyText={language === "ar" ? "لا توجد مسارات جوية متاحة" : "No aircraft tracks available"}
           renderItem={(item, index) => (
             <div key={item.id || `aircraft-${index}`} style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 12 }}>
-              <div style={{ color: "#f8fafc", fontWeight: 800, fontSize: 13, marginBottom: 6 }}>{item.callsign || `Track ${index + 1}`}</div>
-              <div style={{ color: "#94a3b8", fontSize: 12 }}>lat {item.lat} · lng {item.lng} · alt {item.altitude || 0}</div>
+              <div style={{ color: "#f8fafc", fontWeight: 800, fontSize: 13, marginBottom: 6 }}>{item.callsign || (language === "ar" ? `مسار ${index + 1}` : `Track ${index + 1}`)}</div>
+              <div style={{ color: "#94a3b8", fontSize: 12 }}>{language === "ar" ? `خط العرض ${item.lat} · خط الطول ${item.lng} · الارتفاع ${item.altitude || 0}` : `lat ${item.lat} · lng ${item.lng} · alt ${item.altitude || 0}`}</div>
             </div>
           )}
         />
