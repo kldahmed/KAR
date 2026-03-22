@@ -13,6 +13,7 @@ import { useCurrentPath } from "./lib/simpleRouter";
 import { processNewsItem } from "./lib/i18n/summaryLocalizer";
 
 const NewsPage     = lazy(() => import("./pages/NewsPage"));
+const NewsOpsPage  = lazy(() => import("./pages/NewsOpsPage"));
 const LivePage     = lazy(() => import("./pages/LivePage"));
 const LiveNewsAIPage = lazy(() => import("./pages/LiveNewsAIPage"));
 const WorldEyePage = lazy(() => import("./pages/WorldEyePage"));
@@ -55,6 +56,11 @@ export default function App() {
     tickerHeadlines,
     lastUpdated,
     feedStatus,
+    opsBusy,
+    opsMessage,
+    refreshOperations,
+    updateNewsSource,
+    reprocessNewsBatch,
     retryNews,
     categories,
     cat,
@@ -214,6 +220,18 @@ export default function App() {
             uaeStandingsUpdatedAt={uaeStandingsUpdatedAt}
             isStandingsLoading={isStandingsLoading}
             lastUpdated={lastUpdated}
+          />
+        );
+      case "/news-ops":
+        return (
+          <NewsOpsPage
+            language={language}
+            feedStatus={feedStatus}
+            opsBusy={opsBusy}
+            opsMessage={opsMessage}
+            refreshOperations={refreshOperations}
+            updateNewsSource={updateNewsSource}
+            reprocessNewsBatch={reprocessNewsBatch}
           />
         );
       case "/live":

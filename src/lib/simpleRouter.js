@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 export const SECTION_ROUTES = [
   { id: "news",        path: "/news",        icon: "📰", tier: "public", titleAr: "الأخبار",       titleEn: "News",        descriptionAr: "أهم الأخبار من مصادر متعددة موثوقة",      descriptionEn: "Top news from multiple trusted sources" },
+  { id: "news-ops",    path: "/news-ops",    icon: "🛠️", tier: "public", titleAr: "تشغيل الأخبار", titleEn: "News Ops",    descriptionAr: "لوحة تشغيل المصادر والسعة وإعادة المعالجة", descriptionEn: "Operations panel for sources, capacity, and reprocessing" },
   { id: "live",        path: "/live",        icon: "📡", tier: "public", titleAr: "البث الحي",     titleEn: "Live Feed",   descriptionAr: "تسلسل زمني مباشر للأحداث العاجلة",        descriptionEn: "Real-time timeline of breaking events" },
   { id: "live-news-ai", path: "/live-news-ai", icon: "🎙️", tier: "public", titleAr: "Live News by AI", titleEn: "Live News by AI", descriptionAr: "مذيع افتراضي يقرأ الأخبار العاجلة مع إظهار المصدر والتحقق", descriptionEn: "AI presenter reading live news with source attribution and verification" },
   { id: "world-eye",   path: "/world-eye",   icon: "👁️", tier: "public", titleAr: "عين العالم",   titleEn: "World Eye",   descriptionAr: "تقرير استخباراتي واضح عما يجري الآن",     descriptionEn: "Clear intelligence brief on what is happening now" },

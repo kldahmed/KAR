@@ -1,3 +1,6 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+
 import { HIGH_CAPACITY_NEWS_SOURCES, SOURCE_TIERS } from "./_high-capacity-news-sources.js";
 
 const STORE_KEY = "__KAR_HIGH_CAPACITY_NEWS_V1__";
@@ -8,6 +11,16 @@ const MAX_PIPELINE_EVENTS = 50000;
 const MAX_FETCH_CONCURRENCY = 8;
 const MAX_ITEMS_PER_SOURCE_FETCH = 28;
 const MIN_QUALITY_FOR_PUBLISH = 52;
+const MIN_SENSITIVE_QUALITY_FOR_PUBLISH = 68;
+const MIN_SENSITIVE_TRUST_FOR_PUBLISH = 84;
+const MIN_SENSITIVE_SOURCE_COUNT_FOR_PUBLISH = 2;
+const PERSIST_DEBOUNCE_MS = 1800;
+const PERSIST_MAX_RAW = 8000;
+const PERSIST_MAX_NORMALIZED = 12000;
+const PERSIST_MAX_IDS = 12000;
+const PERSIST_MAX_LOGS = 2500;
+const STORE_FILE_PATH = process.env.KAR_NEWS_STORE_PATH || path.join(process.cwd(), ".cache", "kar-high-capacity-news-store.json");
+const REQUESTED_PERSISTENCE_MODE = String(process.env.KAR_NEWS_PERSISTENCE_MODE || "file").toLowerCase();
 const SENSITIVE_RE = /حرب|هجوم|اغتيال|كارثة|زلزال|تفجير|قصف|غارة|اشتباكات|قتلى|ضحايا|وباء|حظر|طوارئ|قرار حكومي|military|assassination|war|attack|explosion|casualties|deaths|pandemic|outbreak|emergency|government order/i;
 const BREAKING_RE = /عاجل|breaking|urgent|missile|rocket|drone|strike|raid|explosion|صاروخ|مسيرة|غارة|انفجار|هجوم/i;
 const STOP_WORDS = new Set(["the", "a", "an", "and", "or", "for", "to", "in", "on", "of", "with", "by", "from", "is", "are", "at", "عن", "من", "في", "على", "إلى", "مع", "هذا", "هذه", "ذلك", "تلك", "تم", "بعد", "قبل", "خلال", "عبر", "ضمن"]);
@@ -30,6 +43,150 @@ function nowIso() {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function canPersistToDisk() {
+  return typeof process !== "undefined" && process.release?.name === "node";
+}
+
+function resolvePersistenceMode() {
+  if (REQUESTED_PERSISTENCE_MODE === "memory") return "memory";
+  if (["redis", "postgres"].includes(REQUESTED_PERSISTENCE_MODE)) {
+    return canPersistToDisk() ? "file" : "memory";
+  }
+  if (REQUESTED_PERSISTENCE_MODE === "file") {
+    return canPersistToDisk() ? "file" : "memory";
+  }
+  return canPersistToDisk() ? "file" : "memory";
+}
+
+function isExternalPersistenceRequested() {
+  return ["redis", "postgres"].includes(REQUESTED_PERSISTENCE_MODE);
+}
+
+async function ensureStoreDirectory() {
+  if (!canPersistToDisk()) return;
+  await fs.mkdir(path.dirname(STORE_FILE_PATH), { recursive: true });
+}
+
+function pruneForPersistence(store) {
+  const normalizedEntries = Array.from(store.normalizedById.entries())
+    .slice(0, PERSIST_MAX_NORMALIZED)
+    .map(([id, value]) => [id, value]);
+
+  return {
+    persisted_at: nowIso(),
+    initializedAt: store.initializedAt,
+    rawArticles: store.rawArticles.slice(0, PERSIST_MAX_RAW),
+    normalizedEntries,
+    canonicalToId: Array.from(store.canonicalToId.entries()).slice(0, PERSIST_MAX_NORMALIZED),
+    urlToId: Array.from(store.urlToId.entries()).slice(0, PERSIST_MAX_NORMALIZED),
+    titleHashToId: Array.from(store.titleHashToId.entries()).slice(0, PERSIST_MAX_NORMALIZED),
+    clusterByCanonical: Array.from(store.clusterByCanonical.entries()).slice(0, PERSIST_MAX_NORMALIZED),
+    publishedIds: store.publishedIds.slice(0, PERSIST_MAX_IDS),
+    reviewIds: store.reviewIds.slice(0, PERSIST_MAX_IDS),
+    rejectedIds: store.rejectedIds.slice(0, PERSIST_MAX_IDS),
+    ingestionLogs: store.ingestionLogs.slice(0, PERSIST_MAX_LOGS),
+    pipelineLogs: store.pipelineLogs.slice(0, PERSIST_MAX_LOGS),
+    auditLogs: store.auditLogs.slice(0, PERSIST_MAX_LOGS),
+    daily: Array.from(store.daily.entries()),
+    sources: Array.from(store.sources.values()).map((source) => ({
+      id: source.id,
+      active: source.active,
+      status: source.status,
+      lastSuccessAt: source.lastSuccessAt,
+      lastFailureAt: source.lastFailureAt,
+      lastFailure: source.lastFailure,
+      consecutiveFailures: source.consecutiveFailures,
+      circuitOpenUntil: source.circuitOpenUntil,
+      lastLatencyMs: source.lastLatencyMs,
+      nextFetchAt: source.nextFetchAt,
+      pulls: source.pulls,
+      successes: source.successes,
+      failures: source.failures,
+      acceptedToday: source.acceptedToday,
+      duplicatesToday: source.duplicatesToday,
+      lastItemCount: source.lastItemCount,
+      intervalSeconds: source.intervalSeconds,
+      trustBaseScore: source.trustBaseScore,
+    })),
+  };
+}
+
+async function persistStoreSnapshot(store) {
+  if (resolvePersistenceMode() !== "file") return;
+  const snapshot = pruneForPersistence(store);
+  await ensureStoreDirectory();
+  await fs.writeFile(STORE_FILE_PATH, JSON.stringify(snapshot), "utf8");
+  store.lastPersistedAt = snapshot.persisted_at;
+}
+
+function scheduleStorePersist(store) {
+  if (resolvePersistenceMode() !== "file") return;
+  if (store.persistTimer) clearTimeout(store.persistTimer);
+  store.persistTimer = setTimeout(() => {
+    persistStoreSnapshot(store).catch((error) => {
+      logAudit(store, "persist_failed", { error: error?.message || "persist_failed" });
+    });
+  }, PERSIST_DEBOUNCE_MS);
+}
+
+function restoreSourceState(store, snapshotSources = []) {
+  const sourceLookup = new Map(snapshotSources.map((entry) => [entry.id, entry]));
+  Array.from(store.sources.values()).forEach((source) => {
+    const saved = sourceLookup.get(source.id);
+    if (!saved) return;
+    source.active = typeof saved.active === "boolean" ? saved.active : source.active;
+    source.status = saved.status || source.status;
+    source.lastSuccessAt = saved.lastSuccessAt || source.lastSuccessAt;
+    source.lastFailureAt = saved.lastFailureAt || source.lastFailureAt;
+    source.lastFailure = saved.lastFailure || source.lastFailure;
+    source.consecutiveFailures = Number(saved.consecutiveFailures || 0);
+    source.circuitOpenUntil = Number(saved.circuitOpenUntil || 0);
+    source.lastLatencyMs = Number(saved.lastLatencyMs || 0);
+    source.nextFetchAt = Number(saved.nextFetchAt || source.nextFetchAt);
+    source.pulls = Number(saved.pulls || 0);
+    source.successes = Number(saved.successes || 0);
+    source.failures = Number(saved.failures || 0);
+    source.acceptedToday = Number(saved.acceptedToday || 0);
+    source.duplicatesToday = Number(saved.duplicatesToday || 0);
+    source.lastItemCount = Number(saved.lastItemCount || 0);
+    source.intervalSeconds = clamp(Number(saved.intervalSeconds || source.intervalSeconds), 120, 3600);
+    source.trustBaseScore = clamp(Number(saved.trustBaseScore || source.trustBaseScore), 20, 99);
+  });
+}
+
+async function hydrateStoreFromDisk(store) {
+  if (resolvePersistenceMode() !== "file" || store.hydratedFromDisk) return;
+  try {
+    const raw = await fs.readFile(STORE_FILE_PATH, "utf8");
+    const snapshot = JSON.parse(raw);
+    store.rawArticles = Array.isArray(snapshot.rawArticles) ? snapshot.rawArticles : [];
+    store.normalizedById = new Map(Array.isArray(snapshot.normalizedEntries) ? snapshot.normalizedEntries : []);
+    store.canonicalToId = new Map(Array.isArray(snapshot.canonicalToId) ? snapshot.canonicalToId : []);
+    store.urlToId = new Map(Array.isArray(snapshot.urlToId) ? snapshot.urlToId : []);
+    store.titleHashToId = new Map(Array.isArray(snapshot.titleHashToId) ? snapshot.titleHashToId : []);
+    store.clusterByCanonical = new Map(Array.isArray(snapshot.clusterByCanonical) ? snapshot.clusterByCanonical : []);
+    store.publishedIds = Array.isArray(snapshot.publishedIds) ? snapshot.publishedIds : [];
+    store.reviewIds = Array.isArray(snapshot.reviewIds) ? snapshot.reviewIds : [];
+    store.rejectedIds = Array.isArray(snapshot.rejectedIds) ? snapshot.rejectedIds : [];
+    store.ingestionLogs = Array.isArray(snapshot.ingestionLogs) ? snapshot.ingestionLogs : [];
+    store.pipelineLogs = Array.isArray(snapshot.pipelineLogs) ? snapshot.pipelineLogs : [];
+    store.auditLogs = Array.isArray(snapshot.auditLogs) ? snapshot.auditLogs : [];
+    store.daily = new Map(Array.isArray(snapshot.daily) ? snapshot.daily : []);
+    restoreSourceState(store, Array.isArray(snapshot.sources) ? snapshot.sources : []);
+    store.lastPersistedAt = snapshot.persisted_at || "";
+    logAudit(store, "store_hydrated", {
+      rawArticles: store.rawArticles.length,
+      normalized: store.normalizedById.size,
+      published: store.publishedIds.length,
+    });
+  } catch (error) {
+    if (error?.code !== "ENOENT") {
+      logAudit(store, "hydrate_failed", { error: error?.message || "hydrate_failed" });
+    }
+  }
+  store.hydratedFromDisk = true;
 }
 
 function cleanText(value = "") {
@@ -163,7 +320,7 @@ function buildTickerText(title = "", sourceName = "") {
 
 function summarizeNeutral(article) {
   const source = article.primary_source_name || "مصدر معتمد";
-  const lead = article.sensitive && article.source_count < 2 ? "وفق المصدر المتاح حاليا" : "بحسب المصادر المتاحة";
+  const lead = article.sensitive && article.source_count < MIN_SENSITIVE_SOURCE_COUNT_FOR_PUBLISH ? "وفق المصدر المتاح حاليا وتحت المراجعة" : "بحسب المصادر المتاحة";
   const snippet = buildSnippet(article.summary, article.content_raw);
   return {
     normalized_title: cleanText(article.title),
@@ -256,6 +413,10 @@ function getStore() {
       schedulerTicking: false,
       lastRunAt: 0,
       warmupCompleted: false,
+      hydratedFromDisk: false,
+      hydratePromise: null,
+      persistTimer: null,
+      lastPersistedAt: "",
     };
   }
   return globalThis[STORE_KEY];
@@ -493,11 +654,27 @@ function mergeDuplicate(store, existingId, incoming) {
   if (new Date(incoming.published_at).getTime() > new Date(existing.published_at).getTime()) {
     existing.published_at = incoming.published_at;
   }
+  existing.requires_review = Boolean(
+    existing.sensitive
+    && (existing.source_count < MIN_SENSITIVE_SOURCE_COUNT_FOR_PUBLISH
+      || Number(existing.trust_score || 0) < MIN_SENSITIVE_TRUST_FOR_PUBLISH
+      || Number(existing.quality_score || 0) < MIN_SENSITIVE_QUALITY_FOR_PUBLISH)
+  );
   existing.updated_at = nowIso();
 }
 
 function categorizeStatus(article) {
   if (article.quality_score < 34) return "rejected_low_quality";
+  if (
+    article.sensitive
+    && (
+      article.source_count < MIN_SENSITIVE_SOURCE_COUNT_FOR_PUBLISH
+      || Number(article.trust_score || 0) < MIN_SENSITIVE_TRUST_FOR_PUBLISH
+      || Number(article.quality_score || 0) < MIN_SENSITIVE_QUALITY_FOR_PUBLISH
+    )
+  ) {
+    return "review_required";
+  }
   if (article.requires_review) return "review_required";
   if (article.quality_score < MIN_QUALITY_FOR_PUBLISH) return "queued_secondary";
   return "published";
@@ -545,6 +722,8 @@ function publishArticle(store, article) {
       store.rejectedIds.unshift(article.id);
     }
   }
+
+  scheduleStorePersist(store);
 }
 
 function processQueues(store) {
@@ -601,6 +780,8 @@ function processQueues(store) {
       if (store.normalizedById.size <= MAX_NORMALIZED_ARTICLES) break;
     }
   }
+
+  scheduleStorePersist(store);
 }
 
 async function runSchedulerTick(store, { force = false } = {}) {
@@ -704,9 +885,19 @@ async function warmupPipeline(store) {
 
 export async function ensureNewsEngineStarted() {
   const store = getStore();
+  if (!store.hydratePromise) {
+    store.hydratePromise = hydrateStoreFromDisk(store);
+  }
+  await store.hydratePromise;
   if (!store.schedulerRunning) {
     store.schedulerRunning = true;
     logAudit(store, "engine_started", { sources: store.sources.size });
+    if (isExternalPersistenceRequested()) {
+      logAudit(store, "persistence_mode_fallback", {
+        requested: REQUESTED_PERSISTENCE_MODE,
+        resolved: resolvePersistenceMode(),
+      });
+    }
   }
 
   await warmupPipeline(store);
@@ -813,6 +1004,16 @@ function buildMetricsSnapshot(store) {
       below_minimum_1000: day.normalized_unique < 1000,
       source_failure_above_20_percent: failureRate > 0.2,
       active_sources_below_50: activeSources.length < 50,
+      sensitive_review_backlog: store.reviewIds.length > 40,
+    },
+    persistence: {
+      enabled: resolvePersistenceMode() !== "memory" || canPersistToDisk(),
+      mode: resolvePersistenceMode(),
+      requested_mode: REQUESTED_PERSISTENCE_MODE,
+      external_mode_requested: isExternalPersistenceRequested(),
+      file_path: resolvePersistenceMode() === "file" ? STORE_FILE_PATH : "",
+      last_persisted_at: store.lastPersistedAt || "",
+      hydrated_from_disk: Boolean(store.hydratedFromDisk),
     },
   };
 }
@@ -848,6 +1049,8 @@ function selectArticles(store, { category = "all", limit = 120, sourceFilters = 
       freshnessMinutes: Math.max(0, Math.round((Date.now() - new Date(article.published_at).getTime()) / 60000)),
       qualityScore: article.quality_score,
       urgency: Number(article.urgency_score || 0) >= 84 ? "high" : Number(article.urgency_score || 0) >= 62 ? "medium" : "low",
+      moderationStatus: article.status,
+      requiresReview: Boolean(article.requires_review || article.status === "review_required"),
       sourceMode: "high-capacity-open-source-ingestion",
       sourceTypes: ["rss", "manual-curated", "optional-news-api"],
       hasVideo: false,
@@ -918,6 +1121,7 @@ export async function getHighCapacityNewsPayload(req, { category = "all", limit 
       ingestTargetDefaultMax: 2000,
       ingestScaleTarget: 3000,
       dashboardVisibleMinItems: 50,
+      reviewQueueDepth: store.reviewIds.length,
     },
     pipeline: {
       ingestion: { status: "running", queue: store.queues.ingestion.length },
@@ -1027,6 +1231,7 @@ export async function updateHighCapacitySource(payload = {}) {
     intervalSeconds: source.intervalSeconds,
     trustBaseScore: source.trustBaseScore,
   });
+  scheduleStorePersist(store);
 
   return {
     ok: true,
@@ -1048,6 +1253,7 @@ export async function reprocessRecentBatch(payload = {}) {
 
   processQueues(store);
   logAudit(store, "reprocess_batch", { count: recentRaw.length });
+  scheduleStorePersist(store);
 
   return {
     ok: true,

@@ -154,11 +154,19 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
     stats: null,
     breaking: [],
     featuredAlert: null,
+    dashboard: null,
+    sources: [],
+    operationsUpdatedAt: "",
   });
+  const [opsBusy, setOpsBusy] = useState(false);
+  const [opsMessage, setOpsMessage] = useState("");
   const intervalRef = useRef(null);
   const standingsIntervalRef = useRef(null);
+  const operationsIntervalRef = useRef(null);
   const newsRequestSeqRef = useRef(0);
   const standingsRequestSeqRef = useRef(0);
+
+  const refreshOperationsRef = useRef(async () => {});
 
   const categories = useMemo(
     () => CATEGORIES
@@ -305,7 +313,8 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
         if (cancelled || requestId !== newsRequestSeqRef.current) return;
         const localizedFeatured = liveIntakePayload?.featuredAlert ? localizeDisplayItem(liveIntakePayload.featuredAlert, language) : null;
 
-        setFeedStatus({
+        setFeedStatus((current) => ({
+          ...current,
           sourceMode: language === "ar"
             ? localizeSummaryText(liveIntakePayload?.sourceMode || "", "ar", { kind: "label" })
             : liveIntakePayload?.sourceMode || "",
@@ -322,7 +331,9 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
           featuredAlert: language === "ar"
             ? (localizedFeatured?.displayable === false ? null : localizedFeatured)
             : localizedFeatured,
-        });
+          dashboard: liveIntakePayload?.dashboard || current.dashboard,
+          operationsUpdatedAt: liveIntakePayload?.dashboard?.generated_at || current.operationsUpdatedAt,
+        }));
         writeDashboardCache(cacheKey, filteredNews);
         setNews(sortArticlesByPriority(filteredNews, rankingContext));
         setError("");
@@ -417,6 +428,116 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
     };
   }, [cat, sportsCompetition, uaeStandings.length]);
 
+  useEffect(() => {
+    if (currentPath !== "/news") {
+      if (operationsIntervalRef.current) clearInterval(operationsIntervalRef.current);
+      return undefined;
+    }
+
+    let cancelled = false;
+    let activeController = null;
+
+    const fetchOperations = async () => {
+      const controller = new AbortController();
+      activeController = controller;
+
+      try {
+        const [dashboardResponse, sourcesResponse] = await Promise.all([
+          fetch("/api/news/dashboard", { signal: controller.signal }),
+          fetch("/api/news/sources", { signal: controller.signal }),
+        ]);
+
+        if (!dashboardResponse.ok) throw new Error(`dashboard_${dashboardResponse.status}`);
+        if (!sourcesResponse.ok) throw new Error(`sources_${sourcesResponse.status}`);
+
+        const [dashboardPayload, sourcesPayload] = await Promise.all([
+          dashboardResponse.json(),
+          sourcesResponse.json(),
+        ]);
+
+        if (cancelled) return;
+
+        setFeedStatus((current) => ({
+          ...current,
+          dashboard: dashboardPayload || null,
+          sources: Array.isArray(sourcesPayload?.sources) ? sourcesPayload.sources : [],
+          operationsUpdatedAt: dashboardPayload?.generated_at || new Date().toISOString(),
+        }));
+      } catch {
+        if (cancelled) return;
+      }
+    };
+
+    refreshOperationsRef.current = fetchOperations;
+
+    fetchOperations();
+    if (operationsIntervalRef.current) clearInterval(operationsIntervalRef.current);
+    operationsIntervalRef.current = setInterval(fetchOperations, 15000);
+
+    return () => {
+      cancelled = true;
+      activeController?.abort();
+      if (operationsIntervalRef.current) clearInterval(operationsIntervalRef.current);
+    };
+  }, [currentPath]);
+
+  const refreshOperations = async () => {
+    if (typeof refreshOperationsRef.current === "function") {
+      await refreshOperationsRef.current();
+    }
+  };
+
+  const updateNewsSource = async (payload) => {
+    setOpsBusy(true);
+    setOpsMessage("");
+    try {
+      const response = await fetch("/api/news/sources", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload || {}),
+      });
+      const data = await response.json();
+      if (!response.ok || data?.ok === false) {
+        throw new Error(data?.error || `http_${response.status}`);
+      }
+      await refreshOperations();
+      setOpsMessage(language === "ar" ? "تم تحديث المصدر" : "Source updated");
+      return data;
+    } catch (error) {
+      const message = language === "ar" ? "تعذر تحديث المصدر" : "Unable to update source";
+      setOpsMessage(message);
+      throw error;
+    } finally {
+      setOpsBusy(false);
+    }
+  };
+
+  const reprocessNewsBatch = async (count = 300) => {
+    setOpsBusy(true);
+    setOpsMessage("");
+    try {
+      const response = await fetch("/api/news/reprocess", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ count }),
+      });
+      const data = await response.json();
+      if (!response.ok || data?.ok === false) {
+        throw new Error(data?.error || `http_${response.status}`);
+      }
+      await refreshOperations();
+      setRetryNewsToken((value) => value + 1);
+      setOpsMessage(language === "ar" ? `تمت إعادة معالجة ${data?.reprocessed || count}` : `Reprocessed ${data?.reprocessed || count}`);
+      return data;
+    } catch (error) {
+      const message = language === "ar" ? "تعذرت إعادة المعالجة" : "Unable to reprocess batch";
+      setOpsMessage(message);
+      throw error;
+    } finally {
+      setOpsBusy(false);
+    }
+  };
+
   const displayedNews = useMemo(() => {
     if (cat === "sports" && sportsCompetition === "uae") {
       const uaeItems = news.filter((item) => item.isUaeLeagueNews || item.competition === "uae");
@@ -447,6 +568,11 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
     tickerHeadlines,
     lastUpdated,
     feedStatus,
+    opsBusy,
+    opsMessage,
+    refreshOperations,
+    updateNewsSource,
+    reprocessNewsBatch,
     retryNews,
   };
 }
