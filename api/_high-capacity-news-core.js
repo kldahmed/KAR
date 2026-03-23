@@ -6,7 +6,7 @@ const MAX_RAW_ARTICLES = 180000;
 const MAX_NORMALIZED_ARTICLES = 100000;
 const MAX_LOGS = 25000;
 const MAX_PIPELINE_EVENTS = 50000;
-const MAX_FETCH_CONCURRENCY = 8;
+const MAX_FETCH_CONCURRENCY = 16;
 const MAX_ITEMS_PER_SOURCE_FETCH = 28;
 const MIN_QUALITY_FOR_PUBLISH = 52;
 const MIN_SENSITIVE_QUALITY_FOR_PUBLISH = 68;
@@ -972,9 +972,10 @@ async function runSchedulerTick(store, { force = false } = {}) {
 
 async function warmupPipeline(store) {
   if (store.warmupCompleted) return;
-  await runSchedulerTick(store, { force: true });
-  await runSchedulerTick(store, { force: true });
-  await runSchedulerTick(store, { force: true });
+  // Run 6 forced ticks on cold start so 96 sources are fetched immediately
+  for (let i = 0; i < 6; i++) {
+    await runSchedulerTick(store, { force: true });
+  }
   store.warmupCompleted = true;
 }
 
@@ -998,6 +999,23 @@ export async function ensureNewsEngineStarted() {
 
   await warmupPipeline(store);
   await runSchedulerTick(store);
+  return store;
+}
+
+/**
+ * Force-run N additional scheduler ticks immediately.
+ * Used by /api/news/trigger to quickly populate the engine on demand.
+ */
+export async function runForcedTicks(ticks = 4) {
+  const store = getStore();
+  if (!store.hydratePromise) {
+    store.hydratePromise = hydrateStoreFromDisk(store);
+  }
+  await store.hydratePromise;
+  await warmupPipeline(store);
+  for (let i = 0; i < ticks; i++) {
+    await runSchedulerTick(store, { force: true });
+  }
   return store;
 }
 
@@ -1026,7 +1044,7 @@ function projectDailyCapacity(store) {
   };
 }
 
-function buildMetricsSnapshot(store) {
+export function buildMetricsSnapshot(store) {
   const day = ensureDailyMetrics(store);
   const allSources = Array.from(store.sources.values());
   const activeSources = allSources.filter((source) => source.active);

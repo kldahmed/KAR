@@ -70,6 +70,8 @@ export default function NewsIngestPage({ language = "ar", adminKey = "", onLogou
   const isAr = language === "ar";
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [triggering, setTriggering] = useState(false);
+  const [triggerMsg, setTriggerMsg] = useState("");
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("all");
@@ -94,6 +96,23 @@ export default function NewsIngestPage({ language = "ar", adminKey = "", onLogou
       setLoading(false);
     }
   }, [adminKey, isAr]);
+
+  const triggerFetch = useCallback(async () => {
+    setTriggering(true);
+    setTriggerMsg("");
+    try {
+      const res = await fetch("/api/news/trigger?ticks=6");
+      const json = await res.json();
+      setTriggerMsg(isAr
+        ? `✅ تم تنفيذ ${json.ticks_fired || 0} دورة جلب — ${json.sources_total || 0} مصدر`
+        : `✅ Fired ${json.ticks_fired || 0} fetch ticks — ${json.sources_total || 0} sources`);
+      await load();
+    } catch {
+      setTriggerMsg(isAr ? "⚠️ فشل تشغيل الجلب" : "⚠️ Trigger failed");
+    } finally {
+      setTriggering(false);
+    }
+  }, [isAr, load]);
 
   useEffect(() => {
     load();
@@ -153,7 +172,15 @@ export default function NewsIngestPage({ language = "ar", adminKey = "", onLogou
           ? "عدادات دقيقة لكل خبر تم جلبه من كل مصدر — raw، unique، مكرر، محاولات، نجاحات، إخفاقات، وزمن الاستجابة."
           : "Precise counters for every article fetched from every source — raw, unique, duplicate, pulls, successes, failures, and latency."}
         right={
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={triggerFetch}
+              disabled={triggering || loading}
+              style={{ borderRadius: 10, border: "1px solid rgba(74,222,128,0.4)", background: "rgba(74,222,128,0.12)", color: "#bbf7d0", padding: "8px 14px", fontWeight: 700, fontSize: 12 }}
+            >
+              {triggering ? (isAr ? "جارٍ الجلب..." : "Fetching...") : (isAr ? "⚡ جلب الآن" : "⚡ Force fetch")}
+            </button>
             <button
               type="button"
               onClick={load}
@@ -170,6 +197,12 @@ export default function NewsIngestPage({ language = "ar", adminKey = "", onLogou
           </div>
         }
       />
+
+      {triggerMsg && (
+        <div style={{ background: "rgba(74,222,128,0.1)", border: "1px solid rgba(74,222,128,0.3)", borderRadius: 12, padding: "10px 16px", marginBottom: 12, color: "#bbf7d0", fontSize: 13, fontWeight: 600 }}>
+          {triggerMsg}
+        </div>
+      )}
 
       {/* ── SUMMARY CARDS ─────────────────────────────────────────────────── */}
       <section style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", marginBottom: 14 }}>
