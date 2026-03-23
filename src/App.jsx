@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useEffect, useState } from "react";
 import BreakingNewsTicker from "./components/BreakingNewsTicker";
+import GlobalHeader from "./components/GlobalHeader";
 import ArticleModal from "./components/ArticleModal";
 import TopSectionNav from "./components/TopSectionNav";
 import { useI18n } from "./i18n/I18nProvider";
