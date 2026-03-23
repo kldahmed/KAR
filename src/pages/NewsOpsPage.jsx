@@ -86,6 +86,7 @@ export default function NewsOpsPage({
   const sources = Array.isArray(feedStatus?.sources) ? feedStatus.sources : [];
   const persistence = dashboard?.persistence || null;
   const pipeline = feedStatus?.pipeline || null;
+  const newsroom = feedStatus?.newsroom || null;
 
   const systemStatus = [
     { key: "ingestion", labelAr: "Ingestion", labelEn: "Ingestion", state: pipeline?.ingestion?.status || "unknown", queue: Number(pipeline?.ingestion?.queue || 0) },
@@ -192,6 +193,57 @@ export default function NewsOpsPage({
           ))}
         </div>
       </section>
+
+      {newsroom ? (
+        <section style={{ ...panelStyle, padding: "16px 18px", marginBottom: 18 }}>
+          <div style={{ color: "#f8fafc", fontSize: 14, fontWeight: 900, marginBottom: 12 }}>
+            {language === "ar" ? "ذكاء غرفة الأخبار" : "Newsroom intelligence"}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10, marginBottom: 14 }}>
+            <div style={{ border: "1px solid rgba(71,85,105,0.46)", borderRadius: 12, padding: 10, background: "rgba(2,6,23,0.36)" }}>
+              <div style={{ color: "#94a3b8", fontSize: 11 }}>{language === "ar" ? "قبول الجودة" : "Quality accepted"}</div>
+              <div style={{ color: "#f8fafc", fontSize: 17, fontWeight: 800 }}>{newsroom?.qualityGate?.accepted || 0}</div>
+            </div>
+            <div style={{ border: "1px solid rgba(71,85,105,0.46)", borderRadius: 12, padding: 10, background: "rgba(2,6,23,0.36)" }}>
+              <div style={{ color: "#94a3b8", fontSize: 11 }}>{language === "ar" ? "مرفوض جودة" : "Quality rejected"}</div>
+              <div style={{ color: "#f8fafc", fontSize: 17, fontWeight: 800 }}>{newsroom?.qualityGate?.rejected || 0}</div>
+            </div>
+            <div style={{ border: "1px solid rgba(71,85,105,0.46)", borderRadius: 12, padding: 10, background: "rgba(2,6,23,0.36)" }}>
+              <div style={{ color: "#94a3b8", fontSize: 11 }}>{language === "ar" ? "تكرار مكتشف" : "Duplicates detected"}</div>
+              <div style={{ color: "#f8fafc", fontSize: 17, fontWeight: 800 }}>{newsroom?.dedupe?.duplicateCount || 0}</div>
+            </div>
+            <div style={{ border: "1px solid rgba(71,85,105,0.46)", borderRadius: 12, padding: 10, background: "rgba(2,6,23,0.36)" }}>
+              <div style={{ color: "#94a3b8", fontSize: 11 }}>{language === "ar" ? "نسبة تقليل التكرار" : "Dedup reduction"}</div>
+              <div style={{ color: "#f8fafc", fontSize: 17, fontWeight: 800 }}>{Math.round(Number(newsroom?.dedupe?.reductionRate || 0) * 100)}%</div>
+            </div>
+            <div style={{ border: "1px solid rgba(71,85,105,0.46)", borderRadius: 12, padding: 10, background: "rgba(2,6,23,0.36)" }}>
+              <div style={{ color: "#94a3b8", fontSize: 11 }}>{language === "ar" ? "CTR (Proxy)" : "CTR proxy"}</div>
+              <div style={{ color: "#f8fafc", fontSize: 17, fontWeight: 800 }}>{Math.round(Number(newsroom?.analytics?.ctrProxy || 0) * 100)}%</div>
+            </div>
+            <div style={{ border: "1px solid rgba(71,85,105,0.46)", borderRadius: 12, padding: 10, background: "rgba(2,6,23,0.36)" }}>
+              <div style={{ color: "#94a3b8", fontSize: 11 }}>{language === "ar" ? "متوسط التفاعل" : "Avg dwell"}</div>
+              <div style={{ color: "#f8fafc", fontSize: 17, fontWeight: 800 }}>{newsroom?.analytics?.avgDwellMs || 0}ms</div>
+            </div>
+          </div>
+
+          <div style={{ color: "#f8fafc", fontSize: 13, fontWeight: 800, marginBottom: 8 }}>
+            {language === "ar" ? "سجل قرارات المحرك" : "Orchestration decisions log"}
+          </div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {(Array.isArray(newsroom?.decisionLog) ? newsroom.decisionLog.slice(0, 8) : []).map((entry) => (
+              <div key={`${entry.id}-${entry.rank}`} style={{ border: "1px solid rgba(71,85,105,0.46)", borderRadius: 10, padding: 10, background: "rgba(2,6,23,0.32)" }}>
+                <div style={{ color: "#e2e8f0", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
+                  #{entry.rank} • {entry.title}
+                </div>
+                <div style={{ color: "#94a3b8", fontSize: 11 }}>
+                  {language === "ar" ? `الدرجة ${Math.round(entry.score || 0)}` : `Score ${Math.round(entry.score || 0)}`}
+                  {Array.isArray(entry.reasons) && entry.reasons.length ? ` • ${entry.reasons.join(" • ")}` : ""}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div style={{ display: "grid", gap: 16 }}>
         {sourceGroups.map(([category, entries]) => (

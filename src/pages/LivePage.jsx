@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { pageShell, panelStyle } from "./shared/pagePrimitives";
+import { evaluateBroadcastHealth } from "../lib/newsroom";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -29,9 +30,16 @@ function getEmbedUrl(channel) {
   return `https://www.youtube.com/embed/${channel.youtubeId}?autoplay=1&rel=0&modestbranding=1`;
 }
 
-function ChannelCard({ channel, active, onClick, language, isFavorite, onToggleFavorite }) {
+function ChannelCard({ channel, active, onClick, language, isFavorite, onToggleFavorite, health }) {
   const isAr = language === "ar";
-  const isEmbed = channel.mode === "embed" && Boolean(channel.youtubeId);
+  const isEmbed = Boolean(health?.canPlayInPage);
+  const healthColor = health?.status === "healthy" ? "#4ade80" : health?.status === "degraded" ? "#f59e0b" : "#f87171";
+  const healthLabel = health?.status === "healthy"
+    ? (isAr ? "مستقر" : "Stable")
+    : health?.status === "degraded"
+      ? (isAr ? "متذبذب" : "Degraded")
+      : (isAr ? "بديل" : "Fallback");
+
   return (
     <button
       type="button"
@@ -74,6 +82,9 @@ function ChannelCard({ channel, active, onClick, language, isFavorite, onToggleF
         <span style={{ color: "#64748b", fontSize: 11 }}>
           {channel.genre || (isAr ? "عام" : "General")}
         </span>
+        <span style={{ color: healthColor, fontSize: 11, fontWeight: 800 }}>
+          {healthLabel}
+        </span>
         <button
           type="button"
           onClick={(event) => {
@@ -100,7 +111,7 @@ function ChannelCard({ channel, active, onClick, language, isFavorite, onToggleF
   );
 }
 
-export default function LivePage({ language = "ar" }) {
+export default function LivePage({ language = "ar", feedStatus = null }) {
   const isAr = language === "ar";
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -112,6 +123,9 @@ export default function LivePage({ language = "ar" }) {
   const [lastUpdated, setLastUpdated] = useState("");
   const [favorites, setFavorites] = useState([]);
   const [viewStats, setViewStats] = useState({});
+  const [healthMap, setHealthMap] = useState({});
+  const [healthSummary, setHealthSummary] = useState(null);
+  const [streamRuntimeStatus, setStreamRuntimeStatus] = useState("healthy");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -189,6 +203,34 @@ export default function LivePage({ language = "ar" }) {
     const timer = setInterval(loadChannels, 300000);
     return () => clearInterval(timer);
   }, [language]);
+
+  useEffect(() => {
+    if (!channels.length) {
+      setHealthMap({});
+      setHealthSummary(null);
+      return;
+    }
+
+    setHealthMap((previousMap) => {
+      const health = evaluateBroadcastHealth(channels, previousMap);
+      setHealthSummary(health.summary);
+      return health.map;
+    });
+  }, [channels]);
+
+  useEffect(() => {
+    if (!selected || selected.mode !== "embed") {
+      setStreamRuntimeStatus("healthy");
+      return undefined;
+    }
+
+    setStreamRuntimeStatus("loading");
+    const timer = setTimeout(() => {
+      setStreamRuntimeStatus("degraded");
+    }, 8500);
+
+    return () => clearTimeout(timer);
+  }, [selected?.id]);
 
   const countries = useMemo(() => {
     const map = new Map();
@@ -329,6 +371,11 @@ export default function LivePage({ language = "ar" }) {
           <div style={{ color: "#64748b", fontSize: 12 }}>
             {channels.length} {isAr ? "قناة" : "channels"} • {countries.length} {isAr ? "دولة" : "countries"}
             <div style={{ marginTop: 4 }}>{favorites.length} {isAr ? "في المفضلة" : "favorites"}</div>
+            {healthSummary ? (
+              <div style={{ marginTop: 4 }}>
+                {isAr ? `الصحة: ${healthSummary.healthy} مستقر | ${healthSummary.degraded} متذبذب | ${healthSummary.fallback} بديل` : `Health: ${healthSummary.healthy} stable | ${healthSummary.degraded} degraded | ${healthSummary.fallback} fallback`}
+              </div>
+            ) : null}
             {trendingChannels.length > 0 ? (
               <div style={{ marginTop: 4 }}>{trendingChannels.length} {summary.trending}</div>
             ) : null}
@@ -449,17 +496,35 @@ export default function LivePage({ language = "ar" }) {
       <section style={{ ...panelStyle, marginBottom: 20, overflow: "hidden" }}>
         <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,0.08)", color: "#cbd5e1", fontWeight: 800 }}>
           {selected?.name ? `${selected.flag} ${selected.name}` : summary.pickChannel}
+          {selected?.id && healthMap[selected.id] ? (
+            <span style={{ marginInlineStart: 10, color: healthMap[selected.id].status === "healthy" ? "#4ade80" : healthMap[selected.id].status === "degraded" ? "#fbbf24" : "#fca5a5", fontSize: 12 }}>
+              {isAr
+                ? `• ${healthMap[selected.id].status === "healthy" ? "البث مستقر" : healthMap[selected.id].status === "degraded" ? "البث متذبذب" : "وضع بديل"}`
+                : `• ${healthMap[selected.id].status === "healthy" ? "Stream stable" : healthMap[selected.id].status === "degraded" ? "Stream degraded" : "Fallback mode"}`}
+            </span>
+          ) : null}
         </div>
 
-        {selected?.mode === "embed" && selected.youtubeId ? (
+        {selected?.mode === "embed" && selected.youtubeId && healthMap?.[selected.id]?.canPlayInPage ? (
           <div style={{ position: "relative", paddingTop: "56.25%" }}>
             <iframe
               src={getEmbedUrl(selected)}
               title={selected.title || selected.name}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
+              onLoad={() => setStreamRuntimeStatus("healthy")}
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none", background: "#000" }}
             />
+            {streamRuntimeStatus === "loading" ? (
+              <div style={{ position: "absolute", right: 10, top: 10, borderRadius: 999, padding: "5px 10px", background: "rgba(2,6,23,0.7)", border: "1px solid rgba(148,163,184,0.4)", color: "#cbd5e1", fontSize: 11 }}>
+                {isAr ? "فحص استقرار البث..." : "Checking stream stability..."}
+              </div>
+            ) : null}
+            {streamRuntimeStatus === "degraded" ? (
+              <div style={{ position: "absolute", right: 10, top: 10, borderRadius: 999, padding: "5px 10px", background: "rgba(127,29,29,0.8)", border: "1px solid rgba(248,113,113,0.45)", color: "#fecaca", fontSize: 11 }}>
+                {isAr ? "تأخير في الاستجابة - بديل متاح" : "Slow response - fallback available"}
+              </div>
+            ) : null}
           </div>
         ) : (
           <div style={{ padding: "34px 16px", textAlign: "center", color: "#94a3b8" }}>
@@ -485,6 +550,11 @@ export default function LivePage({ language = "ar" }) {
               >
                 {summary.watchExternal}
               </a>
+            ) : null}
+            {healthMap?.[selected?.id]?.fallbackReason ? (
+              <div style={{ marginTop: 10, color: "#fca5a5", fontSize: 12 }}>
+                {isAr ? "سبب التحويل: " : "Fallback reason: "}{healthMap[selected.id].fallbackReason}
+              </div>
             ) : null}
           </div>
         )}
@@ -531,6 +601,8 @@ export default function LivePage({ language = "ar" }) {
                     language={language}
                     isFavorite={favorites.includes(channel.id)}
                     onToggleFavorite={toggleFavorite}
+                    health={healthMap?.[channel.id] || null}
+                    health={healthMap?.[channel.id] || null}
                   />
                 ))}
               </div>

@@ -79,6 +79,8 @@ export default function App() {
     uaeStandings,
     uaeStandingsUpdatedAt,
     isStandingsLoading,
+    newsroomState,
+    trackNewsInteraction,
   } = useDashboardData({ t, currentPath, routeSearch, experienceMode: "simplified", language, adminKey });
 
   const adminAuthorized = Boolean(String(adminKey || "").trim());
@@ -272,6 +274,8 @@ export default function App() {
             uaeStandingsUpdatedAt={uaeStandingsUpdatedAt}
             isStandingsLoading={isStandingsLoading}
             lastUpdated={lastUpdated}
+            newsroomState={newsroomState}
+            trackNewsInteraction={trackNewsInteraction}
           />
         );
       case "/admin/news-operations":

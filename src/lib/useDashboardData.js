@@ -6,6 +6,15 @@ import { sortArticlesByPriority } from "./priorityEngine";
 import { ingestBatch } from "./agent/ingestionAgent";
 import { invalidateWorldState } from "./worldStateEngine";
 import { localizeDisplayItem, localizeSummaryText } from "./i18n/summaryLocalizer";
+import {
+  applyQualityGate,
+  polishEditorialBatch,
+  clusterStories,
+  orchestrateNewsroom,
+  buildUserPreferenceProfile,
+  getAnalyticsSnapshot,
+  recordNewsInteraction,
+} from "./newsroom";
 
 const DEMO_NEWS = [
   {
@@ -203,6 +212,17 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
   });
   const [opsBusy, setOpsBusy] = useState(false);
   const [opsMessage, setOpsMessage] = useState("");
+  const [newsroomState, setNewsroomState] = useState({
+    hero: null,
+    breaking: [],
+    homepage: [],
+    secondary: [],
+    decisionLog: [],
+    metrics: null,
+    dedupe: null,
+    qualityGate: null,
+    analytics: null,
+  });
   const intervalRef = useRef(null);
   const standingsIntervalRef = useRef(null);
   const operationsIntervalRef = useRef(null);
@@ -348,9 +368,19 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
             })
         ));
 
+        const editorialPolished = polishEditorialBatch(incomingNews, { language });
+        const qualityResult = applyQualityGate(editorialPolished, { language });
+        const clustered = clusterStories(qualityResult.accepted, { threshold: 0.6 });
+        const preferenceProfile = buildUserPreferenceProfile();
+        const orchestrated = orchestrateNewsroom(clustered.canonicalStories, { language, userProfile: preferenceProfile });
+        const analyticsSnapshot = getAnalyticsSnapshot();
+        const orchestrationPool = Array.isArray(orchestrated.homepage) && orchestrated.homepage.length > 0
+          ? orchestrated.homepage
+          : qualityResult.accepted;
+
         const filteredNews = cat === "sports"
-          ? incomingNews.filter((item) => item.category === "sports")
-          : incomingNews.filter((item) => {
+          ? orchestrationPool.filter((item) => item.category === "sports")
+          : orchestrationPool.filter((item) => {
               if (item.category === "sports" && cat !== "all") return false;
               if (experienceMode !== "advanced" && PUBLIC_BLOCKED_CATEGORIES.has(item.category)) return false;
             if (sourceFilters.length > 0) {
@@ -386,7 +416,34 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
           sections: liveIntakePayload?.sections || current.sections,
           operationsUpdatedAt: liveIntakePayload?.dashboard?.generated_at || current.operationsUpdatedAt,
           pipeline: liveIntakePayload?.pipeline || current.pipeline,
+          newsroom: {
+            qualityGate: qualityResult.stats,
+            dedupe: {
+              duplicateCount: clustered.duplicateCount,
+              reductionRate: clustered.reductionRate,
+              clusterCount: clustered.clusters.length,
+            },
+            orchestration: orchestrated.metrics,
+            analytics: analyticsSnapshot,
+            userProfile: preferenceProfile,
+            decisionLog: orchestrated.decisionLog,
+          },
         }));
+        setNewsroomState({
+          hero: orchestrated.hero,
+          breaking: orchestrated.breaking,
+          homepage: orchestrated.homepage,
+          secondary: orchestrated.secondary,
+          decisionLog: orchestrated.decisionLog,
+          metrics: orchestrated.metrics,
+          dedupe: {
+            duplicateCount: clustered.duplicateCount,
+            reductionRate: clustered.reductionRate,
+            clusterCount: clustered.clusters.length,
+          },
+          qualityGate: qualityResult.stats,
+          analytics: analyticsSnapshot,
+        });
         writeDashboardCache(cacheKey, filteredNews);
         setNews(sortArticlesByPriority(filteredNews, rankingContext));
         setError("");
@@ -649,6 +706,13 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
   const tickerHeadlines = displayedNews.slice(0, 10).map((item) => item.title);
   const lastUpdated = displayedNews[0]?.time || uaeStandingsUpdatedAt || new Date().toLocaleString(language === "ar" ? "ar-AE" : "en-GB", { timeZone: "Asia/Dubai" });
   const retryNews = () => setRetryNewsToken((value) => value + 1);
+  const trackNewsInteraction = (eventType, article, metadata = {}) => {
+    recordNewsInteraction(eventType, article, metadata);
+    setNewsroomState((current) => ({
+      ...current,
+      analytics: getAnalyticsSnapshot(),
+    }));
+  };
 
   return {
     categories,
@@ -674,5 +738,7 @@ export function useDashboardData({ t, currentPath, routeSearch = "", experienceM
     updateNewsSource,
     reprocessNewsBatch,
     retryNews,
+    newsroomState,
+    trackNewsInteraction,
   };
 }
