@@ -1,3 +1,29 @@
+/* ===== النبض العالمي — نظام التصميم الرئيسي ===== */
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Tajawal:wght@300;400;500;700&display=swap');
+
+:root {
+  --bg-primary: #020509;
+  --bg-surface: #060d14;
+  --bg-elevated: #0a1520;
+  --border-dim: rgba(0,200,255,0.08);
+  --border-base: rgba(0,200,255,0.14);
+  --border-bright: rgba(0,200,255,0.35);
+  --accent-cyan: #00c8ff;
+  --accent-red: #ff3a3a;
+  --accent-green: #00ff9d;
+  --accent-gold: #ffc800;
+  --text-primary: #e8f4f8;
+  --text-secondary: #8ab4c0;
+  --text-muted: #4a6b7a;
+  --glow-cyan: 0 0 20px rgba(0,200,255,0.25);
+  --glow-red: 0 0 20px rgba(255,58,58,0.25);
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --font-display: 'Cairo', sans-serif;
+  --font-body: 'Tajawal', sans-serif;
+  --transition: all 0.2s ease;
+}
+
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap");
 
 :root {
@@ -3148,7 +3174,7 @@ textarea {
 ═══════════════════════════════════════════════════ */
 
 .agent-presence-widget {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: 'Cairo', 'Tajawal', system-ui, -apple-system, sans-serif;
   will-change: transform;
 }
 
