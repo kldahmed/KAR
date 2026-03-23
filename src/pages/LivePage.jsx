@@ -602,7 +602,6 @@ export default function LivePage({ language = "ar", feedStatus = null }) {
                     isFavorite={favorites.includes(channel.id)}
                     onToggleFavorite={toggleFavorite}
                     health={healthMap?.[channel.id] || null}
-                    health={healthMap?.[channel.id] || null}
                   />
                 ))}
               </div>
